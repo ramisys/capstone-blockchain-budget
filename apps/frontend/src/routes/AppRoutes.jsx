@@ -33,7 +33,7 @@ export function AppRoutes() {
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/profile" element={<Profile />} />
 
-        // User Management Routes
+        {/* User Management Routes */}
         <Route path="/users" element={<UserList />} />
         <Route path="/users/new" element={<UserForm />} />
         <Route path="/users/:id" element={<UserDetail />} />
