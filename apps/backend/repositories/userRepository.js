@@ -50,6 +50,20 @@ class UserRepository {
       data: updateData,
     });
   }
+
+  async findMany(options = {}){
+    return prisma.user.findMany(options);
+  }
+
+  async count(options = {}) {
+    return prisma.user.count(options);
+  }
+
+  async deleteUser(id) {
+    return prisma.user.delete({
+      where: { id },
+    });
+  }
 }
 
 export const userRepository = new UserRepository();

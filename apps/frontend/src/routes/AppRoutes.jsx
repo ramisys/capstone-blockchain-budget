@@ -7,6 +7,9 @@ import { Dashboard } from '../pages/Dashboard';
 import { Profile } from '../pages/Profile';
 import { Forbidden } from '../pages/Forbidden';
 import { NotFound } from '../pages/NotFound';
+import { UserList } from '../components/user/UserList';
+import { UserForm } from '../components/user/UserForm';
+import { UserDetail } from '../components/user/UserDetail';
 
 export function AppRoutes() {
   return (
@@ -29,6 +32,12 @@ export function AppRoutes() {
       >
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/profile" element={<Profile />} />
+
+        // User Management Routes
+        <Route path="/users" element={<UserList />} />
+        <Route path="/users/new" element={<UserForm />} />
+        <Route path="/users/:id" element={<UserDetail />} />
+        <Route path="/users/:id/edit" element={<UserForm />} />
       </Route>
 
       <Route path="/403" element={<Forbidden />} />
