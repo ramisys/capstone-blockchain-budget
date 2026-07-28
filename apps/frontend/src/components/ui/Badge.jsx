@@ -1,4 +1,5 @@
 import React from 'react';
+import { ShieldCheck, Landmark, PieChart, FileCheck, User } from 'lucide-react';
 import { ROLES } from '../../constants/roles';
 
 export function Badge({ variant = 'primary', children, className = '', ...props }) {
@@ -44,38 +45,49 @@ export function Badge({ variant = 'primary', children, className = '', ...props 
   );
 }
 
-export function RoleBadge({ role }) {
+export function RoleBadge({ role, showIcon = true, className = '' }) {
   let variant = 'gray';
-  let label = role;
+  let label = role || 'User';
+  let Icon = User;
 
   if (role === ROLES.ADMINISTRATOR || role === 'Administrator') {
     variant = 'administrator';
     label = 'Administrator';
+    Icon = ShieldCheck;
   } else if (role === ROLES.TREASURER || role === 'Treasurer') {
     variant = 'treasurer';
     label = 'Treasurer';
+    Icon = Landmark;
   } else if (role === ROLES.BUDGET_OFFICER || role === 'Budget Officer' || role === 'BudgetOfficer') {
     variant = 'budget_officer';
     label = 'Budget Officer';
+    Icon = PieChart;
   } else if (role === ROLES.AUDITOR || role === 'Auditor') {
     variant = 'auditor';
     label = 'Auditor';
+    Icon = FileCheck;
   }
 
-  return <Badge variant={variant}>{label}</Badge>;
+  return (
+    <Badge variant={variant} className={className}>
+      {showIcon && <Icon className="w-3.5 h-3.5 shrink-0" />}
+      <span>{label}</span>
+    </Badge>
+  );
 }
 
-export function StatusBadge({ status }) {
+export function StatusBadge({ status, className = '' }) {
   const isActive = status === 'Active';
 
   return (
-    <Badge variant={isActive ? 'active' : 'inactive'}>
+    <Badge variant={isActive ? 'active' : 'inactive'} className={className}>
       <span
         className={`w-1.5 h-1.5 rounded-full ${
           isActive ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'
         }`}
       />
-      {status}
+      {status || 'Unknown'}
     </Badge>
   );
 }
+

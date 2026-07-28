@@ -64,3 +64,93 @@ export function UserListSkeleton() {
     </div>
   );
 }
+
+export function UserDetailSkeleton() {
+  return (
+    <div className="max-w-6xl mx-auto space-y-8 animate-fade-in" aria-label="Loading user details">
+      {/* Header Breadcrumbs & Title Skeleton */}
+      <div className="space-y-4">
+        <div className="flex items-center gap-2">
+          <Skeleton className="h-4 w-20 rounded" />
+          <Skeleton className="h-3 w-3 rounded" />
+          <Skeleton className="h-4 w-28 rounded" />
+          <Skeleton className="h-3 w-3 rounded" />
+          <Skeleton className="h-4 w-24 rounded" />
+        </div>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div className="space-y-2">
+            <Skeleton className="h-9 w-48 rounded-lg" />
+            <Skeleton className="h-4 w-80 rounded-md" />
+          </div>
+          <div className="flex items-center gap-3 shrink-0">
+            <Skeleton className="h-10 w-28 rounded-xl" />
+            <Skeleton className="h-10 w-28 rounded-xl" />
+          </div>
+        </div>
+      </div>
+
+      {/* Hero Profile Card Skeleton */}
+      <div className="bg-white border border-slate-200/80 rounded-2xl p-6 sm:p-8 shadow-sm space-y-6">
+        <div className="flex flex-col sm:flex-row items-center sm:items-start gap-6">
+          <Skeleton className="w-24 h-24 rounded-full shrink-0" />
+          <div className="space-y-3 text-center sm:text-left flex-1 w-full">
+            <Skeleton className="h-8 w-56 rounded-lg mx-auto sm:mx-0" />
+            <Skeleton className="h-4 w-44 rounded-md mx-auto sm:mx-0" />
+            <div className="flex items-center justify-center sm:justify-start gap-3 pt-2">
+              <Skeleton className="h-6 w-28 rounded-full" />
+              <Skeleton className="h-6 w-20 rounded-full" />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Statistics Grid Skeleton */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {[1, 2, 3, 4].map((i) => (
+          <div key={i} className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-sm space-y-3">
+            <div className="flex items-center justify-between">
+              <Skeleton className="h-4 w-24 rounded" />
+              <Skeleton className="w-8 h-8 rounded-lg" />
+            </div>
+            <Skeleton className="h-7 w-32 rounded-md" />
+          </div>
+        ))}
+      </div>
+
+      {/* Main Grid: User Info & Timeline Skeleton */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="lg:col-span-2 space-y-8">
+          <div className="bg-white border border-slate-200/80 rounded-2xl p-6 shadow-sm space-y-6">
+            <Skeleton className="h-6 w-44 rounded-md" />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {[1, 2, 3, 4, 5, 6].map((i) => (
+                <div key={i} className="p-4 border border-slate-100 rounded-xl space-y-2">
+                  <Skeleton className="h-4 w-28 rounded" />
+                  <Skeleton className="h-5 w-36 rounded" />
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <div className="space-y-8">
+          <div className="bg-white border border-slate-200/80 rounded-2xl p-6 shadow-sm space-y-4">
+            <Skeleton className="h-6 w-36 rounded-md" />
+            <div className="space-y-4">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="flex gap-3">
+                  <Skeleton className="w-8 h-8 rounded-full shrink-0" />
+                  <div className="space-y-1 flex-1">
+                    <Skeleton className="h-4 w-3/4 rounded" />
+                    <Skeleton className="h-3 w-1/2 rounded" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
