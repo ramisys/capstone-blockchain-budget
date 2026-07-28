@@ -120,13 +120,36 @@ class UserService {
    * Update user by ID
    * @param {string} id - User ID
    * @param {Object} updateData - Data to update
+   * @param {string} [currentUserId] - ID of the currently authenticated user
    * @returns {Promise<Object>} Updated user (without password)
    */
-  async updateUser(id, updateData) {
+  async updateUser(id, updateData, currentUserId = null) {
     // Check if user exists
     const existingUser = await userRepository.findById(id);
     if (!existingUser) {
       throw new AppError('User not found', HTTP_STATUS.NOT_FOUND);
+    }
+
+    // Last Admin Protection: Prevent demoting or deactivating the last active administrator
+    if (existingUser.role === ROLES.ADMINISTRATOR && existingUser.status === USER_STATUS.ACTIVE) {
+      const isDemoting = updateData.role && updateData.role !== ROLES.ADMINISTRATOR;
+      const isDeactivating = updateData.status && updateData.status !== USER_STATUS.ACTIVE;
+
+      if (isDemoting || isDeactivating) {
+        const activeAdminCount = await userRepository.count({
+          where: {
+            role: ROLES.ADMINISTRATOR,
+            status: USER_STATUS.ACTIVE,
+          },
+        });
+
+        if (activeAdminCount <= 1) {
+          throw new AppError(
+            'Operation failed. Cannot demote or deactivate the last active administrator account.',
+            HTTP_STATUS.BAD_REQUEST
+          );
+        }
+      }
     }
 
     // If email is being updated, check if it's already taken
@@ -155,18 +178,41 @@ class UserService {
 
   /**
    * Delete user by ID
-   * @param {string} id - User ID
+   * @param {string} id - User ID to delete
+   * @param {string} [currentUserId] - ID of the currently authenticated user
    * @returns {Promise<Object>} Deletion confirmation
    */
-  async deleteUser(id) {
+  async deleteUser(id, currentUserId = null) {
     // Check if user exists
     const existingUser = await userRepository.findById(id);
     if (!existingUser) {
       throw new AppError('User not found', HTTP_STATUS.NOT_FOUND);
     }
 
-    // Prevent self-deletion (additional check can be done in controller)
-    // For now, we'll allow it but controller can add business logic
+    // Self-deletion protection
+    if (currentUserId && id === currentUserId) {
+      throw new AppError(
+        'Self-deletion is not permitted. You cannot delete your own account.',
+        HTTP_STATUS.BAD_REQUEST
+      );
+    }
+
+    // Last Admin Protection: Prevent deleting the last active administrator
+    if (existingUser.role === ROLES.ADMINISTRATOR && existingUser.status === USER_STATUS.ACTIVE) {
+      const activeAdminCount = await userRepository.count({
+        where: {
+          role: ROLES.ADMINISTRATOR,
+          status: USER_STATUS.ACTIVE,
+        },
+      });
+
+      if (activeAdminCount <= 1) {
+        throw new AppError(
+          'Operation failed. Cannot delete the last active administrator account.',
+          HTTP_STATUS.BAD_REQUEST
+        );
+      }
+    }
 
     // Delete user
     await userRepository.deleteUser(id);
@@ -178,32 +224,34 @@ class UserService {
    * Change user role
    * @param {string} id - User ID
    * @param {string} role - New role
+   * @param {string} [currentUserId] - ID of the currently authenticated user
    * @returns {Promise<Object>} Updated user (without password)
    */
-  async changeUserRole(id, role) {
+  async changeUserRole(id, role, currentUserId = null) {
     // Validate role
     if (!Object.values(ROLES).includes(role)) {
       throw new AppError('Invalid role', HTTP_STATUS.BAD_REQUEST);
     }
 
     // Update user role
-    return this.updateUser(id, { role });
+    return this.updateUser(id, { role }, currentUserId);
   }
 
   /**
    * Change user status
    * @param {string} id - User ID
    * @param {string} status - New status
+   * @param {string} [currentUserId] - ID of the currently authenticated user
    * @returns {Promise<Object>} Updated user (without password)
    */
-  async changeUserStatus(id, status) {
+  async changeUserStatus(id, status, currentUserId = null) {
     // Validate status
     if (!Object.values(USER_STATUS).includes(status)) {
       throw new AppError('Invalid status', HTTP_STATUS.BAD_REQUEST);
     }
 
     // Update user status
-    return this.updateUser(id, { status });
+    return this.updateUser(id, { status }, currentUserId);
   }
 }
 

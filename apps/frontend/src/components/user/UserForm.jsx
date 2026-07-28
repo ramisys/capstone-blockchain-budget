@@ -434,6 +434,11 @@ export function UserForm() {
                 <p className="text-xs text-slate-500 mt-0.5">
                   {t('user.accountSettingsDesc', 'Assign permissions role and active status.')}
                 </p>
+                {id && id === user?.id && (
+                  <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200/80 rounded-lg p-2.5 mt-2 font-medium">
+                    ⚠️ Note: You are currently editing your own account. Demoting your role or deactivating your status is guarded by system Last Admin protection to prevent lockout.
+                  </p>
+                )}
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">

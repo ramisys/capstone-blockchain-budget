@@ -95,7 +95,8 @@ class UserController {
     try {
       const { id } = req.params;
       const updateData = req.body;
-      const user = await userService.updateUser(id, updateData);
+      const currentUserId = req.user?.id;
+      const user = await userService.updateUser(id, updateData, currentUserId);
 
       return res
         .status(HTTP_STATUS.OK)
@@ -116,7 +117,8 @@ class UserController {
   async deleteUser(req, res, next) {
     try {
       const { id } = req.params;
-      await userService.deleteUser(id);
+      const currentUserId = req.user?.id;
+      await userService.deleteUser(id, currentUserId);
 
       return res
         .status(HTTP_STATUS.OK)
@@ -138,7 +140,8 @@ class UserController {
     try {
       const { id } = req.params;
       const { role } = req.body;
-      const user = await userService.changeUserRole(id, role);
+      const currentUserId = req.user?.id;
+      const user = await userService.changeUserRole(id, role, currentUserId);
 
       return res
         .status(HTTP_STATUS.OK)
@@ -160,7 +163,8 @@ class UserController {
     try {
       const { id } = req.params;
       const { status } = req.body;
-      const user = await userService.changeUserStatus(id, status);
+      const currentUserId = req.user?.id;
+      const user = await userService.changeUserStatus(id, status, currentUserId);
 
       return res
         .status(HTTP_STATUS.OK)

@@ -287,10 +287,10 @@ async function runUserServiceTests() {
 
   console.log('\n5. deleteUser Tests:');
   await test('should delete user successfully', async () => {
-    userRepository.findById = async () => ({ id: 'test-id' });
+    userRepository.findById = async () => ({ id: 'test-id', role: ROLES.BUDGET_OFFICER, status: USER_STATUS.ACTIVE });
     userRepository.deleteUser = async () => ({});
 
-    const result = await userService.deleteUser('test-id');
+    const result = await userService.deleteUser('test-id', 'admin-id');
 
     assert.deepEqual(result, { message: 'User deleted successfully' });
   });
@@ -299,7 +299,7 @@ async function runUserServiceTests() {
     userRepository.findById = async () => null;
 
     await assert.rejects(
-      async () => userService.deleteUser('non-existent-id'),
+      async () => userService.deleteUser('non-existent-id', 'admin-id'),
       (err) => {
         assert.ok(err instanceof AppError);
         assert.equal(err.message, 'User not found');
@@ -309,12 +309,51 @@ async function runUserServiceTests() {
     );
   });
 
+  await test('should throw error when attempting self-deletion', async () => {
+    userRepository.findById = async (id) => ({ id, role: ROLES.ADMINISTRATOR, status: USER_STATUS.ACTIVE });
+
+    await assert.rejects(
+      async () => userService.deleteUser('admin-1', 'admin-1'),
+      (err) => {
+        assert.ok(err instanceof AppError);
+        assert.equal(err.message, 'Self-deletion is not permitted. You cannot delete your own account.');
+        assert.equal(err.statusCode, HTTP_STATUS.BAD_REQUEST);
+        return true;
+      }
+    );
+  });
+
+  await test('should throw error when deleting the last active administrator', async () => {
+    userRepository.findById = async (id) => ({ id, role: ROLES.ADMINISTRATOR, status: USER_STATUS.ACTIVE });
+    userRepository.count = async () => 1;
+
+    await assert.rejects(
+      async () => userService.deleteUser('admin-1', 'other-user'),
+      (err) => {
+        assert.ok(err instanceof AppError);
+        assert.equal(err.message, 'Operation failed. Cannot delete the last active administrator account.');
+        assert.equal(err.statusCode, HTTP_STATUS.BAD_REQUEST);
+        return true;
+      }
+    );
+  });
+
+  await test('should allow deleting an administrator if multiple active administrators exist', async () => {
+    userRepository.findById = async (id) => ({ id, role: ROLES.ADMINISTRATOR, status: USER_STATUS.ACTIVE });
+    userRepository.count = async () => 2;
+    userRepository.deleteUser = async () => ({});
+
+    const result = await userService.deleteUser('admin-2', 'admin-1');
+    assert.deepEqual(result, { message: 'User deleted successfully' });
+  });
+
   console.log('\n6. changeUserRole Tests:');
   await test('should change user role successfully', async () => {
     userRepository.findById = async (id) => ({
       id,
       email: 'test@example.com',
       role: ROLES.BUDGET_OFFICER,
+      status: USER_STATUS.ACTIVE,
     });
     userRepository.updateUser = async (id, updateData) => ({
       id,
@@ -326,6 +365,25 @@ async function runUserServiceTests() {
 
     assert.equal(result.role, ROLES.TREASURER);
     assert.equal(result.password, undefined);
+  });
+
+  await test('should throw error when demoting the last active administrator', async () => {
+    userRepository.findById = async (id) => ({
+      id,
+      role: ROLES.ADMINISTRATOR,
+      status: USER_STATUS.ACTIVE,
+    });
+    userRepository.count = async () => 1;
+
+    await assert.rejects(
+      async () => userService.changeUserRole('admin-1', ROLES.BUDGET_OFFICER),
+      (err) => {
+        assert.ok(err instanceof AppError);
+        assert.equal(err.message, 'Operation failed. Cannot demote or deactivate the last active administrator account.');
+        assert.equal(err.statusCode, HTTP_STATUS.BAD_REQUEST);
+        return true;
+      }
+    );
   });
 
   await test('should throw error for invalid role', async () => {

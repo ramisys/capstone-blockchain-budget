@@ -268,17 +268,23 @@ export function UserDetail() {
                 <Pencil className="w-4 h-4 text-slate-600" />
                 <span>Edit User</span>
               </Button>
-              <Button
-                variant="ghost"
-                onClick={() => setIsDeleteModalOpen(true)}
-                disabled={deleting}
-                loading={deleting}
-                className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-xl text-red-600 bg-red-50/70 hover:bg-red-100/80 border border-red-200/70 hover:border-red-300 transition-all duration-200"
-                aria-label="Delete User"
-              >
-                <Trash2 className="w-4 h-4 text-red-600" />
-                <span>Delete User</span>
-              </Button>
+              <Tooltip text={id === user?.id ? "You cannot delete your own account" : "Delete user account"}>
+                <Button
+                  variant="ghost"
+                  onClick={() => setIsDeleteModalOpen(true)}
+                  disabled={deleting || id === user?.id}
+                  loading={deleting}
+                  className={`inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-xl border transition-all duration-200 ${
+                    id === user?.id
+                      ? 'text-slate-400 bg-slate-100 border-slate-200 cursor-not-allowed'
+                      : 'text-red-600 bg-red-50/70 hover:bg-red-100/80 border-red-200/70 hover:border-red-300'
+                  }`}
+                  aria-label="Delete User"
+                >
+                  <Trash2 className={`w-4 h-4 ${id === user?.id ? 'text-slate-400' : 'text-red-600'}`} />
+                  <span>Delete User</span>
+                </Button>
+              </Tooltip>
             </div>
           )}
         </div>

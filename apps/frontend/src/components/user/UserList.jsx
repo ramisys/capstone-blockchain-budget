@@ -438,10 +438,15 @@ export function UserList() {
                           </button>
                         </Tooltip>
 
-                        <Tooltip text="Delete user">
+                        <Tooltip text={u.id === user?.id ? "You cannot delete your own account" : "Delete user"}>
                           <button
                             onClick={() => openDeleteModal(u)}
-                            className="p-2 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-red-300"
+                            disabled={u.id === user?.id}
+                            className={`p-2 rounded-lg transition-colors focus:outline-none focus:ring-2 ${
+                              u.id === user?.id
+                                ? 'text-slate-300 cursor-not-allowed'
+                                : 'text-red-500 hover:text-red-700 hover:bg-red-50 focus:ring-red-300'
+                            }`}
                             aria-label={`Delete user ${u.fullName || u.email}`}
                           >
                             <Trash2 className="w-4 h-4" />
