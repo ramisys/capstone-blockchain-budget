@@ -249,8 +249,8 @@ export function UserForm() {
                       {...register('fullName')}
                       className={`w-full pl-10 pr-3.5 py-2.5 text-sm border rounded-xl transition-all focus:outline-none focus:ring-2 disabled:opacity-60 disabled:bg-slate-50 ${
                         errors.fullName
-                          ? 'border-red-400 bg-red-50/20 text-slate-900 focus:border-red-500 focus:ring-red-500/20'
-                          : 'border-slate-300 bg-white text-slate-900 focus:border-indigo-500 focus:ring-indigo-500/20 hover:border-slate-400'
+                          ? 'border-red-500 bg-red-50/20 text-slate-900 focus:ring-red-500/20'
+                          : 'border-slate-300 bg-white text-slate-900 hover:border-slate-400 focus:ring-indigo-500/20'
                       }`}
                       placeholder={t('form.fullNamePlaceholder')}
                       aria-invalid={!!errors.fullName}
@@ -281,8 +281,8 @@ export function UserForm() {
                       {...register('email')}
                       className={`w-full pl-10 pr-3.5 py-2.5 text-sm border rounded-xl transition-all focus:outline-none focus:ring-2 disabled:opacity-60 disabled:bg-slate-50 ${
                         errors.email
-                          ? 'border-red-400 bg-red-50/20 text-slate-900 focus:border-red-500 focus:ring-red-500/20'
-                          : 'border-slate-300 bg-white text-slate-900 focus:border-indigo-500 focus:ring-indigo-500/20 hover:border-slate-400'
+                          ? 'border-red-500 bg-red-50/20 text-slate-900 focus:ring-red-500/20'
+                          : 'border-slate-300 bg-white text-slate-900 hover:border-slate-400 focus:ring-indigo-500/20'
                       }`}
                       placeholder={t('form.emailPlaceholder')}
                       aria-invalid={!!errors.email}
@@ -329,8 +329,8 @@ export function UserForm() {
                         {...register('password')}
                         className={`w-full pl-10 pr-11 py-2.5 text-sm border rounded-xl transition-all focus:outline-none focus:ring-2 disabled:opacity-60 disabled:bg-slate-50 ${
                           errors.password
-                            ? 'border-red-400 bg-red-50/20 text-slate-900 focus:border-red-500 focus:ring-red-500/20'
-                            : 'border-slate-300 bg-white text-slate-900 focus:border-indigo-500 focus:ring-indigo-500/20 hover:border-slate-400'
+                            ? 'border-red-500 bg-red-50/20 text-slate-900 focus:ring-red-500/20'
+                            : 'border-slate-300 bg-white text-slate-900 hover:border-slate-400 focus:ring-indigo-500/20'
                         }`}
                         placeholder={t('form.passwordPlaceholder')}
                         aria-invalid={!!errors.password}
@@ -407,7 +407,7 @@ export function UserForm() {
                         type={showPassword ? 'text' : 'password'}
                         disabled={loading}
                         {...register('password')}
-                        className="w-full pl-10 pr-11 py-2.5 text-sm border border-slate-300 rounded-xl transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                        className="w-full pl-10 pr-11 py-2.5 text-sm border border-slate-300 rounded-xl transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500/20 hover:border-slate-400 bg-white text-slate-900"
                         placeholder={t('form.newPassword', 'Enter new password')}
                       />
                       <button
@@ -452,8 +452,8 @@ export function UserForm() {
                       {...register('role')}
                       className={`w-full pl-10 pr-8 py-2.5 text-sm border rounded-xl transition-all focus:outline-none focus:ring-2 cursor-pointer disabled:opacity-60 disabled:bg-slate-50 ${
                         errors.role
-                          ? 'border-red-400 bg-red-50/20 text-slate-900 focus:border-red-500 focus:ring-red-500/20'
-                          : 'border-slate-300 bg-white text-slate-900 focus:border-indigo-500 focus:ring-indigo-500/20 hover:border-slate-400'
+                          ? 'border-red-500 bg-red-50/20 text-slate-900 focus:ring-red-500/20'
+                          : 'border-slate-300 bg-white text-slate-900 hover:border-slate-400 focus:ring-indigo-500/20'
                       }`}
                       aria-invalid={!!errors.role}
                       aria-describedby={errors.role ? 'role-error' : undefined}
@@ -489,8 +489,8 @@ export function UserForm() {
                       {...register('status')}
                       className={`w-full pl-10 pr-8 py-2.5 text-sm border rounded-xl transition-all focus:outline-none focus:ring-2 cursor-pointer disabled:opacity-60 disabled:bg-slate-50 ${
                         errors.status
-                          ? 'border-red-400 bg-red-50/20 text-slate-900 focus:border-red-500 focus:ring-red-500/20'
-                          : 'border-slate-300 bg-white text-slate-900 focus:border-indigo-500 focus:ring-indigo-500/20 hover:border-slate-400'
+                          ? 'border-red-500 bg-red-50/20 text-slate-900 focus:ring-red-500/20'
+                          : 'border-slate-300 bg-white text-slate-900 hover:border-slate-400 focus:ring-indigo-500/20'
                       }`}
                       aria-invalid={!!errors.status}
                       aria-describedby={errors.status ? 'status-error' : undefined}
