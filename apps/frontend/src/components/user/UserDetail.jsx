@@ -30,7 +30,7 @@ function formatDate(dateString) {
 
 export function UserDetail() {
   const navigate = useNavigate();
-  const { userId } = useParams();
+  const { id } = useParams();
   const { user } = useAuth();
   const { showSuccess, showError } = useToast();
 
@@ -41,7 +41,7 @@ export function UserDetail() {
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
 
   const isAdmin = user?.role === ROLES.ADMINISTRATOR;
-  const isOwnProfile = user?.id === userId;
+  const isOwnProfile = user?.id === id;
   const canView = isAdmin || isOwnProfile;
 
   useEffect(() => {
@@ -55,8 +55,8 @@ export function UserDetail() {
       try {
         setLoading(true);
         setError(null);
-        const response = await api.get(`/users/${userId}`);
-        setUserData(response.data.user);
+        const response = await api.get(`/users/${id}`);
+        setUserData(response.data.data.user);
       } catch (err) {
         setError(err.response?.data?.message || 'Failed to load user details');
         console.error('Error fetching user details:', err);
@@ -66,12 +66,12 @@ export function UserDetail() {
     };
 
     fetchUserData();
-  }, [userId, canView]);
+  }, [id, canView]);
 
   const handleDeleteUser = async () => {
     setDeleting(true);
     try {
-      await api.delete(`/users/${userId}`);
+      await api.delete(`/users/${id}`);
       showSuccess(`User "${userData?.fullName || userData?.email}" deleted successfully.`);
       setIsDeleteModalOpen(false);
       navigate('/users');
@@ -143,7 +143,7 @@ export function UserDetail() {
           <div className="flex items-center gap-3">
             <Button
               variant="outline"
-              onClick={() => navigate(`/users/${userId}/edit`)}
+              onClick={() => navigate(`/users/${id}/edit`)}
               className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-xl border-slate-300 hover:bg-slate-50"
             >
               <Pencil className="w-4 h-4 text-blue-600" />
