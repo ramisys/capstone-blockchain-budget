@@ -33,7 +33,7 @@ import api from '../../api/apiClient';
 
 export function UserForm() {
   const navigate = useNavigate();
-  const { userId } = useParams();
+  const { id } = useParams();
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [initialData, setInitialData] = useState(null);
@@ -49,7 +49,7 @@ export function UserForm() {
   const validationSchema = yup.object({
     fullName: yup.string().required(t('validation.fullNameRequired')),
     email: yup.string().email(t('validation.emailInvalid')).required(t('validation.emailRequired')),
-    password: userId
+    password: id
       ? yup.string().min(8, t('validation.passwordMinLength')).notRequired()
       : yup.string().min(8, t('validation.passwordMinLength')).required(t('validation.passwordRequired')),
     role: yup.string().required(t('validation.roleRequired')),
@@ -93,19 +93,19 @@ export function UserForm() {
 
   // Fetch user data for edit mode
   useEffect(() => {
-    if (userId) {
+    if (id) {
       const fetchUserData = async () => {
         try {
           setLoading(true);
-          const response = await api.get(`/users/${userId}`);
-          setInitialData(response.data.user);
+          const response = await api.get(`/users/${id}`);
+          setInitialData(response.data.data.user);
 
           // Set form values
           reset({
-            fullName: response.data.user.fullName,
-            email: response.data.user.email,
-            role: response.data.user.role,
-            status: response.data.user.status,
+            fullName: response.data.data.user.fullName,
+            email: response.data.data.user.email,
+            role: response.data.data.user.role,
+            status: response.data.data.user.status,
           });
         } catch (err) {
           setError(err.response?.data?.message || t('errors.fetchUserFailed'));
@@ -116,7 +116,7 @@ export function UserForm() {
 
       fetchUserData();
     }
-  }, [userId, reset, setValue, t]);
+  }, [id, reset, setValue, t]);
 
   const onSubmit = async (data) => {
     if (!isAdmin) {
@@ -128,9 +128,9 @@ export function UserForm() {
     setError(null);
 
     try {
-      if (userId) {
+      if (id) {
         // Update existing user
-        await api.put(`/users/${userId}`, {
+        await api.put(`/users/${id}`, {
           fullName: data.fullName,
           email: data.email,
           role: data.role,
@@ -175,11 +175,11 @@ export function UserForm() {
     );
   }
 
-  const pageTitle = userId ? t('user.editUser') : t('user.addNewUser');
-  const pageSubtitle = userId
+  const pageTitle = id ? t('user.editUser') : t('user.addNewUser');
+  const pageSubtitle = id
     ? t('user.editUserSubtitle', 'Update user account details and system permissions.')
     : t('user.addNewUserSubtitle', 'Create a new user account and assign system permissions.');
-  const submitButtonText = userId
+  const submitButtonText = id
     ? loading
       ? t('user.updatingUser', 'Updating User...')
       : t('user.updateUser', 'Update User')
@@ -311,7 +311,7 @@ export function UserForm() {
                 </p>
               </div>
 
-              {!userId ? (
+              {!id ? (
                 /* Create Mode Password Field */
                 <div className="space-y-3">
                   <div>
