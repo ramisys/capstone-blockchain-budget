@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { CheckCircle2, AlertCircle, Info, X } from 'lucide-react';
 
 const ToastContext = createContext(null);
@@ -28,11 +29,14 @@ export function ToastProvider({ children }) {
   return (
     <ToastContext.Provider value={{ addToast, removeToast, showSuccess, showError, showInfo }}>
       {children}
-      <div className="fixed top-5 right-5 z-50 flex flex-col gap-3 max-w-sm w-full pointer-events-none px-4 sm:px-0">
-        {toasts.map((toast) => (
-          <ToastItem key={toast.id} toast={toast} onClose={() => removeToast(toast.id)} />
-        ))}
-      </div>
+      {createPortal(
+        <div className="fixed top-5 right-5 z-10000 flex flex-col gap-3 max-w-sm w-full pointer-events-none px-4 sm:px-0">
+          {toasts.map((toast) => (
+            <ToastItem key={toast.id} toast={toast} onClose={() => removeToast(toast.id)} />
+          ))}
+        </div>,
+        document.body
+      )}
     </ToastContext.Provider>
   );
 }

@@ -163,7 +163,10 @@ export function UserList() {
     try {
       await api.delete(`/users/${targetUser.id}`);
       showSuccess(`User "${targetUser.fullName || targetUser.email}" deleted successfully.`);
-      closeDeleteModal();
+      setDeleteModal({
+        isOpen: false,
+        user: null,
+      });
       fetchUsers();
     } catch (err) {
       const errorMsg = err.response?.data?.message || 'Failed to delete user.';
