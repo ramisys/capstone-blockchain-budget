@@ -1,24 +1,45 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { ArrowLeft, Pencil, Trash2, ShieldAlert } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { Card } from '../ui/Card';
 import { Spinner } from '../ui/Spinner';
 import { Alert } from '../ui/Alert';
-import { Badge } from '../ui/Badge';
+import { Avatar } from '../ui/Avatar';
+import { RoleBadge, StatusBadge } from '../ui/Badge';
+import { Modal } from '../ui/Modal';
+import { useToast } from '../ui/Toast';
 import { useAuth } from '../../hooks/useAuth';
 import { ROLES } from '../../constants/roles';
-import { USER_STATUS } from '../../constants/status';
 import api from '../../api/apiClient';
+
+function formatDate(dateString) {
+  if (!dateString) return '—';
+  try {
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return dateString;
+    return new Intl.DateTimeFormat('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    }).format(date);
+  } catch (err) {
+    return dateString;
+  }
+}
 
 export function UserDetail() {
   const navigate = useNavigate();
   const { userId } = useParams();
   const { user } = useAuth();
+  const { showSuccess, showError } = useToast();
+
   const [loading, setLoading] = useState(true);
+  const [deleting, setDeleting] = useState(false);
   const [userData, setUserData] = useState(null);
   const [error, setError] = useState(null);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
 
-  // Check if user is admin or viewing own profile
   const isAdmin = user?.role === ROLES.ADMINISTRATOR;
   const isOwnProfile = user?.id === userId;
   const canView = isAdmin || isOwnProfile;
@@ -47,30 +68,46 @@ export function UserDetail() {
     fetchUserData();
   }, [userId, canView]);
 
+  const handleDeleteUser = async () => {
+    setDeleting(true);
+    try {
+      await api.delete(`/users/${userId}`);
+      showSuccess(`User "${userData?.fullName || userData?.email}" deleted successfully.`);
+      setIsDeleteModalOpen(false);
+      navigate('/users');
+    } catch (err) {
+      const msg = err.response?.data?.message || 'Failed to delete user';
+      showError(msg);
+      console.error('Error deleting user:', err);
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   if (!canView) {
     return (
-      <div className="p-6">
+      <div className="p-6 max-w-4xl mx-auto">
         <Alert variant="warning">Access denied. You do not have permission to view this user.</Alert>
-        <Button variant="outline" onClick={() => navigate('/dashboard')}>
-          Go to Dashboard
-        </Button>
+        <div className="mt-4">
+          <Button variant="outline" onClick={() => navigate('/dashboard')}>
+            Go to Dashboard
+          </Button>
+        </div>
       </div>
     );
   }
 
   if (loading) {
     return (
-      <div className="p-6">
-        <div className="flex justify-center">
-          <Spinner />
-        </div>
+      <div className="p-8 flex justify-center items-center">
+        <Spinner />
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="p-6">
+      <div className="p-6 max-w-4xl mx-auto space-y-4">
         <Alert variant="danger">{error}</Alert>
         <Button variant="outline" onClick={() => navigate('/users')}>
           Back to Users
@@ -81,86 +118,87 @@ export function UserDetail() {
 
   if (!userData) {
     return (
-      <div className="p-6">
+      <div className="p-6 max-w-4xl mx-auto">
         <Alert variant="info">No user data available</Alert>
       </div>
     );
   }
 
   return (
-    <div className="p-6">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold mb-4">User Details</h1>
-        <div className="flex space-x-3">
-          <Button variant="outline" onClick={() => navigate('/users')}>
-            Back to List
-          </Button>
-          {isAdmin && (
-            <>
-              <Button
-                variant="outline"
-                onClick={() => navigate(`/users/${userId}/edit`)}
-                className="mr-2"
-              >
-                Edit User
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => {
-                  if (window.confirm('Are you sure you want to delete this user?')) {
-                    // Handle deletion
-                  }
-                }}
-                className="text-red-600 hover:text-red-800"
-              >
-                Delete User
-              </Button>
-            </>
-          )}
+    <div className="p-4 sm:p-6 lg:p-8 max-w-4xl mx-auto space-y-6 animate-fade-in">
+      {/* Header Bar */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-200/80 pb-5">
+        <div>
+          <button
+            onClick={() => navigate('/users')}
+            className="inline-flex items-center gap-2 text-xs font-semibold text-slate-500 hover:text-indigo-600 mb-2 transition-colors"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            <span>Back to Users</span>
+          </button>
+          <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">User Details</h1>
+        </div>
+
+        {isAdmin && (
+          <div className="flex items-center gap-3">
+            <Button
+              variant="outline"
+              onClick={() => navigate(`/users/${userId}/edit`)}
+              className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-xl border-slate-300 hover:bg-slate-50"
+            >
+              <Pencil className="w-4 h-4 text-blue-600" />
+              <span>Edit User</span>
+            </Button>
+            <Button
+              variant="danger"
+              onClick={() => setIsDeleteModalOpen(true)}
+              className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-xl bg-red-600 hover:bg-red-700 text-white"
+            >
+              <Trash2 className="w-4 h-4" />
+              <span>Delete User</span>
+            </Button>
+          </div>
+        )}
+      </div>
+
+      {/* User Info Card */}
+      <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden p-6 sm:p-8 space-y-6">
+        <div className="flex flex-col sm:flex-row items-center sm:items-start gap-6">
+          <Avatar name={userData.fullName || userData.email} size="lg" className="w-20 h-20 text-xl font-bold" />
+          <div className="space-y-2 text-center sm:text-left flex-1">
+            <h2 className="text-2xl font-extrabold text-slate-900">{userData.fullName}</h2>
+            <p className="text-sm font-medium text-slate-500">{userData.email}</p>
+            <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 pt-2">
+              <RoleBadge role={userData.role} />
+              <StatusBadge status={userData.status} />
+            </div>
+          </div>
+        </div>
+
+        <div className="border-t border-slate-100 pt-6 grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+          <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 space-y-1">
+            <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">Created Date</span>
+            <p className="font-semibold text-slate-800">{formatDate(userData.createdAt)}</p>
+          </div>
+          <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 space-y-1">
+            <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">Last Updated</span>
+            <p className="font-semibold text-slate-800">{formatDate(userData.updatedAt)}</p>
+          </div>
         </div>
       </div>
 
-      <div className="space-y-6">
-        <Card>
-          <div className="p-6">
-            <div className="text-center">
-              <div className="h-16 w-16 bg-gray-200 rounded-full flex items-center justify-center mb-4">
-                {userData.fullName
-                  .split(' ')
-                  .map((n) => n[0])
-                  .join('')
-                  .toUpperCase()}
-              </div>
-              <h2 className="text-xl font-bold mb-2">{userData.fullName}</h2>
-              <p className="text-gray-600 mb-4">{userData.email}</p>
-
-              <div className="flex flex-wrap gap-4">
-                <span className="px-3 py-1 bg-blue-100 text-blue-800 text-xs font-semibold rounded-full">
-                  Role: {userData.role}
-                </span>
-                <span className={`px-3 py-1 text-xs font-semibold rounded-full ${
-                  userData.status === 'Active'
-                    ? 'bg-green-100 text-green-800'
-                    : 'bg-red-100 text-red-800'
-                }`}>
-                  Status: {userData.status}
-                </span>
-              </div>
-
-              <div className="mt-4 pt-4 border-t border-gray-200">
-                <p className="text-sm text-gray-500">
-                  Created: {new Date(userData.createdAt).toLocaleDateString()}
-                </p>
-                {userData.updatedAt && (
-                  <p className="text-sm text-gray-500">
-                    Last Updated: {new Date(userData.updatedAt).toLocaleDateString()}
-                  </p>
-                )}
-              </div>
-            </div>
-          </div>
-        </Card>
-      </div>
+      {/* Custom Delete Confirmation Modal */}
+      <Modal
+        isOpen={isDeleteModalOpen}
+        onClose={() => setIsDeleteModalOpen(false)}
+        onConfirm={handleDeleteUser}
+        title="Delete User"
+        message={`Are you sure you want to delete "${userData.fullName || userData.email}"? This action cannot be undone.`}
+        confirmText="Delete User"
+        cancelText="Cancel"
+        variant="danger"
+        loading={deleting}
+      />
     </div>
   );
 }

@@ -1,4 +1,6 @@
+@import "tailwindcss";
 @import 'bootstrap/dist/css/bootstrap.min.css';
+
 
 :root {
   /* Primary palette */
@@ -91,6 +93,16 @@
   --transition-base: 200ms ease;
   --transition-slow: 300ms ease;
 }
+
+*,*::before,*::after {
+  box-sizing: border-box;
+  font-family: var(--font-family);
+}
+
+html, body, input, select, textarea, button, table, th, td, h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-family);
+}
+
 
 *,*::before,*::after {
   box-sizing: border-box;
@@ -1360,3 +1372,23 @@ a:hover { color: var(--color-primary-light); }
   gap: var(--space-3);
   flex-wrap: wrap;
 }
+
+/* Custom Animation Utilities */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes scaleUp {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-scale-up {
+  animation: scaleUp 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+

@@ -96,9 +96,10 @@ export function UserForm() {
           ...(data.password && { password: data.password }),
         });
 
-        // Show success message and redirect
-        alert(t('success.userUpdated'));
-        navigate('/users');
+        // Redirect with toast notification
+        navigate('/users', {
+          state: { toastMessage: 'User updated successfully.' },
+        });
       } else {
         // Create new user
         const response = await api.post('/users', {
@@ -109,9 +110,10 @@ export function UserForm() {
           status: data.status,
         });
 
-        // Show success message and redirect
-        alert(t('success.userCreated'));
-        navigate('/users');
+        // Redirect with toast notification
+        navigate('/users', {
+          state: { toastMessage: 'User created successfully.' },
+        });
       }
     } catch (err) {
       setError(err.response?.data?.message || t('errors.operationFailed'));
@@ -198,7 +200,7 @@ export function UserForm() {
 
         {userId && (
           <FormField>
-            <label className="block text-sm font-medium mb-2 flex items-center">
+            <label className="flex items-center text-sm font-medium mb-2">
               <input
                 type="checkbox"
                 id="change-password"
