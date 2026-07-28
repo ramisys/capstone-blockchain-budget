@@ -1,20 +1,35 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Button } from '../ui/Button';
-import { Input } from '../ui/Input';
-import { Select } from '../ui/Select';
-import { Form } from '../ui/Form';
-import { FormField } from '../ui/FormField';
-import { Spinner } from '../ui/Spinner';
-import { Alert } from '../ui/Alert';
 import { useForm } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
+import { useTranslation } from 'react-i18next';
+import {
+  ArrowLeft,
+  User,
+  Mail,
+  Lock,
+  Eye,
+  EyeOff,
+  Shield,
+  Check,
+  X,
+  UserPlus,
+  Loader2,
+  AlertCircle,
+  CheckCircle2,
+  Sliders,
+  UserCheck,
+  KeyRound,
+} from 'lucide-react';
+
+import { Button } from '../ui/Button';
+import { Alert } from '../ui/Alert';
+import { Card } from '../ui/Card';
 import { useAuth } from '../../hooks/useAuth';
-import { ROLES } from '../../constants/roles';
+import { ROLES, ROLE_LABELS } from '../../constants/roles';
 import { USER_STATUS } from '../../constants/status';
 import api from '../../api/apiClient';
-import { useTranslation } from 'react-i18next';
 
 export function UserForm() {
   const navigate = useNavigate();
@@ -23,6 +38,8 @@ export function UserForm() {
   const [loading, setLoading] = useState(false);
   const [initialData, setInitialData] = useState(null);
   const [error, setError] = useState(null);
+  const [showPassword, setShowPassword] = useState(false);
+  const [enablePasswordEdit, setEnablePasswordEdit] = useState(false);
   const { t } = useTranslation();
 
   // Check if user is admin
@@ -32,7 +49,9 @@ export function UserForm() {
   const validationSchema = yup.object({
     fullName: yup.string().required(t('validation.fullNameRequired')),
     email: yup.string().email(t('validation.emailInvalid')).required(t('validation.emailRequired')),
-    password: userId ? yup.string().min(8, t('validation.passwordMinLength')).notRequired() : yup.string().min(8, t('validation.passwordMinLength')).required(t('validation.passwordRequired')),
+    password: userId
+      ? yup.string().min(8, t('validation.passwordMinLength')).notRequired()
+      : yup.string().min(8, t('validation.passwordMinLength')).required(t('validation.passwordRequired')),
     role: yup.string().required(t('validation.roleRequired')),
     status: yup.string().required(t('validation.statusRequired')),
   });
@@ -43,10 +62,34 @@ export function UserForm() {
     formState: { errors },
     reset,
     setValue,
+    watch,
   } = useForm({
     resolver: yupResolver(validationSchema),
     mode: 'onBlur',
   });
+
+  const passwordValue = watch('password') || '';
+
+  // Password requirement live evaluation
+  const passwordRequirements = [
+    { label: 'Minimum 8 characters', met: passwordValue.length >= 8 },
+    { label: 'At least one uppercase letter', met: /[A-Z]/.test(passwordValue) },
+    { label: 'At least one lowercase letter', met: /[a-z]/.test(passwordValue) },
+    { label: 'At least one number', met: /[0-9]/.test(passwordValue) },
+  ];
+
+  const metRequirementsCount = passwordRequirements.filter((r) => r.met).length;
+
+  const getPasswordStrength = () => {
+    if (!passwordValue) return { label: '', color: 'bg-slate-200', textColor: '', width: 'w-0' };
+    if (metRequirementsCount <= 1)
+      return { label: 'Weak', color: 'bg-red-500', textColor: 'text-red-600', width: 'w-1/3' };
+    if (metRequirementsCount <= 3)
+      return { label: 'Medium', color: 'bg-amber-500', textColor: 'text-amber-600', width: 'w-2/3' };
+    return { label: 'Strong', color: 'bg-emerald-500', textColor: 'text-emerald-600', width: 'w-full' };
+  };
+
+  const strength = getPasswordStrength();
 
   // Fetch user data for edit mode
   useEffect(() => {
@@ -87,13 +130,13 @@ export function UserForm() {
     try {
       if (userId) {
         // Update existing user
-        const response = await api.put(`/users/${userId}`, {
+        await api.put(`/users/${userId}`, {
           fullName: data.fullName,
           email: data.email,
           role: data.role,
           status: data.status,
           // Only include password if it was provided
-          ...(data.password && { password: data.password }),
+          ...(enablePasswordEdit && data.password ? { password: data.password } : {}),
         });
 
         // Redirect with toast notification
@@ -102,7 +145,7 @@ export function UserForm() {
         });
       } else {
         // Create new user
-        const response = await api.post('/users', {
+        await api.post('/users', {
           fullName: data.fullName,
           email: data.email,
           password: data.password,
@@ -124,154 +167,376 @@ export function UserForm() {
 
   if (!isAdmin) {
     return (
-      <div className="p-6">
-        <Alert variant="warning">{t('errors.accessDenied')}</Alert>
+      <div className="max-w-4xl mx-auto p-6">
+        <Alert variant="danger" icon={<AlertCircle className="w-5 h-5 text-red-600" />}>
+          {t('errors.accessDenied')}
+        </Alert>
       </div>
     );
   }
 
-  const formTitle = userId ? t('user.editUser') : t('user.addNewUser');
-  const submitButtonText = userId ? t('user.updateUser') : t('user.createUser');
+  const pageTitle = userId ? t('user.editUser') : t('user.addNewUser');
+  const pageSubtitle = userId
+    ? t('user.editUserSubtitle', 'Update user account details and system permissions.')
+    : t('user.addNewUserSubtitle', 'Create a new user account and assign system permissions.');
+  const submitButtonText = userId
+    ? loading
+      ? t('user.updatingUser', 'Updating User...')
+      : t('user.updateUser', 'Update User')
+    : loading
+    ? t('user.creatingUser', 'Creating User...')
+    : t('user.createUser', 'Create User');
 
   return (
-    <div className="p-6">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold mb-4">{formTitle}</h1>
-        <Button variant="outline" onClick={() => navigate('/users')} className="mr-2">
-          {t('buttons.backToList')}
-        </Button>
-      </div>
+    <div className="min-h-screen bg-slate-50/50 py-8 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-3xl mx-auto space-y-6">
+        {/* Navigation & Header */}
+        <div className="space-y-3">
+          <button
+            type="button"
+            onClick={() => navigate('/users')}
+            className="inline-flex items-center text-xs font-semibold uppercase tracking-wider text-slate-500 hover:text-indigo-600 transition-colors group focus:outline-none focus:ring-2 focus:ring-indigo-500/20 rounded-md px-1.5 py-1 -ml-1.5"
+            aria-label="Back to User Management"
+          >
+            <ArrowLeft className="w-4 h-4 mr-1.5 transition-transform group-hover:-translate-x-1" />
+            {t('user.backToUsers', '← Back to User Management')}
+          </button>
 
-      {error && (
-        <Alert variant="danger">{error}</Alert>
-      )}
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900">{pageTitle}</h1>
+            <p className="mt-1 text-sm text-slate-500">{pageSubtitle}</p>
+          </div>
+        </div>
 
-      <Form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-        <FormField>
-          <label className="block text-sm font-medium mb-2">{t('form.fullName')}</label>
-          <input
-            {...register('fullName')}
-            className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-              errors.fullName ? 'border-red-500' : ''
-            }`}
-            placeholder={t('form.fullNamePlaceholder')}
-            defaultValue={initialData?.fullName || ''}
-          />
-          {errors.fullName && (
-            <p className="mt-1 text-sm text-red-600">{errors.fullName.message}</p>
-          )}
-        </FormField>
-
-        <FormField>
-          <label className="block text-sm font-medium mb-2">{t('form.email')}</label>
-          <input
-            {...register('email')}
-            type="email"
-            className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-              errors.email ? 'border-red-500' : ''
-            }`}
-            placeholder={t('form.emailPlaceholder')}
-            defaultValue={initialData?.email || ''}
-          />
-          {errors.email && (
-            <p className="mt-1 text-sm text-red-600">{errors.email.message}</p>
-          )}
-        </FormField>
-
-        {!userId && (
-          <FormField>
-            <label className="block text-sm font-medium mb-2">{t('form.password')}</label>
-            <input
-              {...register('password')}
-              type="password"
-              className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                errors.password ? 'border-red-500' : ''
-              }`}
-              placeholder={t('form.passwordPlaceholder')}
-            />
-            {errors.password && (
-              <p className="mt-1 text-sm text-red-600">{errors.password.message}</p>
-            )}
-            <p className="mt-1 text-sm text-gray-500">
-              {t('form.passwordHint')}
-            </p>
-          </FormField>
+        {/* Global Error Notification */}
+        {error && (
+          <Alert variant="danger" className="animate-in fade-in slide-in-from-top-2 duration-200">
+            {error}
+          </Alert>
         )}
 
-        {userId && (
-          <FormField>
-            <label className="flex items-center text-sm font-medium mb-2">
-              <input
-                type="checkbox"
-                id="change-password"
-                className="mr-2 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-              />
-              <span>{t('form.changePassword')}</span>
-            </label>
-            <input
-              type="password"
-              id="password-field"
-              className="mt-2 w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder={t('form.newPassword')}
-              disabled
-            />
-            <p className="mt-1 text-sm text-gray-500">
-              {t('form.passwordHint')}
-            </p>
-          </FormField>
-        )}
+        {/* Main Form Card */}
+        <Card className="shadow-sm border-slate-200/80 overflow-hidden bg-white">
+          <form onSubmit={handleSubmit(onSubmit)} className="p-6 sm:p-8 space-y-8" noValidate>
+            {/* SECTION 1: Personal Information */}
+            <div className="space-y-5">
+              <div className="border-b border-slate-100 pb-3 flex items-center justify-between">
+                <div>
+                  <h2 className="text-base font-semibold text-slate-900 flex items-center gap-2">
+                    <User className="w-4 h-4 text-indigo-600" />
+                    {t('user.personalInfo', 'Personal Information')}
+                  </h2>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    {t('user.personalInfoDesc', "Enter the user's full name and email address.")}
+                  </p>
+                </div>
+              </div>
 
-        <FormField>
-          <label className="block text-sm font-medium mb-2">{t('form.role')}</label>
-          <select
-            {...register('role')}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            <option value="">{t('form.selectRole')}</option>
-            {Object.entries(ROLES).map(([key, value]) => (
-              <option key={key} value={value}>
-                {t(`role.${key.toLowerCase()}`)}
-              </option>
-            ))}
-          </select>
-          {errors.role && (
-            <p className="mt-1 text-sm text-red-600">{errors.role.message}</p>
-          )}
-        </FormField>
+              <div className="grid grid-cols-1 gap-5">
+                {/* Full Name */}
+                <div>
+                  <label htmlFor="fullName" className="block text-xs font-semibold uppercase tracking-wider text-slate-700 mb-1.5">
+                    {t('form.fullName')} <span className="text-red-500">*</span>
+                  </label>
+                  <div className="relative rounded-xl shadow-xs">
+                    <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                      <User className="w-4 h-4" />
+                    </div>
+                    <input
+                      id="fullName"
+                      type="text"
+                      disabled={loading}
+                      {...register('fullName')}
+                      className={`w-full pl-10 pr-3.5 py-2.5 text-sm border rounded-xl transition-all focus:outline-none focus:ring-2 disabled:opacity-60 disabled:bg-slate-50 ${
+                        errors.fullName
+                          ? 'border-red-400 bg-red-50/20 text-slate-900 focus:border-red-500 focus:ring-red-500/20'
+                          : 'border-slate-300 bg-white text-slate-900 focus:border-indigo-500 focus:ring-indigo-500/20 hover:border-slate-400'
+                      }`}
+                      placeholder={t('form.fullNamePlaceholder')}
+                      aria-invalid={!!errors.fullName}
+                      aria-describedby={errors.fullName ? 'fullName-error' : undefined}
+                    />
+                  </div>
+                  {errors.fullName && (
+                    <div id="fullName-error" className="flex items-center gap-1 text-xs text-red-600 mt-1.5 font-medium" role="alert">
+                      <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                      <span>{errors.fullName.message}</span>
+                    </div>
+                  )}
+                </div>
 
-        <FormField>
-          <label className="block text-sm font-medium mb-2">{t('form.status')}</label>
-          <select
-            {...register('status')}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            <option value="">{t('form.selectStatus')}</option>
-            {Object.entries(USER_STATUS).map(([key, value]) => (
-              <option key={key} value={value}>
-                {t(`status.${key.toLowerCase()}`)}
-              </option>
-            ))}
-          </select>
-          {errors.status && (
-            <p className="mt-1 text-sm text-red-600">{errors.status.message}</p>
-          )}
-        </FormField>
-      </Form>
+                {/* Email Address */}
+                <div>
+                  <label htmlFor="email" className="block text-xs font-semibold uppercase tracking-wider text-slate-700 mb-1.5">
+                    {t('form.email')} <span className="text-red-500">*</span>
+                  </label>
+                  <div className="relative rounded-xl shadow-xs">
+                    <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                      <Mail className="w-4 h-4" />
+                    </div>
+                    <input
+                      id="email"
+                      type="email"
+                      disabled={loading}
+                      {...register('email')}
+                      className={`w-full pl-10 pr-3.5 py-2.5 text-sm border rounded-xl transition-all focus:outline-none focus:ring-2 disabled:opacity-60 disabled:bg-slate-50 ${
+                        errors.email
+                          ? 'border-red-400 bg-red-50/20 text-slate-900 focus:border-red-500 focus:ring-red-500/20'
+                          : 'border-slate-300 bg-white text-slate-900 focus:border-indigo-500 focus:ring-indigo-500/20 hover:border-slate-400'
+                      }`}
+                      placeholder={t('form.emailPlaceholder')}
+                      aria-invalid={!!errors.email}
+                      aria-describedby={errors.email ? 'email-error' : undefined}
+                    />
+                  </div>
+                  {errors.email && (
+                    <div id="email-error" className="flex items-center gap-1 text-xs text-red-600 mt-1.5 font-medium" role="alert">
+                      <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                      <span>{errors.email.message}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
 
-      <div className="mt-6 flex justify-end space-x-3">
-        <Button
-          variant="outline"
-          onClick={() => navigate('/users')}
-        >
-          {t('buttons.cancel')}
-        </Button>
-        <Button
-          variant="primary"
-          onClick={handleSubmit(onSubmit)}
-          disabled={loading}
-        >
-          {loading ? t('buttons.saving') : submitButtonText}
-        </Button>
+            {/* SECTION 2: Security */}
+            <div className="space-y-5">
+              <div className="border-b border-slate-100 pb-3">
+                <h2 className="text-base font-semibold text-slate-900 flex items-center gap-2">
+                  <Lock className="w-4 h-4 text-indigo-600" />
+                  {t('user.security', 'Security')}
+                </h2>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  {t('user.securityDesc', 'Set account password and view security requirements.')}
+                </p>
+              </div>
+
+              {!userId ? (
+                /* Create Mode Password Field */
+                <div className="space-y-3">
+                  <div>
+                    <label htmlFor="password" className="block text-xs font-semibold uppercase tracking-wider text-slate-700 mb-1.5">
+                      {t('form.password')} <span className="text-red-500">*</span>
+                    </label>
+                    <div className="relative rounded-xl shadow-xs">
+                      <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                        <KeyRound className="w-4 h-4" />
+                      </div>
+                      <input
+                        id="password"
+                        type={showPassword ? 'text' : 'password'}
+                        disabled={loading}
+                        {...register('password')}
+                        className={`w-full pl-10 pr-11 py-2.5 text-sm border rounded-xl transition-all focus:outline-none focus:ring-2 disabled:opacity-60 disabled:bg-slate-50 ${
+                          errors.password
+                            ? 'border-red-400 bg-red-50/20 text-slate-900 focus:border-red-500 focus:ring-red-500/20'
+                            : 'border-slate-300 bg-white text-slate-900 focus:border-indigo-500 focus:ring-indigo-500/20 hover:border-slate-400'
+                        }`}
+                        placeholder={t('form.passwordPlaceholder')}
+                        aria-invalid={!!errors.password}
+                        aria-describedby={errors.password ? 'password-error' : undefined}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-slate-600 focus:outline-none"
+                        aria-label={showPassword ? 'Hide password' : 'Show password'}
+                      >
+                        {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
+                    {errors.password && (
+                      <div id="password-error" className="flex items-center gap-1 text-xs text-red-600 mt-1.5 font-medium" role="alert">
+                        <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                        <span>{errors.password.message}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Password Strength Meter & Live Requirements */}
+                  {passwordValue && (
+                    <div className="p-4 bg-slate-50 border border-slate-200/80 rounded-xl space-y-3 animate-in fade-in duration-200">
+                      {/* Strength Progress */}
+                      <div className="space-y-1.5">
+                        <div className="flex justify-between items-center text-xs font-semibold">
+                          <span className="text-slate-600">Password Strength</span>
+                          <span className={strength.textColor}>{strength.label}</span>
+                        </div>
+                        <div className="h-1.5 w-full bg-slate-200 rounded-full overflow-hidden">
+                          <div className={`h-full transition-all duration-300 ${strength.color} ${strength.width}`} />
+                        </div>
+                      </div>
+
+                      {/* Requirements Checklist */}
+                      <div className="pt-2 border-t border-slate-200/60 grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                        {passwordRequirements.map((req, idx) => (
+                          <div key={idx} className="flex items-center gap-1.5">
+                            {req.met ? (
+                              <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                            ) : (
+                              <X className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                            )}
+                            <span className={req.met ? 'text-slate-800 font-medium' : 'text-slate-500'}>
+                              {req.label}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                /* Edit Mode Password Toggle */
+                <div className="space-y-3">
+                  <label className="flex items-center text-sm font-medium text-slate-800 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={enablePasswordEdit}
+                      onChange={(e) => setEnablePasswordEdit(e.target.checked)}
+                      className="h-4 w-4 text-indigo-600 focus:ring-indigo-500/20 border-slate-300 rounded transition"
+                    />
+                    <span className="ml-2.5">{t('form.changePassword', 'Change Password')}</span>
+                  </label>
+
+                  {enablePasswordEdit && (
+                    <div className="relative rounded-xl shadow-xs">
+                      <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                        <KeyRound className="w-4 h-4" />
+                      </div>
+                      <input
+                        type={showPassword ? 'text' : 'password'}
+                        disabled={loading}
+                        {...register('password')}
+                        className="w-full pl-10 pr-11 py-2.5 text-sm border border-slate-300 rounded-xl transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                        placeholder={t('form.newPassword', 'Enter new password')}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-slate-600 focus:outline-none"
+                        aria-label={showPassword ? 'Hide password' : 'Show password'}
+                      >
+                        {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* SECTION 3: Account Settings */}
+            <div className="space-y-5">
+              <div className="border-b border-slate-100 pb-3">
+                <h2 className="text-base font-semibold text-slate-900 flex items-center gap-2">
+                  <Sliders className="w-4 h-4 text-indigo-600" />
+                  {t('user.accountSettings', 'Account Settings')}
+                </h2>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  {t('user.accountSettingsDesc', 'Assign permissions role and active status.')}
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                {/* Role Selector */}
+                <div>
+                  <label htmlFor="role" className="block text-xs font-semibold uppercase tracking-wider text-slate-700 mb-1.5">
+                    {t('form.role')} <span className="text-red-500">*</span>
+                  </label>
+                  <div className="relative rounded-xl shadow-xs">
+                    <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                      <Shield className="w-4 h-4" />
+                    </div>
+                    <select
+                      id="role"
+                      disabled={loading}
+                      {...register('role')}
+                      className={`w-full pl-10 pr-8 py-2.5 text-sm border rounded-xl transition-all focus:outline-none focus:ring-2 cursor-pointer disabled:opacity-60 disabled:bg-slate-50 ${
+                        errors.role
+                          ? 'border-red-400 bg-red-50/20 text-slate-900 focus:border-red-500 focus:ring-red-500/20'
+                          : 'border-slate-300 bg-white text-slate-900 focus:border-indigo-500 focus:ring-indigo-500/20 hover:border-slate-400'
+                      }`}
+                      aria-invalid={!!errors.role}
+                      aria-describedby={errors.role ? 'role-error' : undefined}
+                    >
+                      <option value="">{t('form.selectRole')}</option>
+                      {Object.entries(ROLES).map(([key, value]) => (
+                        <option key={key} value={value}>
+                          {ROLE_LABELS[value] || t(`role.${key.toLowerCase()}`)}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  {errors.role && (
+                    <div id="role-error" className="flex items-center gap-1 text-xs text-red-600 mt-1.5 font-medium" role="alert">
+                      <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                      <span>{errors.role.message}</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Status Selector */}
+                <div>
+                  <label htmlFor="status" className="block text-xs font-semibold uppercase tracking-wider text-slate-700 mb-1.5">
+                    {t('form.status')} <span className="text-red-500">*</span>
+                  </label>
+                  <div className="relative rounded-xl shadow-xs">
+                    <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                      <UserCheck className="w-4 h-4" />
+                    </div>
+                    <select
+                      id="status"
+                      disabled={loading}
+                      {...register('status')}
+                      className={`w-full pl-10 pr-8 py-2.5 text-sm border rounded-xl transition-all focus:outline-none focus:ring-2 cursor-pointer disabled:opacity-60 disabled:bg-slate-50 ${
+                        errors.status
+                          ? 'border-red-400 bg-red-50/20 text-slate-900 focus:border-red-500 focus:ring-red-500/20'
+                          : 'border-slate-300 bg-white text-slate-900 focus:border-indigo-500 focus:ring-indigo-500/20 hover:border-slate-400'
+                      }`}
+                      aria-invalid={!!errors.status}
+                      aria-describedby={errors.status ? 'status-error' : undefined}
+                    >
+                      <option value="">{t('form.selectStatus')}</option>
+                      {Object.entries(USER_STATUS).map(([key, value]) => (
+                        <option key={key} value={value}>
+                          {value === USER_STATUS.ACTIVE ? '🟢 Active' : '🔴 Inactive'}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  {errors.status && (
+                    <div id="status-error" className="flex items-center gap-1 text-xs text-red-600 mt-1.5 font-medium" role="alert">
+                      <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                      <span>{errors.status.message}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Form Actions Footer */}
+            <div className="pt-6 border-t border-slate-100 flex flex-col-reverse sm:flex-row sm:justify-end gap-3">
+              <Button
+                variant="outline"
+                type="button"
+                onClick={() => navigate('/users')}
+                disabled={loading}
+                className="w-full sm:w-auto"
+              >
+                {t('buttons.cancel')}
+              </Button>
+              <Button
+                variant="primary"
+                type="submit"
+                loading={loading}
+                disabled={loading}
+                className="w-full sm:w-auto shadow-sm hover:shadow-md hover:shadow-indigo-500/20 transition-all"
+              >
+                {!loading && <UserPlus className="w-4 h-4 mr-1.5" />}
+                {submitButtonText}
+              </Button>
+            </div>
+          </form>
+        </Card>
       </div>
     </div>
   );
