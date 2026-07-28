@@ -74,8 +74,8 @@ class UserService {
 
     if (filters.search) {
       where.OR = [
-        { email: { contains: filters.search, mode: 'insensitive' } },
-        { fullName: { contains: filters.search, mode: 'insensitive' } },
+        { email: { contains: filters.search } },
+        { fullName: { contains: filters.search } },
       ];
     }
 
