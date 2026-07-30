@@ -14,8 +14,7 @@ capstone/
 │   └── shared/       # Shared utilities and constants
 ├── docs/             # Project documentation
 ├── package.json      # Root npm Workspaces configuration
-├── .gitignore
-└── README.md
+└── .gitignore
 ```
 
 ## Technology Stack
@@ -139,147 +138,213 @@ npm run build:frontend
 | `npm run test:backend` | Run backend test suite |
 | `npm run build:frontend` | Build frontend for production |
 
-## Phase 1: Authentication & Authorization (COMPLETE)
+## Development Progress
 
-### Implemented Features
+| Phase | Status |
+|-------|--------|
+| Phase 1 | ✅ Completed |
+| Phase 2 | ✅ Completed |
+| Phase 3 | 🚧 In Progress |
+| Phase 4 | ⏳ Planned |
+| Phase 5 | ⏳ Planned |
+| Phase 6 | ⏳ Planned |
+| Phase 7 | ⏳ Planned |
+| Phase 8 | ⏳ Planned |
+| Phase 9 | ⏳ Planned |
+| Phase 10 | ⏳ Planned |
+| Phase 11 | ⏳ Planned |
+| Phase 12 | ⏳ Planned |
 
-**Frontend Pages**
-- **Login** — Email/password with Zod validation, password visibility toggle, remember me, loading state, server error display
-- **Dashboard** — Welcome section with time-based greeting, role badge, quick-access cards (placeholders), recent activity feed, system status panel
-- **Profile** — User account details with role and status badges
-- **403 Forbidden** — Access denied page with navigation options
-- **404 Not Found** — Page not found with navigation options
+## Current Focus
 
-**Authentication Flow**
-- JWT-based authentication with Bearer token
-- Axios interceptor for automatic token attachment
-- 401 response handling with automatic redirect to login
-- Persistent login via localStorage
-- AuthContext for global auth state
-- Protected route guards with role-based access control
-- Public route guards (redirect authenticated users away from login)
+The team is currently developing:
+- Dashboard UI
+- KPI cards
+- Budget statistics
+- Interactive charts
+- Recent activity feed
+- Financial summaries
+- Backend API integration
+- Responsive dashboard
 
-**Design System**
-- Navy (#1B3A5C) primary + Gold (#D4A843) accent palette
-- Inter font family
-- CSS custom properties for consistent spacing, typography, colors
-- Custom-styled Bootstrap 5 components
-- Responsive layout (desktop sidebar, mobile overlay navigation)
-- Accessible (ARIA labels, semantic HTML, keyboard navigation, focus indicators)
+## Development Roadmap
 
-**Backend API Endpoints**
+### ✅ Phase 1 – Project Foundation (Completed)
+Features:
+- Project setup
+- System architecture
+- Authentication & authorization
+- Database schema
+- Initial UI layout
+- Routing and navigation
 
-| Method | Endpoint | Description | Auth |
-|--------|----------|-------------|------|
-| POST | `/api/auth/login` | Authenticate user | Public (rate limited) |
-| POST | `/api/auth/logout` | Invalidate session | Required |
-| GET | `/api/auth/me` | Get current user profile | Required |
-| GET | `/health` | Server health check | Public |
+### ✅ Phase 2 – User Management System (Completed)
+Features:
+- User CRUD operations
+- Role-based access control
+- User validation
+- Search and filtering
+- User profile/details
+- Permission management
 
-**User Roles**
+### 🚧 Phase 3 – Dashboard & Analytics (Current Phase)
+Features:
+- Dashboard layout
+- KPI/Summary cards
+- Budget statistics
+- Interactive charts
+- Recent activities
+- Financial summaries
+- Backend API integration
+- Responsive dashboard
 
-| Role | Description |
-|------|-------------|
-| Administrator | Full system access |
-| Treasurer | Financial management |
-| BudgetOfficer | Budget allocation |
-| Auditor | Read-only audit access |
+### ⏳ Phase 4 – Budget Allocation Management
+Planned Features:
+- Budget allocation CRUD
+- Allocation approval workflow
+- Budget categories
+- Fiscal year management
+- Allocation tracking
+- Validation rules
 
-## Phase 2: User Management (IMPLEMENTED)
+### ⏳ Phase 5 – Expense Monitoring
+Planned Features:
+- Expense recording
+- Expense approval
+- Expense categorization
+- Budget utilization tracking
+- Expense history
+- Search and filtering
 
-### New Features
+### ⏳ Phase 6 – Blockchain Integration
+Planned Features:
+- Smart contract integration
+- Blockchain transaction recording
+- Immutable audit trail
+- Transaction verification
+- Wallet connectivity
+- Blockchain explorer integration
 
-**Backend APIs**
-- **GET /api/users** - List all users with pagination, filtering, and search (Admin only)
-- **GET /api/users/:id** - Get user by ID (Admin only)
-- **POST /api/users** - Create new user (Admin only)
-- **PUT /api/users/:id** - Update user (Admin only)
-- **DELETE /api/users/:id** - Delete user (Admin only)
-- **PATCH /api/users/:id/role** - Change user role (Admin only)
-- **PATCH /api/users/:id/status** - Change user status (Admin only)
+### ⏳ Phase 7 – Reports & Audit Logs
+Planned Features:
+- Financial reports
+- Budget reports
+- Expense reports
+- Blockchain transaction history
+- Audit logs
+- PDF/Excel export
 
-**Frontend Components**
-- **User List** - Paginated table view with search, filtering, and bulk actions
-- **User Form** - Create/edit form with validation (React Hook Form + Zod)
-- **User Detail** - View detailed user information
-- **Role-based Access Control** - Only administrators can access user management features
+### ⏳ Phase 8 – Notifications & Workflow
+Planned Features:
+- System notifications
+- Approval notifications
+- Budget alerts
+- Email notifications
+- Workflow management
+- Activity tracking
 
-**Database Updates**
-- Enhanced User model with proper indexing for query performance
-- Added role and status fields with enum constraints
-- Implemented proper validation for user data
+### ⏳ Phase 9 – Security & Access Control
+Planned Features:
+- Enhanced RBAC
+- Security hardening
+- API protection
+- Audit security
+- Session management
+- Access monitoring
+
+### ⏳ Phase 10 – Testing & Optimization
+Planned Features:
+- Unit testing
+- Integration testing
+- Performance optimization
+- Security testing
+- Bug fixing
+- Code refactoring
+
+### ⏳ Phase 11 – Deployment & Documentation
+Planned Features:
+- Production deployment
+- Environment configuration
+- User manual
+- Technical documentation
+- API documentation
+- Installation guide
+
+### ⏳ Phase 12 – Finalization & Defense Preparation
+Planned Features:
+- Final system review
+- Final testing
+- Documentation completion
+- Presentation preparation
+- Defense checklist
+- Production-ready release
+
+## Documentation Standards
+
+### README
+- Keep updated with current setup instructions
+- Include badges for build status, license, etc.
+- Document major features and architecture decisions
 
 ### API Documentation
+- Maintain `docs/API_DOCUMENTATION.md` with endpoint details
+- Include request/response examples
+- Document authentication requirements and error codes
 
-For detailed API specifications, refer to [docs/API_DOCUMENTATION.md](file:///d:/Ramisys%20files/Projects/capstone/docs/API_DOCUMENTATION.md).
+### Code Comments
+- Use JSDoc for public functions and components
+- Explain non-obvious logic and business rules
+- Avoid commenting obvious code
 
-## Design Principles
+## AI Instructions for Claude Code
 
-This application follows seven design principles:
+When working in this repository, please follow these guidelines:
 
-1. **No Generic Layouts** — Every page is intentionally designed around government budget monitoring workflows
-2. **Consistent Visual Language** — Unified spacing, typography, colors, and components
-3. **Minimal Visual Effects** — Clean and professional; no unnecessary gradients, glows, or animations
-4. **Meaningful Content** — Every heading, label, and description serves a purpose
-5. **Strong UX** — Predictable navigation, clear validation, keyboard accessible
-6. **Consistent Branding** — Navy (#1B3A5C) + Gold (#D4A843) palette, Inter font family, cohesive identity
-7. **Strong Visual Hierarchy** — Typography, spacing, and contrast guide the user's eye
+1. **Understand First**: Always read existing code before making changes. Understand the pattern and conventions.
+2. **Preserve Architecture**: Do not introduce new frameworks or architectural patterns without explicit permission.
+3. **Reuse Existing Components**: Prefer extending existing components over creating new ones.
+4. **Follow Conventions**: Match the existing code style, naming patterns, and file organization.
+5. **Update Documentation**: When making significant changes, update relevant documentation (README, API docs, comments).
+6. **Maintain Consistency**: Keep code production-ready; avoid temporary fixes or commented-out code.
+7. **Respect Phase Boundaries**: Do not implement features from future phases unless specifically requested.
+8. **Explain Major Changes**: Before implementing architectural changes, explain your approach and wait for confirmation.
+9. **Security First**: Always consider security implications; follow existing validation and authentication patterns.
+10. **Test Your Changes**: Ensure your changes don't break existing functionality; run relevant tests.
 
-## Security
+## General Rules
 
-- JWT-based authentication with configurable expiry
-- Password hashing with bcrypt (salt rounds: 10)
-- Rate limiting on authentication endpoints (5 attempts per 15 minutes)
-- Helmet security headers
-- CORS configuration
-- Request validation with Zod
-- Role-based access control middleware
-- Input sanitization and validation
+### File Organization
+- Keep related files together (e.g., component with its styles and tests)
+- Group by feature, not by type (when applicable)
 
-## Future Phases
+### Commit Messages
+- Use conventional commits (feat:, fix:, docs:, etc.)
+- Reference issues when applicable
+- Keep messages concise but descriptive
 
-| Phase | Features |
-|-------|----------|
-| Phase 3 | Budget Allocation Module |
-| Phase 4 | Expense Monitoring & Tracking |
-| Phase 5 | Audit Logs & Blockchain Integration |
-| Phase 6 | Reports & Analytics Dashboard |
-| Phase 7 | Deployment & Optimization |
+### Branch Naming
+- Use `feature/`, `bugfix/`, `docs/` prefixes
+- Include ticket number if applicable
 
-## Project Structure
+### Code Reviews
+- Self-review before requesting review
+- Focus on correctness, clarity, and adherence to standards
 
-### Backend (`apps/backend`)
-```
-├── config/          # App configuration (env, cors, helmet)
-├── constants/       # Shared constants (roles, status, http codes)
-├── controllers/     # Route handlers
-├── errors/          # Custom error classes
-├── middleware/      # Express middleware (auth, rbac, rate limiter, error handler)
-├── models/          # Prisma client singleton
-├── prisma/          # Schema, migrations, seed
-├── repositories/    # Data access layer
-├── routes/          # Express route definitions
-├── services/        # Business logic layer
-├── tests/           # Test suite
-├── utils/           # Utilities (jwt, password, response formatting)
-└── validators/      # Zod validation schemas
-```
+### Error Handling
+- Never leave empty catch blocks
+- Provide meaningful error messages to users (without leaking sensitive info)
 
-### Frontend (`apps/frontend`)
-```
-├── src/
-│   ├── api/                 # Axios client and API service modules
-│   ├── assets/              # Static assets (logo)
-│   ├── components/
-│   │   ├── guards/          # ProtectedRoute, PublicRoute
-│   │   ├── layout/          # DashboardLayout, Sidebar, TopNav
-│   │   ├── ui/              # Button, Input, Card, Spinner, Alert, Badge
-│   │   └── user/            # User management components (UserList, UserForm, UserDetail)
-│   ├── constants/           # App-wide constants (roles)
-│   ├── context/             # AuthContext (React Context API)
-│   ├── hooks/               # useAuth custom hook
-│   ├── pages/               # Login, Dashboard, Profile, Forbidden, NotFound
-│   └── routes/              # AppRoutes with route configuration
-├── index.html
-└── vite.config.js           # Vite config with API proxy
-```
+### Security
+- Validate all inputs
+- Use environment variables for secrets
+- Implement proper CORS policies
+- Use helmet and rate limiting as configured
+
+### Performance
+- Avoid unnecessary re-renders in React
+- Optimize database queries
+- Consider lazy loading for non-critical resources
+
+## Future Development Roadmap
+
+(See Development Roadmap section above for detailed phase-by-feature breakdown)
