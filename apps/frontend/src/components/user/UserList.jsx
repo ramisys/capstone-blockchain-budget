@@ -321,7 +321,7 @@ export function UserList() {
               variant="outline"
               onClick={handleResetFilters}
               disabled={!hasActiveFilters}
-              className="w-full py-2 px-3 text-sm font-medium border-slate-300 text-slate-700 hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl transition-all flex items-center justify-center gap-2 h-9.5"
+              className="w-full py-2 px-3 text-[var(--font-size-sm)] font-medium border-slate-300 text-slate-700 hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl transition-all flex items-center justify-center gap-2 h-9.5"
               aria-label="Reset Filters"
             >
               <RotateCcw className="w-4 h-4 text-slate-500" />
@@ -350,14 +350,14 @@ export function UserList() {
           </div>
           <div className="pt-2 flex items-center justify-center gap-3">
             {hasActiveFilters && (
-              <Button variant="outline" onClick={handleResetFilters} className="rounded-xl px-4 py-2 text-sm">
+              <Button variant="outline" onClick={handleResetFilters} className="rounded-xl px-4 py-2 text-[var(--font-size-sm)]">
                 Reset Filters
               </Button>
             )}
             <Button
               variant="primary"
               onClick={() => navigate('/users/new')}
-              className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl px-4 py-2 text-sm font-medium shadow-sm"
+              className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl px-4 py-2 text-[var(--font-size-sm)] font-medium shadow-sm"
             >
               Add User
             </Button>
@@ -379,7 +379,7 @@ export function UserList() {
                   <th className="py-3.5 px-5 text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 text-sm">
+              <tbody className="divide-y divide-slate-100 text-[var(--font-size-sm)]">
                 {users.map((u) => (
                   <tr
                     key={u.id}
@@ -411,7 +411,7 @@ export function UserList() {
                     </td>
 
                     {/* Created Date Column */}
-                    <td className="py-4 px-5 text-slate-500 whitespace-nowrap text-xs font-medium">
+                    <td className="py-4 px-5 text-[var(--font-size-xs)] whitespace-nowrap font-medium">
                       {formatDate(u.createdAt)}
                     </td>
 
@@ -462,7 +462,7 @@ export function UserList() {
 
           {/* Pagination Footer */}
           <div className="px-5 py-4 border-t border-slate-100 bg-slate-50/50 flex flex-col sm:flex-row items-center justify-between gap-4">
-            <div className="text-xs sm:text-sm text-slate-600">
+            <div className="text-[var(--font-size-xs)] sm:text-[var(--font-size-sm)] text-slate-600">
               Showing <span className="font-semibold text-slate-900">{startItem}</span>–
               <span className="font-semibold text-slate-900">{endItem}</span> of{' '}
               <span className="font-semibold text-slate-900">{paginationInfo.total}</span> users
@@ -483,7 +483,7 @@ export function UserList() {
                   <button
                     key={pageNum}
                     onClick={() => handlePageChange(pageNum)}
-                    className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${
+                    className={`px-3 py-1.5 text-[var(--font-size-xs)] font-semibold rounded-lg transition-all ${
                       pagination.page === pageNum
                         ? 'bg-indigo-600 text-white shadow-sm'
                         : 'text-slate-600 border border-slate-200 hover:bg-white'

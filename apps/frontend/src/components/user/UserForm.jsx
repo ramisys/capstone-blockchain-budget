@@ -195,7 +195,7 @@ export function UserForm() {
           <button
             type="button"
             onClick={() => navigate('/users')}
-            className="inline-flex items-center text-xs font-semibold uppercase tracking-wider text-slate-500 hover:text-indigo-600 transition-colors group focus:outline-none focus:ring-2 focus:ring-indigo-500/20 rounded-md px-1.5 py-1 -ml-1.5"
+            className="inline-flex items-center text-[var(--font-size-xs)] font-semibold uppercase tracking-wider text-slate-500 hover:text-indigo-600 transition-colors group focus:outline-none focus:ring-2 focus:ring-indigo-500/20 rounded-md px-1.5 py-1 -ml-1.5"
             aria-label="Back to User Management"
           >
             <ArrowLeft className="w-4 h-4 mr-1.5 transition-transform group-hover:-translate-x-1" />
@@ -203,8 +203,8 @@ export function UserForm() {
           </button>
 
           <div>
-            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900">{pageTitle}</h1>
-            <p className="mt-1 text-sm text-slate-500">{pageSubtitle}</p>
+            <h1 className="text-[var(--font-size-2xl)] sm:text-[var(--font-size-3xl)] font-bold tracking-tight text-slate-900">{pageTitle}</h1>
+            <p className="mt-1 text-[var(--font-size-sm)] text-slate-500">{pageSubtitle}</p>
           </div>
         </div>
 
@@ -222,11 +222,11 @@ export function UserForm() {
             <div className="space-y-5">
               <div className="border-b border-slate-100 pb-3 flex items-center justify-between">
                 <div>
-                  <h2 className="text-base font-semibold text-slate-900 flex items-center gap-2">
+                  <h2 className="text-[var(--font-size-base)] font-semibold text-slate-900 flex items-center gap-2">
                     <User className="w-4 h-4 text-indigo-600" />
                     {t('user.personalInfo', 'Personal Information')}
                   </h2>
-                  <p className="text-xs text-slate-500 mt-0.5">
+                  <p className="text-[var(--font-size-xs)] text-slate-500 mt-0.5">
                     {t('user.personalInfoDesc', "Enter the user's full name and email address.")}
                   </p>
                 </div>
@@ -235,7 +235,7 @@ export function UserForm() {
               <div className="grid grid-cols-1 gap-5">
                 {/* Full Name */}
                 <div>
-                  <label htmlFor="fullName" className="block text-xs font-semibold uppercase tracking-wider text-slate-700 mb-1.5">
+                  <label htmlFor="fullName" className="block text-[var(--font-size-xs)] font-semibold uppercase tracking-wider text-slate-700 mb-1.5">
                     {t('form.fullName')} <span className="text-red-500">*</span>
                   </label>
                   <div className="relative rounded-xl shadow-xs">
@@ -247,7 +247,7 @@ export function UserForm() {
                       type="text"
                       disabled={loading}
                       {...register('fullName')}
-                      className={`w-full pl-10 pr-3.5 py-2.5 text-sm border rounded-xl transition-all focus:outline-none focus:ring-2 disabled:opacity-60 disabled:bg-slate-50 ${
+                      className={`w-full pl-10 pr-3.5 py-2.5 text-[var(--font-size-sm)] border rounded-xl transition-all focus:outline-none focus:ring-2 disabled:opacity-60 disabled:bg-slate-50 ${
                         errors.fullName
                           ? 'border-red-500 bg-red-50/20 text-slate-900 focus:ring-red-500/20'
                           : 'border-slate-300 bg-white text-slate-900 hover:border-slate-400 focus:ring-indigo-500/20'
@@ -258,7 +258,7 @@ export function UserForm() {
                     />
                   </div>
                   {errors.fullName && (
-                    <div id="fullName-error" className="flex items-center gap-1 text-xs text-red-600 mt-1.5 font-medium" role="alert">
+                    <div id="fullName-error" className="flex items-center gap-1 text-[var(--font-size-xs)] text-red-600 mt-1.5 font-medium" role="alert">
                       <AlertCircle className="w-3.5 h-3.5 shrink-0" />
                       <span>{errors.fullName.message}</span>
                     </div>
@@ -267,7 +267,7 @@ export function UserForm() {
 
                 {/* Email Address */}
                 <div>
-                  <label htmlFor="email" className="block text-xs font-semibold uppercase tracking-wider text-slate-700 mb-1.5">
+                  <label htmlFor="email" className="block text-[var(--font-size-xs)] font-semibold uppercase tracking-wider text-slate-700 mb-1.5">
                     {t('form.email')} <span className="text-red-500">*</span>
                   </label>
                   <div className="relative rounded-xl shadow-xs">
@@ -279,7 +279,7 @@ export function UserForm() {
                       type="email"
                       disabled={loading}
                       {...register('email')}
-                      className={`w-full pl-10 pr-3.5 py-2.5 text-sm border rounded-xl transition-all focus:outline-none focus:ring-2 disabled:opacity-60 disabled:bg-slate-50 ${
+                      className={`w-full pl-10 pr-3.5 py-2.5 text-[var(--font-size-sm)] border rounded-xl transition-all focus:outline-none focus:ring-2 disabled:opacity-60 disabled:bg-slate-50 ${
                         errors.email
                           ? 'border-red-500 bg-red-50/20 text-slate-900 focus:ring-red-500/20'
                           : 'border-slate-300 bg-white text-slate-900 hover:border-slate-400 focus:ring-indigo-500/20'
@@ -290,7 +290,7 @@ export function UserForm() {
                     />
                   </div>
                   {errors.email && (
-                    <div id="email-error" className="flex items-center gap-1 text-xs text-red-600 mt-1.5 font-medium" role="alert">
+                    <div id="email-error" className="flex items-center gap-1 text-[var(--font-size-xs)] text-red-600 mt-1.5 font-medium" role="alert">
                       <AlertCircle className="w-3.5 h-3.5 shrink-0" />
                       <span>{errors.email.message}</span>
                     </div>
@@ -302,11 +302,11 @@ export function UserForm() {
             {/* SECTION 2: Security */}
             <div className="space-y-5">
               <div className="border-b border-slate-100 pb-3">
-                <h2 className="text-base font-semibold text-slate-900 flex items-center gap-2">
+                <h2 className="text-[var(--font-size-base)] font-semibold text-slate-900 flex items-center gap-2">
                   <Lock className="w-4 h-4 text-indigo-600" />
                   {t('user.security', 'Security')}
                 </h2>
-                <p className="text-xs text-slate-500 mt-0.5">
+                <p className="text-[var(--font-size-xs)] text-slate-500 mt-0.5">
                   {t('user.securityDesc', 'Set account password and view security requirements.')}
                 </p>
               </div>
@@ -315,7 +315,7 @@ export function UserForm() {
                 /* Create Mode Password Field */
                 <div className="space-y-3">
                   <div>
-                    <label htmlFor="password" className="block text-xs font-semibold uppercase tracking-wider text-slate-700 mb-1.5">
+                    <label htmlFor="password" className="block text-[var(--font-size-xs)] font-semibold uppercase tracking-wider text-slate-700 mb-1.5">
                       {t('form.password')} <span className="text-red-500">*</span>
                     </label>
                     <div className="relative rounded-xl shadow-xs">
@@ -327,7 +327,7 @@ export function UserForm() {
                         type={showPassword ? 'text' : 'password'}
                         disabled={loading}
                         {...register('password')}
-                        className={`w-full pl-10 pr-11 py-2.5 text-sm border rounded-xl transition-all focus:outline-none focus:ring-2 disabled:opacity-60 disabled:bg-slate-50 ${
+                        className={`w-full pl-10 pr-11 py-2.5 text-[var(--font-size-sm)] border rounded-xl transition-all focus:outline-none focus:ring-2 disabled:opacity-60 disabled:bg-slate-50 ${
                           errors.password
                             ? 'border-red-500 bg-red-50/20 text-slate-900 focus:ring-red-500/20'
                             : 'border-slate-300 bg-white text-slate-900 hover:border-slate-400 focus:ring-indigo-500/20'
@@ -346,7 +346,7 @@ export function UserForm() {
                       </button>
                     </div>
                     {errors.password && (
-                      <div id="password-error" className="flex items-center gap-1 text-xs text-red-600 mt-1.5 font-medium" role="alert">
+                      <div id="password-error" className="flex items-center gap-1 text-[var(--font-size-xs)] text-red-600 mt-1.5 font-medium" role="alert">
                         <AlertCircle className="w-3.5 h-3.5 shrink-0" />
                         <span>{errors.password.message}</span>
                       </div>
@@ -358,7 +358,7 @@ export function UserForm() {
                     <div className="p-4 bg-slate-50 border border-slate-200/80 rounded-xl space-y-3 animate-in fade-in duration-200">
                       {/* Strength Progress */}
                       <div className="space-y-1.5">
-                        <div className="flex justify-between items-center text-xs font-semibold">
+                        <div className="flex justify-between items-center text-[var(--font-size-xs)] font-semibold">
                           <span className="text-slate-600">Password Strength</span>
                           <span className={strength.textColor}>{strength.label}</span>
                         </div>
@@ -368,7 +368,7 @@ export function UserForm() {
                       </div>
 
                       {/* Requirements Checklist */}
-                      <div className="pt-2 border-t border-slate-200/60 grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                      <div className="pt-2 border-t border-slate-200/60 grid grid-cols-1 sm:grid-cols-2 gap-2 text-[var(--font-size-xs)]">
                         {passwordRequirements.map((req, idx) => (
                           <div key={idx} className="flex items-center gap-1.5">
                             {req.met ? (
@@ -388,7 +388,7 @@ export function UserForm() {
               ) : (
                 /* Edit Mode Password Toggle */
                 <div className="space-y-3">
-                  <label className="flex items-center text-sm font-medium text-slate-800 cursor-pointer select-none">
+                  <label className="flex items-center text-[var(--font-size-sm)] font-medium text-slate-800 cursor-pointer select-none">
                     <input
                       type="checkbox"
                       checked={enablePasswordEdit}
@@ -407,7 +407,7 @@ export function UserForm() {
                         type={showPassword ? 'text' : 'password'}
                         disabled={loading}
                         {...register('password')}
-                        className="w-full pl-10 pr-11 py-2.5 text-sm border border-slate-300 rounded-xl transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500/20 hover:border-slate-400 bg-white text-slate-900"
+                        className="w-full pl-10 pr-11 py-2.5 text-[var(--font-size-sm)] border border-slate-300 rounded-xl transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500/20 hover:border-slate-400 bg-white text-slate-900"
                         placeholder={t('form.newPassword', 'Enter new password')}
                       />
                       <button
@@ -427,15 +427,15 @@ export function UserForm() {
             {/* SECTION 3: Account Settings */}
             <div className="space-y-5">
               <div className="border-b border-slate-100 pb-3">
-                <h2 className="text-base font-semibold text-slate-900 flex items-center gap-2">
+                <h2 className="text-[var(--font-size-base)] font-semibold text-slate-900 flex items-center gap-2">
                   <Sliders className="w-4 h-4 text-indigo-600" />
                   {t('user.accountSettings', 'Account Settings')}
                 </h2>
-                <p className="text-xs text-slate-500 mt-0.5">
+                <p className="text-[var(--font-size-xs)] text-slate-500 mt-0.5">
                   {t('user.accountSettingsDesc', 'Assign permissions role and active status.')}
                 </p>
                 {id && id === user?.id && (
-                  <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200/80 rounded-lg p-2.5 mt-2 font-medium">
+                  <p className="text-[var(--font-size-xs)] text-amber-700 bg-amber-50 border border-amber-200/80 rounded-lg p-2.5 mt-2 font-medium">
                     ⚠️ Note: You are currently editing your own account. Demoting your role or deactivating your status is guarded by system Last Admin protection to prevent lockout.
                   </p>
                 )}
@@ -444,7 +444,7 @@ export function UserForm() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                 {/* Role Selector */}
                 <div>
-                  <label htmlFor="role" className="block text-xs font-semibold uppercase tracking-wider text-slate-700 mb-1.5">
+                  <label htmlFor="role" className="block text-[var(--font-size-xs)] font-semibold uppercase tracking-wider text-slate-700 mb-1.5">
                     {t('form.role')} <span className="text-red-500">*</span>
                   </label>
                   <div className="relative rounded-xl shadow-xs">
@@ -455,7 +455,7 @@ export function UserForm() {
                       id="role"
                       disabled={loading}
                       {...register('role')}
-                      className={`w-full pl-10 pr-8 py-2.5 text-sm border rounded-xl transition-all focus:outline-none focus:ring-2 cursor-pointer disabled:opacity-60 disabled:bg-slate-50 ${
+                      className={`w-full pl-10 pr-8 py-2.5 text-[var(--font-size-sm)] border rounded-xl transition-all focus:outline-none focus:ring-2 cursor-pointer disabled:opacity-60 disabled:bg-slate-50 ${
                         errors.role
                           ? 'border-red-500 bg-red-50/20 text-slate-900 focus:ring-red-500/20'
                           : 'border-slate-300 bg-white text-slate-900 hover:border-slate-400 focus:ring-indigo-500/20'
@@ -472,7 +472,7 @@ export function UserForm() {
                     </select>
                   </div>
                   {errors.role && (
-                    <div id="role-error" className="flex items-center gap-1 text-xs text-red-600 mt-1.5 font-medium" role="alert">
+                    <div id="role-error" className="flex items-center gap-1 text-[var(--font-size-xs)] text-red-600 mt-1.5 font-medium" role="alert">
                       <AlertCircle className="w-3.5 h-3.5 shrink-0" />
                       <span>{errors.role.message}</span>
                     </div>
@@ -481,7 +481,7 @@ export function UserForm() {
 
                 {/* Status Selector */}
                 <div>
-                  <label htmlFor="status" className="block text-xs font-semibold uppercase tracking-wider text-slate-700 mb-1.5">
+                  <label htmlFor="status" className="block text-[var(--font-size-xs)] font-semibold uppercase tracking-wider text-slate-700 mb-1.5">
                     {t('form.status')} <span className="text-red-500">*</span>
                   </label>
                   <div className="relative rounded-xl shadow-xs">
@@ -492,7 +492,7 @@ export function UserForm() {
                       id="status"
                       disabled={loading}
                       {...register('status')}
-                      className={`w-full pl-10 pr-8 py-2.5 text-sm border rounded-xl transition-all focus:outline-none focus:ring-2 cursor-pointer disabled:opacity-60 disabled:bg-slate-50 ${
+                      className={`w-full pl-10 pr-8 py-2.5 text-[var(--font-size-sm)] border rounded-xl transition-all focus:outline-none focus:ring-2 cursor-pointer disabled:opacity-60 disabled:bg-slate-50 ${
                         errors.status
                           ? 'border-red-500 bg-red-50/20 text-slate-900 focus:ring-red-500/20'
                           : 'border-slate-300 bg-white text-slate-900 hover:border-slate-400 focus:ring-indigo-500/20'
@@ -509,7 +509,7 @@ export function UserForm() {
                     </select>
                   </div>
                   {errors.status && (
-                    <div id="status-error" className="flex items-center gap-1 text-xs text-red-600 mt-1.5 font-medium" role="alert">
+                    <div id="status-error" className="flex items-center gap-1 text-[var(--font-size-xs)] text-red-600 mt-1.5 font-medium" role="alert">
                       <AlertCircle className="w-3.5 h-3.5 shrink-0" />
                       <span>{errors.status.message}</span>
                     </div>
