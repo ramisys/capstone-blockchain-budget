@@ -59,6 +59,20 @@ class UserRepository {
     return prisma.user.count(options);
   }
 
+  async aggregateRoleCounts() {
+    return prisma.user.groupBy({
+      by: ['role'],
+      _count: true,
+    });
+  }
+
+  async aggregateStatusCounts() {
+    return prisma.user.groupBy({
+      by: ['status'],
+      _count: true,
+    });
+  }
+
   async deleteUser(id) {
     return prisma.user.delete({
       where: { id },
