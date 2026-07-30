@@ -36,6 +36,7 @@ import { UserDetailSkeleton } from '../ui/Skeleton';
 import { Avatar } from '../ui/Avatar';
 import { RoleBadge, StatusBadge } from '../ui/Badge';
 import { Modal } from '../ui/Modal';
+import { Tooltip } from '../ui/Tooltip';
 import { useToast } from '../ui/Toast';
 import { useAuth } from '../../hooks/useAuth';
 import { ROLES } from '../../constants/roles';
