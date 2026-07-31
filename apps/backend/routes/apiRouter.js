@@ -2,6 +2,11 @@ import { Router } from 'express';
 import authRoutes from './authRoutes.js';
 import userRoutes from './userRoutes.js';
 import dashboardRoutes from './dashboardRoutes.js';
+import fiscalYearRoutes from './fiscalYearRoutes.js';
+import fundSourceRoutes from './fundSourceRoutes.js';
+import departmentRoutes from './departmentRoutes.js';
+import budgetCategoryRoutes from './budgetCategoryRoutes.js';
+import budgetProgramRoutes from './budgetProgramRoutes.js';
 
 const apiRouter = Router();
 
@@ -13,5 +18,20 @@ apiRouter.use('/users', userRoutes);
 
 // Mount dashboard routes
 apiRouter.use('/dashboard', dashboardRoutes);
+
+// Mount fiscal year routes
+apiRouter.use('/fiscal-years', fiscalYearRoutes);
+
+// Mount fund source routes
+apiRouter.use('/fund-sources', fundSourceRoutes);
+
+// Mount department routes
+apiRouter.use('/departments', departmentRoutes);
+
+// Mount budget category routes
+apiRouter.use('/budget-categories', budgetCategoryRoutes);
+
+// Mount budget program routes
+apiRouter.use('/budget-programs', budgetProgramRoutes);
 
 export default apiRouter;

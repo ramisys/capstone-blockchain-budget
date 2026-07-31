@@ -19,6 +19,94 @@ enum Status {
   Inactive
 }
 
+enum FiscalYearStatus {
+  Active
+  Inactive
+  Archived
+}
+
+model FiscalYear {
+  id           String   @id @default(uuid())
+  code         String   @unique
+  description  String
+  startDate    DateTime
+  endDate      DateTime
+  status       FiscalYearStatus @default(Inactive)
+  isActive     Boolean        @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("fiscal_years")
+  @@index([code])
+  @@index([startDate, endDate])
+}
+
+model FundSource {
+  id         String   @id @default(uuid())
+  code       String   @unique
+  name       String
+  description String?
+  status     Status   @default(Active)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@map("fund_sources")
+  @@index([code])
+}
+
+model Department {
+  id           String   @id @default(uuid())
+  code         String   @unique
+  name         String   @unique
+  officeHead   String?
+  contactNumber String?
+  email        String?
+  officeAddress String?
+  status       Status   @default(Active)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("departments")
+  @@index([code])
+  @@index([name])
+  budgetPrograms BudgetProgram[] @relation("DepartmentBudgetProgram")
+}
+
+model BudgetCategory {
+  id         String   @id @default(uuid())
+  code       String   @unique
+  name       String   @unique
+  description String?
+  status     Status   @default(Active)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@map("budget_categories")
+  @@index([code])
+  @@index([name])
+  budgetPrograms BudgetProgram[] @relation("BudgetCategoryBudgetProgram")
+}
+
+model BudgetProgram {
+  id             String   @id @default(uuid())
+  code           String   @unique
+  name           String
+  description    String?
+  departmentId   String
+  budgetCategoryId String
+  status         Status   @default(Active)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  department     Department @relation("DepartmentBudgetProgram", fields: [departmentId], references: [id])
+  budgetCategory BudgetCategory @relation("BudgetCategoryBudgetProgram", fields: [budgetCategoryId], references: [id])
+
+  @@map("budget_programs")
+  @@index([code])
+  @@index([departmentId])
+  @@index([budgetCategoryId])
+}
+
 model User {
   id        String   @id @default(uuid())
   fullName  String
