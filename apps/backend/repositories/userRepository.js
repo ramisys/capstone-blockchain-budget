@@ -73,6 +73,53 @@ class UserRepository {
     });
   }
 
+  /**
+   * Get aggregated statistics for dashboard in a single query
+   * @returns {Promise<Object>} Object with totalUsers, activeUsers, inactiveUsers,
+   *                            administrators, treasurers, budgetOfficers, auditors
+   */
+  async getDashboardStatsAggregated() {
+    const groups = await prisma.user.groupBy({
+      by: ['role', 'status'],
+      _count: true,
+    });
+
+    // Initialize counters
+    let totalUsers = 0;
+    let activeUsers = 0;
+    let inactiveUsers = 0;
+    const roleCounts = {
+      Administrator: 0,
+      Treasurer: 0,
+      BudgetOfficer: 0,
+      Auditor: 0,
+    };
+
+    groups.forEach(g => {
+      const count = Number(g._count);
+      totalUsers += count;
+      if (g.status === 'Active') {
+        activeUsers += count;
+        // Increment role-specific active count
+        if (roleCounts.hasOwnProperty(g.role)) {
+          roleCounts[g.role] += count;
+        }
+      } else if (g.status === 'Inactive') {
+        inactiveUsers += count;
+      }
+    });
+
+    return {
+      totalUsers,
+      activeUsers,
+      inactiveUsers,
+      administrators: roleCounts.Administrator,
+      treasurers: roleCounts.Treasurer,
+      budgetOfficers: roleCounts.BudgetOfficer,
+      auditors: roleCounts.Auditor,
+    };
+  }
+
   async deleteUser(id) {
     return prisma.user.delete({
       where: { id },
