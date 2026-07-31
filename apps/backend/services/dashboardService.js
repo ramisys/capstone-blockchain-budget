@@ -57,19 +57,23 @@ class DashboardService {
     // Get users by role
     const usersByRoleRaw = await userRepository.aggregateRoleCounts();
 
+    console.log("usersByRoleRaw:", usersByRoleRaw);
+
     // Format the data for the frontend
     const usersByRole = usersByRoleRaw.map((roleCount) => ({
-      role: this.formatRole(roleCount._id.role),
-      count: parseInt(roleCount._count),
+      role: this.formatRole(roleCount.role),
+      count: roleCount._count,
     }));
 
     // Get users by status
     const usersByStatusRaw = await userRepository.aggregateStatusCounts();
 
+    console.log("usersByStatusRaw:", usersByStatusRaw);
+
     // Format the data for the frontend
     const usersByStatus = usersByStatusRaw.map((statusCount) => ({
-      status: this.formatStatus(statusCount._id.status),
-      count: parseInt(statusCount._count),
+      status: this.formatStatus(statusCount.status),
+      count: statusCount._count,
     }));
 
     return {

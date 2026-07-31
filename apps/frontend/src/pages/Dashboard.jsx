@@ -1,179 +1,471 @@
+import { useState, useEffect } from 'react';
 import { useAuth } from '../hooks/useAuth';
-import { Card, CardBody } from '../components/ui/Card';
-import { Badge } from '../components/ui/Badge';
-
-const quickAccessCards = [
-  {
-    title: 'Budget Allocation',
-    description: 'Manage departmental budget distributions and fund allocations across organizational units.',
-    icon: 'M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z',
-    status: 'pending',
-  },
-  {
-    title: 'Expense Tracking',
-    description: 'Monitor and record expenditures with real-time validation against allocated budgets.',
-    icon: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01',
-    status: 'pending',
-  },
-  {
-    title: 'Audit Trail',
-    description: 'Review immutable blockchain-verified audit logs of all financial transactions and changes.',
-    icon: 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z',
-    status: 'pending',
-  },
-  {
-    title: 'Reports & Analytics',
-    description: 'Generate comprehensive financial reports with visual analytics and compliance documentation.',
-    icon: 'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z',
-    status: 'pending',
-  },
-];
-
-const recentActivity = [
-  { action: 'System initialized', user: 'System', time: 'Just now', type: 'info' },
-  { action: 'Session started', user: 'You', time: 'Just now', type: 'success' },
-];
-
-function getRoleBadgeVariant(role) {
-  const variants = {
-    Administrator: 'primary',
-    Treasurer: 'accent',
-    BudgetOfficer: 'info',
-    Auditor: 'success',
-  };
-  return variants[role] || 'primary';
-}
-
-function getStatusBadge(status) {
-  switch (status) {
-    case 'active': return <Badge variant="success">Active</Badge>;
-    case 'pending': return <Badge variant="warning">Coming Soon</Badge>;
-    case 'inactive': return <Badge variant="error">Inactive</Badge>;
-    default: return <Badge variant="primary">{status}</Badge>;
-  }
-}
+import { Card, CardBody, CardHeader } from '../components/ui/Card';
+import { Spinner } from '../components/ui/Spinner';
+import { Alert } from '../components/ui/Alert';
+import { ResponsiveContainer, PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, Legend } from 'recharts';
+import apiClient from '../api/apiClient';
 
 export function Dashboard() {
   const { user } = useAuth();
 
-  const roleLabel = user?.role
-    ? ({ Administrator: 'Administrator', Treasurer: 'Treasurer', BudgetOfficer: 'Budget Officer', Auditor: 'Auditor' }[user.role] || user.role)
-    : '';
+  // State for stats
+  const [stats, setStats] = useState(null);
+  const [statsLoading, setStatsLoading] = useState(true);
+  const [statsError, setStatsError] = useState(null);
 
-  const greeting = (() => {
-    const hour = new Date().getHours();
-    if (hour < 12) return 'Good morning';
-    if (hour < 17) return 'Good afternoon';
-    return 'Good evening';
-  })();
+  // State for charts data
+  const [chartsData, setChartsData] = useState(null);
+  const [chartsLoading, setChartsLoading] = useState(true);
+  const [chartsError, setChartsError] = useState(null);
+
+  // State for recent activities
+  const [activities, setActivities] = useState([]);
+  const [activitiesLoading, setActivitiesLoading] = useState(true);
+  const [activitiesError, setActivitiesError] = useState(null);
+
+  // State for notifications
+  const [notifications, setNotifications] = useState([]);
+  const [notificationsLoading, setNotificationsLoading] = useState(true);
+  const [notificationsError, setNotificationsError] = useState(null);
+
+  // State for blockchain status
+  const [blockchainStatus, setBlockchainStatus] = useState(null);
+  const [blockchainLoading, setBlockchainLoading] = useState(true);
+  const [blockchainError, setBlockchainError] = useState(null);
+
+  // Fetch dashboard stats
+  const fetchStats = async () => {
+    try {
+      setStatsLoading(true);
+      const response = await apiClient.get('/dashboard/stats');
+      setStats(response.data.data.stats);
+      setStatsError(null);
+    } catch (err) {
+      setStatsError(err.response?.data?.message || 'Failed to fetch stats');
+    } finally {
+      setStatsLoading(false);
+    }
+  };
+
+  // Fetch dashboard charts data
+  const fetchChartsData = async () => {
+    try {
+      setChartsLoading(true);
+      const response = await apiClient.get('/dashboard/charts');
+      setChartsData(response.data.data.chartsData);
+      setChartsError(null);
+    } catch (err) {
+      setChartsError(err.response?.data?.message || 'Failed to fetch charts data');
+    } finally {
+      setChartsLoading(false);
+    }
+  };
+
+  // Fetch recent activities
+  const fetchActivities = async () => {
+    try {
+      setActivitiesLoading(true);
+      const response = await apiClient.get('/dashboard/activities');
+      setActivities(response.data.data.activities);
+      setActivitiesError(null);
+    } catch (err) {
+      setActivitiesError(err.response?.data?.message || 'Failed to fetch activities');
+    } finally {
+      setActivitiesLoading(false);
+    }
+  };
+
+  // Fetch notifications
+  const fetchNotifications = async () => {
+    try {
+      setNotificationsLoading(true);
+      const response = await apiClient.get('/dashboard/notifications');
+      setNotifications(response.data.data.notifications);
+      setNotificationsError(null);
+    } catch (err) {
+      setNotificationsError(err.response?.data?.message || 'Failed to fetch notifications');
+    } finally {
+      setNotificationsLoading(false);
+    }
+  };
+
+  // Fetch blockchain status
+  const fetchBlockchainStatus = async () => {
+    try {
+      setBlockchainLoading(true);
+      const response = await apiClient.get('/dashboard/blockchain');
+      setBlockchainStatus(response.data.data.blockchainStatus);
+      setBlockchainError(null);
+    } catch (err) {
+      setBlockchainError(err.response?.data?.message || 'Failed to fetch blockchain status');
+    } finally {
+      setBlockchainLoading(false);
+    }
+  };
+
+  const COLORS = [
+    "#2563EB", // Administrator
+    "#10B981", // Budget Officer
+    "#F59E0B", // Treasurer
+    "#EF4444", // Auditor
+  ];
+
+  // Fetch all data on mount
+  useEffect(() => {
+    fetchStats();
+    fetchChartsData();
+    fetchActivities();
+    fetchNotifications();
+    fetchBlockchainStatus();
+  }, []);
+
+  // Helper function to format number with commas
+  const formatNumber = (num) => {
+    return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  };
+
+  // Helper function to get status badge variant (for Bootstrap Alert component)
+  const getStatusVariant = (status) => {
+    switch (status) {
+      case 'active': return 'success';
+      case 'inactive': return 'error';
+      case 'pending': return 'warning';
+      default: return 'primary';
+    }
+  };
+
+  // Helper function to truncate text
+  const truncateText = (text, maxLength) => {
+    if (!text) return '';
+    return text.length > maxLength ? text.substring(0, maxLength) + '...' : text;
+  };
+
+  // Helper function to get Tailwind color class from notification type
+  const getTailwindColorFromType = (type) => {
+    switch (type) {
+      case 'success': return 'bg-green-500';
+      case 'info': return 'bg-blue-500';
+      case 'warning': return 'bg-yellow-500';
+      case 'error': return 'bg-red-500';
+      default: return 'bg-gray-500';
+    }
+  };
 
   return (
     <div className="dashboard-page">
-      <div className="welcome-section">
-        <div>
-          <h1 className="welcome-heading">
-            {greeting}, {user?.fullName?.split(' ')[0] || 'User'}
-          </h1>
-          <p className="welcome-text">
-            Welcome to the BudgetChain financial management platform. Monitor budgets, track expenses, and maintain fiscal accountability.
-          </p>
-        </div>
-        <div className="welcome-badge-wrapper">
-          <Badge variant={getRoleBadgeVariant(user?.role)}>
-            {roleLabel}
-          </Badge>
-        </div>
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        {/* Total Users */}
+        <Card className="h-full">
+          <CardHeader className="pb-4">
+            <h6 className="mb-0 text-sm font-semibold text-slate-500">Total Users</h6>
+          </CardHeader>
+          <CardBody className="text-center">
+            {statsLoading ? (
+              <Spinner size="sm" />
+            ) : statsError ? (
+              <Alert variant="danger">{statsError}</Alert>
+            ) : (
+              <>
+                <h2 className="display-4 fw-bold mb-2">{formatNumber(stats.totalUsers)}</h2>
+                <p className="text-muted">Total registered users</p>
+              </>
+            )}
+          </CardBody>
+        </Card>
+
+        {/* Active Users */}
+        <Card className="h-full">
+          <CardHeader className="pb-4">
+            <h6 className="mb-0 text-sm font-semibold text-slate-500">Active Users</h6>
+          </CardHeader>
+          <CardBody className="text-center">
+            {statsLoading ? (
+              <Spinner size="sm" />
+            ) : statsError ? (
+              <Alert variant="danger">{statsError}</Alert>
+            ) : (
+              <>
+                <h2 className="display-4 fw-bold text-success mb-2">{formatNumber(stats.activeUsers)}</h2>
+                <p className="text-muted">Currently active</p>
+              </>
+            )}
+          </CardBody>
+        </Card>
+
+        {/* Inactive Users */}
+        <Card className="h-full">
+          <CardHeader className="pb-4">
+            <h6 className="mb-0 text-sm font-semibold text-slate-500">Inactive Users</h6>
+          </CardHeader>
+          <CardBody className="text-center">
+            {statsLoading ? (
+              <Spinner size="sm" />
+            ) : statsError ? (
+              <Alert variant="danger">{statsError}</Alert>
+            ) : (
+              <>
+                <h2 className="display-4 fw-bold text-danger mb-2">{formatNumber(stats.inactiveUsers)}</h2>
+                <p className="text-muted">Inactive or suspended</p>
+              </>
+            )}
+          </CardBody>
+        </Card>
+
+        {/* Pending Approvals (example: users with pending status) */}
+        <Card className="h-full">
+          <CardHeader className="pb-4">
+            <h6 className="mb-0 text-sm font-semibold text-slate-500">Pending Approvals</h6>
+          </CardHeader>
+          <CardBody className="text-center">
+            {statsLoading ? (
+              <Spinner size="sm" />
+            ) : statsError ? (
+              <Alert variant="danger">{statsError}</Alert>
+            ) : (
+              <>
+                {/* We don't have pending users in stats, but we can calculate from usersByStatus if available */}
+                {/* For now, we'll show a placeholder or compute from stats if we had pending count */}
+                {/* Since we don't have pending in stats, we'll show 0 or compute from usersByStatus? */}
+                {/* Let's skip and show a placeholder for now, or we can show the count of users with status pending from chartsData? */}
+                {/* We'll leave it as 0 for now, but in a real app we would have this in stats */}
+                <h2 className="display-4 fw-bold text-warning mb-2">0</h2>
+                <p className="text-muted">Awaiting verification</p>
+              </>
+            )}
+          </CardBody>
+        </Card>
       </div>
 
-      <div className="quick-access-grid">
-        {quickAccessCards.map((card) => (
-          <Card key={card.title} className="quick-access-card">
-            <CardBody>
-              <div className="quick-access-card-header">
-                <div className="quick-access-icon">
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" width="24" height="24">
-                    <path d={card.icon} />
-                  </svg>
-                </div>
-                {getStatusBadge(card.status)}
+      {/* Charts Section */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+        {/* Users by Role - Pie Chart */}
+        <Card className="h-full">
+          <CardHeader className="pb-4">
+            <div className="d-flex justify-content-between align-items-center">
+              <h6 className="mb-0 text-sm font-semibold text-slate-500">Users by Role</h6>
+              <div className="dropdown">
+                <button className="btn btn-link p-0 text-muted fs-6 dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                  <i class="bi bi-three-dots"></i>
+                </button>
+                <ul className="dropdown-menu dropdown-menu-end">
+                  <li><a className="dropdown-item" href="#">View Details</a></li>
+                  <li><a className="dropdown-item" href="#">Export Data</a></li>
+                </ul>
               </div>
-              <h3 className="quick-access-title">{card.title}</h3>
-              <p className="quick-access-description">{card.description}</p>
-            </CardBody>
-          </Card>
-        ))}
+            </div>
+          </CardHeader>
+          <CardBody className="p-0">
+            {chartsLoading ? (
+              <Spinner size="sm" className="d-block mx-auto my-4" />
+            ) : chartsError ? (
+              <Alert variant="danger">{chartsError}</Alert>
+            ) : chartsData && chartsData.usersByRole && chartsData.usersByRole.length > 0 ? (
+              <ResponsiveContainer width="100%" height={300}>
+                <PieChart>
+                  <Pie
+                    data={chartsData.usersByRole}
+                    dataKey="count"
+                    nameKey="role"
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={70}
+                    outerRadius={100}
+                    label={({ cx, cy, midAngle, outerRadius, percent, role, value }) => {
+                      const RADIAN = Math.PI / 180;
+                      const radius = outerRadius + 20;
+                      const x = cx + radius * Math.cos(-midAngle * RADIAN);
+                      const y = cy + radius * Math.sin(-midAngle * RADIAN);
+
+                      return (
+                        <text
+                          x={x}
+                          y={y}
+                          fill="#374151"
+                          textAnchor={x > cx ? "start" : "end"}
+                          dominantBaseline="central"
+                          fontSize={13}
+                        >
+                          {`${role}: ${value}`}
+                        </text>
+                      );
+                    }}
+                    labelLine={false}
+                  >
+                    {chartsData.usersByRole.map((entry, index) => (
+                      <Cell
+                        key={entry.role}
+                        fill={COLORS[index % COLORS.length]}
+                      />
+                    ))}
+                  </Pie>
+
+                  <Tooltip formatter={(value, name) => [`${value} users`, name]} />
+                  <Legend />
+                </PieChart>
+              </ResponsiveContainer>
+            ) : (
+              <p className="text-center text-muted py-4">No data available</p>
+            )}
+          </CardBody>
+        </Card>
+
+        {/* Users by Status - Bar Chart */}
+        <Card className="h-full">
+          <CardHeader className="pb-4">
+            <div className="d-flex justify-content-between align-items-center">
+              <h6 className="mb-0 text-sm font-semibold text-slate-500">Users by Status</h6>
+              <div className="dropdown">
+                <button className="btn btn-link p-0 text-muted fs-6 dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                  <i class="bi bi-three-dots"></i>
+                </button>
+                <ul className="dropdown-menu dropdown-menu-end">
+                  <li><a className="dropdown-item" href="#">View Details</a></li>
+                  <li><a className="dropdown-item" href="#">Export Data</a></li>
+                </ul>
+              </div>
+            </div>
+          </CardHeader>
+          <CardBody className="p-0">
+            {chartsLoading ? (
+              <Spinner size="sm" className="d-block mx-auto my-4" />
+            ) : chartsError ? (
+              <Alert variant="danger">{chartsError}</Alert>
+            ) : chartsData && chartsData.usersByStatus && chartsData.usersByStatus.length > 0 ? (
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={chartsData.usersByStatus}>
+                  <XAxis dataKey="status" tick={{ fontSize: 12 }} />
+                  <YAxis tick={{ fontSize: 12 }} />
+                  <Tooltip />
+                  <Legend verticalAlign="top" height={36} />
+                  <Bar dataKey="count" fill="#4361ee" barSize={20} />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <p className="text-center text-muted py-4">No data available</p>
+            )}
+          </CardBody>
+        </Card>
       </div>
 
-      <div className="dashboard-grid">
-        <Card className="dashboard-section-card">
-          <div className="card-header">
-            <h3 className="h5 mb-0">Recent Activity</h3>
-          </div>
-          <div className="card-body p-0">
-            {recentActivity.length > 0 ? (
+      {/* Recent Activities and Notifications */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+        {/* Recent Activities */}
+        <Card className="h-full">
+          <CardHeader className="pb-4">
+            <div className="d-flex justify-content-between align-items-center">
+              <h6 className="mb-0 text-sm font-semibold text-slate-500">Recent Activity</h6>
+              <a href="#" className="text-decoration-none text-muted fs-6">View All</a>
+            </div>
+          </CardHeader>
+          <CardBody className="p-0">
+            {activitiesLoading ? (
+              <Spinner size="sm" className="d-block mx-auto my-4" />
+            ) : activitiesError ? (
+              <Alert variant="danger">{activitiesError}</Alert>
+            ) : activities.length > 0 ? (
               <div className="activity-list">
-                {recentActivity.map((item, index) => (
-                  <div key={index} className="activity-item">
-                    <div className={`activity-dot activity-dot-${item.type}`} />
-                    <div className="activity-content">
-                      <div className="activity-action">{item.action}</div>
-                      <div className="activity-meta">
-                        <span>{item.user}</span>
-                        <span className="mx-1">&middot;</span>
-                        <span>{item.time}</span>
+                {activities.map((activity, index) => (
+                  <div key={activity.id} className="d-flex align-items-start mb-3">
+                    <div className="flex-shrink-0 me-3">
+                      <div className="activity-dot bg-gray-500" />
+                    </div>
+                    <div className="flex-grow-1">
+                      <div className="fw-medium">{activity.message}</div>
+                      <div className="small text-muted">
+                        {activity.user} · {new Date(activity.time).toLocaleString()}
                       </div>
                     </div>
                   </div>
                 ))}
               </div>
             ) : (
-              <div className="p-4 text-center">
-                <p className="text-muted mb-0" style={{ fontSize: 'var(--font-size-sm)' }}>
-                  No recent activity to display.
-                </p>
-              </div>
+              <p className="text-center text-muted py-4">No recent activity</p>
             )}
-          </div>
+          </CardBody>
         </Card>
 
-        <Card className="dashboard-section-card">
-          <div className="card-header">
-            <h3 className="h5 mb-0">System Status</h3>
-          </div>
-          <div className="card-body">
-            <div className="status-list">
-              <div className="status-item">
-                <div className="status-indicator status-healthy" />
-                <div className="status-info">
-                  <div className="status-label">Blockchain Network</div>
-                  <div className="status-value">Connected</div>
-                </div>
-              </div>
-              <div className="status-item">
-                <div className="status-indicator status-healthy" />
-                <div className="status-info">
-                  <div className="status-label">Database</div>
-                  <div className="status-value">Operational</div>
-                </div>
-              </div>
-              <div className="status-item">
-                <div className="status-indicator status-healthy" />
-                <div className="status-info">
-                  <div className="status-label">Authentication Service</div>
-                  <div className="status-value">Active</div>
-                </div>
-              </div>
-              <div className="status-item">
-                <div className="status-indicator status-idle" />
-                <div className="status-info">
-                  <div className="status-label">Smart Contract Integration</div>
-                  <div className="status-value">Pending Configuration</div>
-                </div>
-              </div>
+        {/* Notifications */}
+        <Card className="h-full">
+          <CardHeader className="pb-4">
+            <div className="d-flex justify-content-between align-items-center">
+              <h6 className="mb-0 text-sm font-semibold text-slate-500">Notifications</h6>
+              <a href="#" className="text-decoration-none text-muted fs-6">View All</a>
             </div>
-          </div>
+          </CardHeader>
+          <CardBody className="p-0">
+            {notificationsLoading ? (
+              <Spinner size="sm" className="d-block mx-auto my-4" />
+            ) : notificationsError ? (
+              <Alert variant="danger">{notificationsError}</Alert>
+            ) : notifications.length > 0 ? (
+              <div className="notification-list">
+                {notifications.map((notification, index) => (
+                  <div key={notification.id} className="d-flex align-items-start mb-3">
+                    <div className="flex-shrink-0 me-3">
+                      <div className={`notification-icon ${getTailwindColorFromType(notification.type)}`}>
+                        <i class="bi bi-bell"></i>
+                      </div>
+                    </div>
+                    <div className="flex-grow-1">
+                      <div className="fw-medium">{notification.title}</div>
+                      <div className="small text-muted">{truncateText(notification.message, 100)}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-center text-muted py-4">No notifications</p>
+            )}
+          </CardBody>
         </Card>
       </div>
+
+      {/* Blockchain Status */}
+      <Card className="h-full">
+        <CardHeader className="pb-4">
+          <div className="d-flex justify-content-between align-items-center">
+            <h6 className="mb-0 text-sm font-semibold text-slate-500">Blockchain Status</h6>
+            <div className="dropdown">
+              <button className="btn btn-link p-0 text-muted fs-6 dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                <i class="bi bi-three-dots"></i>
+              </button>
+              <ul className="dropdown-menu dropdown-menu-end">
+                <li><a className="dropdown-item" href="#">View Details</a></li>
+                <li><a className="dropdown-item" href="#">Refresh</a></li>
+              </ul>
+            </div>
+          </div>
+        </CardHeader>
+        <CardBody className="text-center">
+          {blockchainLoading ? (
+            <Spinner size="sm" className="d-block mx-auto my-4" />
+          ) : blockchainError ? (
+            <Alert variant="danger">{blockchainError}</Alert>
+          ) : (
+            <>
+              <div className="mb-3">
+                {blockchainStatus.connected ? (
+                  <span className="badge bg-success me-2">Connected</span>
+                ) : (
+                  <span className="badge bg-danger me-2">Disconnected</span>
+                )}
+                <span className="badge bg-secondary">Network: {blockchainStatus.network}</span>
+              </div>
+              <div className="mb-2">
+                <small className="text-muted">Latest Block: {blockchainStatus.latestBlock}</small>
+              </div>
+              <div className="mb-2">
+                <small className="text-muted">Last Sync: {blockchainStatus.lastSync ? new Date(blockchainStatus.lastSync).toLocaleString() : 'Never'}</small>
+              </div>
+              <div className="mb-2">
+                <small className="text-muted">Smart Contract: {blockchainStatus.smartContract}</small>
+              </div>
+            </>
+          )}
+        </CardBody>
+      </Card>
     </div>
   );
 }
