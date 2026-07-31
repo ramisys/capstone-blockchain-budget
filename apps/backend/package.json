@@ -11,7 +11,7 @@
     "prisma:migrate": "prisma migrate dev",
     "prisma:seed": "node prisma/seed.js",
     "seed": "node prisma/seed.js",
-    "test": "node tests/testAuthLogic.js && node tests/testRateLimiter.js && node tests/userService.test.js && node tests/prismaError.test.js"
+    "test": "node tests/testAuthLogic.js && node tests/testRateLimiter.js && node tests/userService.test.js && node tests/prismaError.test.js && node tests/fiscalYearService.test.js"
   },
   "prisma": {
     "seed": "node prisma/seed.js"

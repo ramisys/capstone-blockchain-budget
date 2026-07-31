@@ -60,7 +60,7 @@ export function FiscalYearManagement() {
   } = useDeleteFiscalYear();
 
   const {
-    mutate: setActiveFiscalYear,
+    mutateAsync: setActiveFiscalYear,
     isPending: isActivating
   } = useSetActiveFiscalYear();
 

@@ -122,18 +122,47 @@ class FiscalYearService {
       }
     }
 
-    // Set default values for status and isActive if not provided and normalize dates
+    // Normalize dates
     const dataToUpdate = {
       ...updateData,
       ...(updateData.startDate && { startDate }),
       ...(updateData.endDate && { endDate }),
-      status: updateData.status || existingFiscalYear.status,
-      isActive: updateData.isActive !== undefined ? updateData.isActive : existingFiscalYear.isActive,
     };
 
-    // Update the fiscal year
-    const updatedFiscalYear = await fiscalYearRepository.update(id, dataToUpdate);
-    return updatedFiscalYear;
+    // Resolve the effective status / activation state, keeping the two in sync
+    const status = updateData.status || existingFiscalYear.status;
+    const isActive = updateData.isActive !== undefined ? updateData.isActive : existingFiscalYear.isActive;
+
+    const wantsActive = isActive === true || status === FISCAL_YEAR_STATUS.ACTIVE;
+    const wantsArchived = status === FISCAL_YEAR_STATUS.ARCHIVED;
+
+    if (existingFiscalYear.status === FISCAL_YEAR_STATUS.ARCHIVED && wantsActive) {
+      throw new AppError('Archived fiscal years cannot be activated', HTTP_STATUS.CONFLICT);
+    }
+
+    if (wantsArchived && existingFiscalYear.isActive) {
+      throw new AppError('Cannot archive the currently active fiscal year', HTTP_STATUS.CONFLICT);
+    }
+
+    if (wantsActive) {
+      // Activation must go through the shared path so all other fiscal years
+      // are deactivated atomically
+      const activated = await fiscalYearRepository.setActive(id);
+      if (Object.keys(dataToUpdate).length === 0) {
+        return activated;
+      }
+      return fiscalYearRepository.update(id, {
+        ...dataToUpdate,
+        status: FISCAL_YEAR_STATUS.ACTIVE,
+        isActive: true,
+      });
+    }
+
+    return fiscalYearRepository.update(id, {
+      ...dataToUpdate,
+      status: wantsArchived ? FISCAL_YEAR_STATUS.ARCHIVED : FISCAL_YEAR_STATUS.INACTIVE,
+      isActive: false,
+    });
   }
 
   /**
@@ -167,6 +196,19 @@ class FiscalYearService {
     const existingFiscalYear = await fiscalYearRepository.findById(id);
     if (!existingFiscalYear) {
       throw new AppError('Fiscal year not found', HTTP_STATUS.NOT_FOUND);
+    }
+
+    // Archived fiscal years are retired and must not be reactivated
+    if (existingFiscalYear.status === FISCAL_YEAR_STATUS.ARCHIVED) {
+      throw new AppError(
+        'Archived fiscal years cannot be activated',
+        HTTP_STATUS.CONFLICT
+      );
+    }
+
+    // Idempotent: activating the currently active year is a no-op
+    if (existingFiscalYear.isActive) {
+      return existingFiscalYear;
     }
 
     // Set the fiscal year as active

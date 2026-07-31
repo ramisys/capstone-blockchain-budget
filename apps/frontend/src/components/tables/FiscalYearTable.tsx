@@ -179,7 +179,7 @@ const FiscalYearTable: React.FC<FiscalYearTableProps> = ({
                           </svg>
                         </DropdownMenuItem>
 
-                        {!fiscalYear.isActive && (
+                        {!fiscalYear.isActive && fiscalYear.status !== 'Archived' && (
                           <DropdownMenuItem
                             onClick={() => onActivate(fiscalYear)}
                             className="flex items-center justify-between px-4 py-2 text-sm text-slate-700 hover:bg-slate-100"

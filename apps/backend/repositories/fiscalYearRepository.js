@@ -1,4 +1,5 @@
 import prisma from '../models/prismaClient.js';
+import { FISCAL_YEAR_STATUS } from '../constants/fiscalYearStatus.js';
 
 class FiscalYearRepository {
   /**
@@ -160,20 +161,27 @@ class FiscalYearRepository {
   /**
    * Set a fiscal year as active, deactivating all others.
    *
+   * Runs inside a transaction so the "deactivate all + activate one" steps
+   * are atomic and concurrent activations cannot leave the system with
+   * multiple (or zero) active fiscal years. Only years that are currently
+   * active are reverted to Inactive, so Archived years keep their status.
+   *
    * @param {string} id - Fiscal year ID to set as active
    * @returns {Promise<Object>} Updated fiscal year
    */
   async setActive(id) {
-    // First, deactivate all fiscal years
-    await prisma.fiscalYear.updateMany({
-      where: {},
-      data: { isActive: false, status: 'Inactive' },
-    });
+    return prisma.$transaction(async (tx) => {
+      // Deactivate whichever fiscal year is currently active
+      await tx.fiscalYear.updateMany({
+        where: { isActive: true },
+        data: { isActive: false, status: FISCAL_YEAR_STATUS.INACTIVE },
+      });
 
-    // Then activate the specified one
-    return prisma.fiscalYear.update({
-      where: { id },
-      data: { isActive: true, status: 'Active' },
+      // Activate the specified fiscal year
+      return tx.fiscalYear.update({
+        where: { id },
+        data: { isActive: true, status: FISCAL_YEAR_STATUS.ACTIVE },
+      });
     });
   }
 
