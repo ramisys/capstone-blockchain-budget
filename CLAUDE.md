@@ -2,6 +2,20 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Quick Reference Commands
+
+- Install dependencies: `npm install`
+- Start backend dev server: `npm run dev:backend`
+- Start frontend dev server: `npm run dev:frontend`
+- Start both (requires two terminals): run the above commands in separate tabs
+- Build frontend for production: `npm run build:frontend`
+- Run backend tests: `npm run test:backend`
+- Run Prisma migrations: `npx prisma migrate dev`
+- Seed database: `npm run seed` (from `apps/backend`)
+- Start backend in production mode: `npm run backend` (or `npm start --workspace=apps/backend`)
+- Open Prisma Studio: `npx prisma studio`
+- Linting: *No linting configured by default; add ESLint/Prettier if desired.*
+
 ## Table of Contents
 
 - [Project Overview](#project-overview)
@@ -29,7 +43,11 @@ This is a blockchain-based budget allocation and expense monitoring system built
 
 **Phase 1 Complete**: Authentication &nbsp;(JWT-based auth, RBAC, login/logout/profile pages, protected routes).
 
-**Next Phase**: Phase 2 - User Management (CRUD operations for users, role assignment, status management).
+**Phase 2 Complete**: User Management (CRUD operations for users, role assignment, status management).
+
+**Phase 3 Complete**: Dashboard & Analytics (Dashboard UI, KPI cards, charts, recent activities, notifications, blockchain status, backend API integration).
+
+**Next Phase**: Phase 4 - Expense Monitoring & Tracking (Expense submission, approval workflow, categorization, receipt attachment, policy enforcement, tracking dashboards).
 
 ## Technology Stack
 
@@ -238,7 +256,6 @@ Frontend testing setup is planned for future phases (currently no test suite).
 4. **Meaningful Content** - Every element serves a purpose in the financial workflow context
 5. **Strong UX** - Predictable navigation, clear validation, keyboard accessibility
 6. **Consistent Branding** - Navy (#1B3A5C) + Gold (#D4A843) palette, Inter font family
-7. **Strong Visual Hierarchy** - Typography, spacing, and contrast guide user attention
 
 ## Performance Guidelines
 
@@ -293,14 +310,14 @@ npm run preview          # Preview production build locally
 
 ### Deployment Checklist
 
-1. [ ]  Set production environment variables
-2. [ ]  Run database migrations
-3. [ ]  Build frontend assets
-4. [ ]  Start backend server (`npm run backend`)
-5. [ ]  Serve frontend static files (via Nginx, CDN, or backend static middleware)
-6. [ ]  Verify health check endpoint
-7. [ ]  Test authentication flow
-8. [ ]  Monitor logs for errors
+1. [ ] Set production environment variables
+2. [ ] Run database migrations
+3. [ ] Build frontend assets
+4. [ ] Start backend server (`npm run backend`)
+5. [ ] Serve frontend static files (via Nginx, CDN, or backend static middleware)
+6. [ ] Verify health check endpoint
+7. [ ] Test authentication flow
+8. [ ] Monitor logs for errors
 
 ## Documentation Standards
 
@@ -319,10 +336,10 @@ npm run preview          # Preview production build locally
 ### Code Comments
 
 - Use JSDoc for public functions and components
-- Explain non-obvious logic and business rules
+- Explain non‑obvious logic and business rules
 - Avoid commenting obvious code
 
-### AI Instructions for Claude Code
+## AI Instructions for Claude Code
 
 When working in this repository, please follow these guidelines:
 
@@ -331,13 +348,13 @@ When working in this repository, please follow these guidelines:
 3. **Reuse Existing Components**: Prefer extending existing components over creating new ones.
 4. **Follow Conventions**: Match the existing code style, naming patterns, and file organization.
 5. **Update Documentation**: When making significant changes, update relevant documentation (README, API docs, comments).
-6. **Maintain Consistency**: Keep code production-ready; avoid temporary fixes or commented-out code.
+6. **Maintain Consistency**: Keep code production‑ready; avoid temporary fixes or commented‑out code.
 7. **Respect Phase Boundaries**: Do not implement features from future phases unless specifically requested.
 8. **Explain Major Changes**: Before implementing architectural changes, explain your approach and wait for confirmation.
 9. **Security First**: Always consider security implications; follow existing validation and authentication patterns.
-10. **Test Your Changes**: Ensure your changes don't break existing functionality; run relevant tests.
+10. **Test Your Changes**: Ensure your changes do not break existing functionality; run relevant tests.
 
-### General Rules
+## General Rules
 
 - **File Organization**:
   - Keep related files together (e.g., component with its styles and tests)
@@ -350,7 +367,7 @@ When working in this repository, please follow these guidelines:
   - Use `feature/`, `bugfix/`, `docs/` prefixes
   - Include ticket number if applicable
 - **Code Reviews**:
-  - Self-review before requesting review
+  - Self‑review before requesting review
   - Focus on correctness, clarity, and adherence to standards
 - **Error Handling**:
   - Never leave empty catch blocks
@@ -361,9 +378,9 @@ When working in this repository, please follow these guidelines:
   - Implement proper CORS policies
   - Use helmet and rate limiting as configured
 - **Performance**:
-  - Avoid unnecessary re-renders in React
+  - Avoid unnecessary re‑renders in React
   - Optimize database queries
-  - Consider lazy loading for non-critical resources
+  - Consider lazy loading for non‑critical resources
 
 ## Future Development Roadmap
 
@@ -374,21 +391,24 @@ When working in this repository, please follow these guidelines:
 - Protected routes and authentication context
 - Input validation and security headers
 
-### Phase 2: User Management
+### Phase 2: User Management (COMPLETE)
 
 - CRUD operations for user profiles
 - Role assignment and modification
 - User status management (active/inactive/pending)
 - Profile viewing and editing
-- Administrator-only user management interface
+- Administrator‑only user management interface
 
-### Phase 3: Budget Allocation
+### Phase 3: Dashboard & Analytics (COMPLETE)
 
-- Budget creation, editing, and deletion
-- Department/budget category management
-- Allocation workflows and approval processes
-- Budget tracking vs. actual spending
-- Multi-year budget planning
+- Dashboard layout with stats cards
+- KPI/Summary cards (total users, active/inactive, role breakdown)
+- Interactive charts (users by role, users by status)
+- Recent activities feed
+- Notifications system
+- Blockchain status display
+- Backend API integration for dashboard endpoints
+- Responsive design
 
 ### Phase 4: Expense Monitoring & Tracking
 
@@ -397,8 +417,18 @@ When working in this repository, please follow these guidelines:
 - Receipt attachment and management
 - Expense policy enforcement
 - Real-time expense tracking dashboards
+- Budget utilization tracking
+- Expense history and reporting
 
-### Phase 5: Audit Logs & Blockchain Integration
+### Phase 5: Budget Allocation Management
+
+- Budget creation, editing, and deletion
+- Department/budget category management
+- Allocation workflows and approval processes
+- Budget tracking vs. actual spending
+- Multi-year budget planning
+
+### Phase 6: Audit Logs & Blockchain Integration
 
 - Immutable audit trail for all financial transactions
 - Blockchain-based transaction verification
@@ -406,7 +436,7 @@ When working in this repository, please follow these guidelines:
 - Access logs and user activity tracking
 - Compliance reporting tools
 
-### Phase 6: Reports & Analytics Dashboard
+### Phase 7: Reports & Analytics Dashboard
 
 - Financial reporting tools (budget vs. actual)
 - Spending trend analysis and forecasting
@@ -414,25 +444,57 @@ When working in this repository, please follow these guidelines:
 - Data export capabilities (CSV, PDF)
 - Interactive data visualizations
 
-### Phase 7: Deployment & Optimization
+### Phase 8: Notifications & Workflow
+
+- System notifications
+- Approval notifications
+- Budget alerts
+- Email notifications
+- Workflow management
+- Activity tracking
+
+### Phase 9: Security & Access Control
+
+- Enhanced RBAC with fine-grained permissions
+- Security hardening
+- API protection (rate limiting, input validation)
+- Audit security
+- Session management
+- Access monitoring
+
+### Phase 10: Testing & Optimization
+
+- Unit testing
+- Integration testing
+- Performance optimization
+- Security testing
+- Bug fixing
+- Code refactoring
+
+### Phase 11: Deployment & Documentation
 
 - Production deployment preparation
-- Performance optimization and caching
-- Security hardening and penetration testing
-- Documentation and knowledge transfer
-- Training materials and user guides
+- Environment configuration
+- User manual
+- Technical documentation
+- API documentation
+- Installation guide
+
+### Phase 12: Finalization & Defense Preparation
+
+- Final system review
+- Final testing
+- Documentation completion
+- Presentation preparation
+- Defense checklist
+- Production-ready release
 
 ## Summary of Improvements
 
 This updated CLAUDE.md provides:
 
-1. Clear navigation with table of contents
-2. Current development status and roadmap visibility
-3. Consolidated technology stack and architecture overview
-4. Improved development setup instructions
-5. Detailed code conventions and design principles
-6. Performance guidelines and deployment notes
-7. Documentation standards and AI-specific instructions
-8. Comprehensive future development roadmap
-9. General repository rules for consistent maintenance
-10. Removed redundancy while preserving all essential information
+1. A quick‑reference command section for common development tasks.
+2. Clear separation of concerns and architecture overview.
+3. Detailed setup, testing, and deployment instructions.
+4. Coding, design, and performance guidelines aligned with the codebase.
+5. A comprehensive roadmap to guide future work.
