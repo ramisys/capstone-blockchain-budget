@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { useBudgetCategories, useCreateBudgetCategory, useUpdateBudgetCategory, useDeleteBudgetCategory } from '../../hooks/useBudgetCategories';
+import { useListControls } from '../../hooks/useListControls';
+import SearchInput from '../../components/ui/SearchInput';
 import { Button } from '../../components/ui/Button';
 import { BudgetCategoryTable } from '../../components/tables/BudgetCategoryTable';
 import { BudgetCategoryCreateDialog } from '../../components/dialogs/BudgetCategoryCreateDialog';
@@ -10,11 +12,27 @@ import { Card } from '../../components/ui/Card';
 
 export function BudgetCategoryManagement() {
   const {
+    search,
+    setSearch,
+    debouncedSearch,
+    page,
+    setPage,
+    pageSize,
+    sortBy,
+    sortOrder,
+    handleSort
+  } = useListControls();
+
+  const {
     data: categoriesData,
     isLoading,
     isError,
     error
-  } = useBudgetCategories();
+  } = useBudgetCategories(
+    { search: debouncedSearch || undefined },
+    { page, limit: pageSize },
+    { sortBy, sortOrder }
+  );
 
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [dialogState, setDialogState] = useState({
@@ -163,16 +181,30 @@ export function BudgetCategoryManagement() {
         </div>
 
         {/* Budget Category Table */}
-        <BudgetCategoryTable
-          categories={categories}
-          pagination={pagination}
-          onEdit={openEditDialog}
-          onDetails={openDetailsDialog}
-          onDelete={openDeleteDialog}
-          isLoading={isLoading}
-          isDeleting={isDeleting}
-          onDeleteBudgetCategory={deleteBudgetCategory}
-        />
+        <div className="space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <SearchInput
+              value={search}
+              onChange={setSearch}
+              placeholder="Search categories by code, name, or description..."
+              className="w-full sm:max-w-md"
+            />
+          </div>
+          <BudgetCategoryTable
+            categories={categories}
+            pagination={pagination}
+            onEdit={openEditDialog}
+            onDetails={openDetailsDialog}
+            onDelete={openDeleteDialog}
+            isLoading={isLoading}
+            isDeleting={isDeleting}
+            onDeleteBudgetCategory={deleteBudgetCategory}
+            onPageChange={setPage}
+            sortBy={sortBy}
+            sortOrder={sortOrder}
+            onSort={handleSort}
+          />
+        </div>
 
         {/* Dialogs */}
         <BudgetCategoryCreateDialog

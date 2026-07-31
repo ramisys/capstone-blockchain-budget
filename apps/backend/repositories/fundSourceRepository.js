@@ -86,6 +86,13 @@ class FundSourceRepository {
     if (filters.status) {
       where.status = filters.status;
     }
+    if (filters.search) {
+      where.OR = [
+        { code: { contains: filters.search } },
+        { name: { contains: filters.search } },
+        { description: { contains: filters.search } },
+      ];
+    }
 
     const page = parseInt(pagination.page) || 1;
     const limit = parseInt(pagination.limit) || 10;
@@ -127,6 +134,13 @@ class FundSourceRepository {
     }
     if (filters.status) {
       where.status = filters.status;
+    }
+    if (filters.search) {
+      where.OR = [
+        { code: { contains: filters.search } },
+        { name: { contains: filters.search } },
+        { description: { contains: filters.search } },
+      ];
     }
 
     return prisma.fundSource.count({ where });

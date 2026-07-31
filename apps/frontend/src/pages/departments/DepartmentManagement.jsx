@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { useDepartments, useCreateDepartment, useUpdateDepartment, useDeleteDepartment } from '../../hooks/useDepartments';
+import { useListControls } from '../../hooks/useListControls';
+import SearchInput from '../../components/ui/SearchInput';
 import { Button } from '../../components/ui/Button';
 import { DepartmentTable } from '../../components/tables/DepartmentTable';
 import { DepartmentCreateDialog } from '../../components/dialogs/DepartmentCreateDialog';
@@ -10,11 +12,27 @@ import { Card } from '../../components/ui/Card';
 
 export function DepartmentManagement() {
   const {
+    search,
+    setSearch,
+    debouncedSearch,
+    page,
+    setPage,
+    pageSize,
+    sortBy,
+    sortOrder,
+    handleSort
+  } = useListControls();
+
+  const {
     data: departmentsData,
     isLoading,
     isError,
     error
-  } = useDepartments();
+  } = useDepartments(
+    { search: debouncedSearch || undefined },
+    { page, limit: pageSize },
+    { sortBy, sortOrder }
+  );
 
   const [selectedDepartment, setSelectedDepartment] = useState(null);
   const [dialogState, setDialogState] = useState({
@@ -163,16 +181,30 @@ export function DepartmentManagement() {
         </div>
 
         {/* Department Table */}
-        <DepartmentTable
-          departments={departments}
-          pagination={pagination}
-          onEdit={openEditDialog}
-          onDetails={openDetailsDialog}
-          onDelete={openDeleteDialog}
-          isLoading={isLoading}
-          isDeleting={isDeleting}
-          onDeleteDepartment={deleteDepartment}
-        />
+        <div className="space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <SearchInput
+              value={search}
+              onChange={setSearch}
+              placeholder="Search departments by code, name, head, or email..."
+              className="w-full sm:max-w-md"
+            />
+          </div>
+          <DepartmentTable
+            departments={departments}
+            pagination={pagination}
+            onEdit={openEditDialog}
+            onDetails={openDetailsDialog}
+            onDelete={openDeleteDialog}
+            isLoading={isLoading}
+            isDeleting={isDeleting}
+            onDeleteDepartment={deleteDepartment}
+            onPageChange={setPage}
+            sortBy={sortBy}
+            sortOrder={sortOrder}
+            onSort={handleSort}
+          />
+        </div>
 
         {/* Dialogs */}
         <DepartmentCreateDialog

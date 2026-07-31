@@ -12,6 +12,8 @@ import { Badge } from '../ui/Badge';
 import { Button } from '../ui/Button';
 import { DropdownMenu } from '../ui/DropdownMenu';
 import { DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '../ui/DropdownMenu';
+import Pagination from '../ui/Pagination';
+import SortableHeader from '../ui/SortableHeader';
 
 interface Department {
   id: string;
@@ -40,6 +42,10 @@ interface DepartmentTableProps {
   isLoading?: boolean;
   isDeleting?: boolean;
   onDeleteDepartment: (id: string) => void;
+  onPageChange: (page: number) => void;
+  sortBy: string;
+  sortOrder: 'asc' | 'desc';
+  onSort: (sortKey: string) => void;
 }
 
 const StatusBadge: React.FC<{ status: 'Active' | 'Inactive' }> = ({ status }) => {
@@ -60,7 +66,11 @@ const DepartmentTable: React.FC<DepartmentTableProps> = ({
   onDelete,
   isLoading = false,
   isDeleting = false,
-  onDeleteDepartment
+  onDeleteDepartment,
+  onPageChange,
+  sortBy,
+  sortOrder,
+  onSort
 }) => {
   return (
     <div className="space-y-4">
@@ -72,13 +82,13 @@ const DepartmentTable: React.FC<DepartmentTableProps> = ({
           <TableHeader className="bg-slate-50">
             <TableRow>
               <TableCell className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">
-                Department Code
+                <SortableHeader label="Department Code" sortKey="code" sortBy={sortBy} sortOrder={sortOrder} onSort={onSort} />
               </TableCell>
               <TableCell className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">
-                Department Name
+                <SortableHeader label="Department Name" sortKey="name" sortBy={sortBy} sortOrder={sortOrder} onSort={onSort} />
               </TableCell>
               <TableCell className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">
-                Office Head
+                <SortableHeader label="Office Head" sortKey="officeHead" sortBy={sortBy} sortOrder={sortOrder} onSort={onSort} />
               </TableCell>
               <TableCell className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">
                 Contact Number
@@ -87,7 +97,7 @@ const DepartmentTable: React.FC<DepartmentTableProps> = ({
                 Email
               </TableCell>
               <TableCell className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">
-                Status
+                <SortableHeader label="Status" sortKey="status" sortBy={sortBy} sortOrder={sortOrder} onSort={onSort} />
               </TableCell>
               <TableCell className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">
                 Actions
@@ -176,32 +186,13 @@ const DepartmentTable: React.FC<DepartmentTableProps> = ({
       </div>
 
       {departments.length > 0 && (
-        <div className="flex justify-between items-center text-sm text-slate-500">
-          <span className="flex items-center">
-            Showing {departments.length} of {pagination.total} departments
-          </span>
-          <div className="flex items-center space-x-2">
-            <button
-              onClick={() => {
-                // TODO: Implement previous page logic
-              }}
-              disabled={pagination.page <= 1}
-              className="px-3 py-1 text-slate-500 hover:text-slate-700 border border-slate-300 rounded hover:bg-slate-50 disabled:opacity-50"
-            >
-              ‹
-            </button>
-            <span>{pagination.page} of {pagination.totalPages}</span>
-            <button
-              onClick={() => {
-                // TODO: Implement next page logic
-              }}
-              disabled={pagination.page >= pagination.totalPages}
-              className="px-3 py-1 text-slate-500 hover:text-slate-700 border border-slate-300 rounded hover:bg-slate-50 disabled:opacity-50"
-            >
-              ›
-            </button>
-          </div>
-        </div>
+        <Pagination
+          page={pagination.page}
+          totalPages={pagination.totalPages}
+          total={pagination.total}
+          pageSize={pagination.limit}
+          onPageChange={onPageChange}
+        />
       )}
     </div>
   );

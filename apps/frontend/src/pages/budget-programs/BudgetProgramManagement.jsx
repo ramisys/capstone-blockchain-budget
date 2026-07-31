@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { useBudgetPrograms, useCreateBudgetProgram, useUpdateBudgetProgram, useDeleteBudgetProgram } from '../../hooks/useBudgetPrograms';
 import { useDepartments } from '../../hooks/useDepartments';
 import { useBudgetCategories } from '../../hooks/useBudgetCategories';
+import { useListControls } from '../../hooks/useListControls';
+import SearchInput from '../../components/ui/SearchInput';
 import { Button } from '../../components/ui/Button';
 import { BudgetProgramTable } from '../../components/tables/BudgetProgramTable';
 import { BudgetProgramCreateDialog } from '../../components/dialogs/BudgetProgramCreateDialog';
@@ -12,11 +14,27 @@ import { Card } from '../../components/ui/Card';
 
 export function BudgetProgramManagement() {
   const {
+    search,
+    setSearch,
+    debouncedSearch,
+    page,
+    setPage,
+    pageSize,
+    sortBy,
+    sortOrder,
+    handleSort
+  } = useListControls();
+
+  const {
     data: programsData,
     isLoading,
     isError,
     error
-  } = useBudgetPrograms();
+  } = useBudgetPrograms(
+    { search: debouncedSearch || undefined },
+    { page, limit: pageSize },
+    { sortBy, sortOrder }
+  );
 
   const {
     data: departmentsData,
@@ -178,16 +196,30 @@ export function BudgetProgramManagement() {
         </div>
 
         {/* Budget Program Table */}
-        <BudgetProgramTable
-          programs={programs}
-          pagination={pagination}
-          onEdit={openEditDialog}
-          onDetails={openDetailsDialog}
-          onDelete={openDeleteDialog}
-          isLoading={isLoading}
-          isDeleting={isDeleting}
-          onDeleteBudgetProgram={deleteBudgetProgram}
-        />
+        <div className="space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <SearchInput
+              value={search}
+              onChange={setSearch}
+              placeholder="Search programs by code, name, or description..."
+              className="w-full sm:max-w-md"
+            />
+          </div>
+          <BudgetProgramTable
+            programs={programs}
+            pagination={pagination}
+            onEdit={openEditDialog}
+            onDetails={openDetailsDialog}
+            onDelete={openDeleteDialog}
+            isLoading={isLoading}
+            isDeleting={isDeleting}
+            onDeleteBudgetProgram={deleteBudgetProgram}
+            onPageChange={setPage}
+            sortBy={sortBy}
+            sortOrder={sortOrder}
+            onSort={handleSort}
+          />
+        </div>
 
         {/* Dialogs */}
         <BudgetProgramCreateDialog

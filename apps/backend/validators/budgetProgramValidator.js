@@ -90,6 +90,7 @@ export const budgetProgramQuerySchema = z.object({
   departmentId: z.string().optional(),
   budgetCategoryId: z.string().optional(),
   status: z.enum(USER_STATUS_LIST).optional(),
+  search: z.string().optional(),
   sortBy: z
     .enum(['code', 'name', 'description', 'departmentId', 'budgetCategoryId', 'status', 'createdAt', 'updatedAt'])
     .optional()

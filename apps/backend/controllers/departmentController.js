@@ -105,6 +105,7 @@ class DepartmentController {
         email: req.query.email,
         officeAddress: req.query.officeAddress,
         status: req.query.status,
+        search: req.query.search,
       };
 
       const pagination = {

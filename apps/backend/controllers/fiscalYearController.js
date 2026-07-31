@@ -64,6 +64,7 @@ class FiscalYearController {
         isActive: req.query.isActive,
         startDate: req.query.startDate,
         endDate: req.query.endDate,
+        search: req.query.search,
       };
 
       const pagination = {

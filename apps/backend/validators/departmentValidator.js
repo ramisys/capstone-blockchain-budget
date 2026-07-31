@@ -109,6 +109,7 @@ export const departmentQuerySchema = z.object({
   email: z.string().optional(),
   officeAddress: z.string().optional(),
   status: z.enum(USER_STATUS_LIST).optional(),
+  search: z.string().optional(),
   sortBy: z
     .enum(['code', 'name', 'officeHead', 'contactNumber', 'email', 'officeAddress', 'status', 'createdAt', 'updatedAt'])
     .optional()

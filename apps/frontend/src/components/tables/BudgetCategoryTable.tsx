@@ -12,6 +12,8 @@ import { Badge } from '../ui/Badge';
 import { Button } from '../ui/Button';
 import { DropdownMenu } from '../ui/DropdownMenu';
 import { DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '../ui/DropdownMenu';
+import Pagination from '../ui/Pagination';
+import SortableHeader from '../ui/SortableHeader';
 
 interface BudgetCategory {
   id: string;
@@ -37,6 +39,10 @@ interface BudgetCategoryTableProps {
   isLoading?: boolean;
   isDeleting?: boolean;
   onDeleteBudgetCategory: (id: string) => void;
+  onPageChange: (page: number) => void;
+  sortBy: string;
+  sortOrder: 'asc' | 'desc';
+  onSort: (sortKey: string) => void;
 }
 
 const StatusBadge: React.FC<{ status: 'Active' | 'Inactive' }> = ({ status }) => {
@@ -57,7 +63,11 @@ const BudgetCategoryTable: React.FC<BudgetCategoryTableProps> = ({
   onDelete,
   isLoading = false,
   isDeleting = false,
-  onDeleteBudgetCategory
+  onDeleteBudgetCategory,
+  onPageChange,
+  sortBy,
+  sortOrder,
+  onSort
 }) => {
   return (
     <div className="space-y-4">
@@ -69,16 +79,16 @@ const BudgetCategoryTable: React.FC<BudgetCategoryTableProps> = ({
           <TableHeader className="bg-slate-50">
             <TableRow>
               <TableCell className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">
-                Category Code
+                <SortableHeader label="Category Code" sortKey="code" sortBy={sortBy} sortOrder={sortOrder} onSort={onSort} />
               </TableCell>
               <TableCell className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">
-                Category Name
+                <SortableHeader label="Category Name" sortKey="name" sortBy={sortBy} sortOrder={sortOrder} onSort={onSort} />
               </TableCell>
               <TableCell className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">
                 Description
               </TableCell>
               <TableCell className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">
-                Status
+                <SortableHeader label="Status" sortKey="status" sortBy={sortBy} sortOrder={sortOrder} onSort={onSort} />
               </TableCell>
               <TableCell className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">
                 Actions
@@ -161,32 +171,13 @@ const BudgetCategoryTable: React.FC<BudgetCategoryTableProps> = ({
       </div>
 
       {categories.length > 0 && (
-        <div className="flex justify-between items-center text-sm text-slate-500">
-          <span className="flex items-center">
-            Showing {categories.length} of {pagination.total} budget categories
-          </span>
-          <div className="flex items-center space-x-2">
-            <button
-              onClick={() => {
-                // TODO: Implement previous page logic
-              }}
-              disabled={pagination.page <= 1}
-              className="px-3 py-1 text-slate-500 hover:text-slate-700 border border-slate-300 rounded hover:bg-slate-50 disabled:opacity-50"
-            >
-              ‹
-            </button>
-            <span>{pagination.page} of {pagination.totalPages}</span>
-            <button
-              onClick={() => {
-                // TODO: Implement next page logic
-              }}
-              disabled={pagination.page >= pagination.totalPages}
-              className="px-3 py-1 text-slate-500 hover:text-slate-700 border border-slate-300 rounded hover:bg-slate-50 disabled:opacity-50"
-            >
-              ›
-            </button>
-          </div>
-        </div>
+        <Pagination
+          page={pagination.page}
+          totalPages={pagination.totalPages}
+          total={pagination.total}
+          pageSize={pagination.limit}
+          onPageChange={onPageChange}
+        />
       )}
     </div>
   );

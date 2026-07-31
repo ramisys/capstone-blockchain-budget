@@ -82,6 +82,7 @@ class FundSourceController {
         name: req.query.name,
         description: req.query.description,
         status: req.query.status,
+        search: req.query.search,
       };
 
       const pagination = {

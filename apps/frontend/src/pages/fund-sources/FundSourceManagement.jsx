@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { useFundSources, useCreateFundSource, useUpdateFundSource, useDeleteFundSource } from '../../hooks/useFundSources';
+import { useListControls } from '../../hooks/useListControls';
+import SearchInput from '../../components/ui/SearchInput';
 import { Button } from '../../components/ui/Button';
 import { FundSourceTable } from '../../components/tables/FundSourceTable';
 import { FundSourceCreateDialog } from '../../components/dialogs/FundSourceCreateDialog';
@@ -10,11 +12,27 @@ import { Card } from '../../components/ui/Card';
 
 export function FundSourceManagement() {
   const {
+    search,
+    setSearch,
+    debouncedSearch,
+    page,
+    setPage,
+    pageSize,
+    sortBy,
+    sortOrder,
+    handleSort
+  } = useListControls();
+
+  const {
     data: fundSourcesData,
     isLoading,
     isError,
     error
-  } = useFundSources();
+  } = useFundSources(
+    { search: debouncedSearch || undefined },
+    { page, limit: pageSize },
+    { sortBy, sortOrder }
+  );
 
   const [selectedFundSource, setSelectedFundSource] = useState(null);
   const [dialogState, setDialogState] = useState({
@@ -163,16 +181,30 @@ export function FundSourceManagement() {
         </div>
 
         {/* Fund Source Table */}
-        <FundSourceTable
-          fundSources={fundSources}
-          pagination={pagination}
-          onEdit={openEditDialog}
-          onDetails={openDetailsDialog}
-          onDelete={openDeleteDialog}
-          isLoading={isLoading}
-          isDeleting={isDeleting}
-          onDeleteFundSource={deleteFundSource}
-        />
+        <div className="space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <SearchInput
+              value={search}
+              onChange={setSearch}
+              placeholder="Search fund sources by code, name, or description..."
+              className="w-full sm:max-w-md"
+            />
+          </div>
+          <FundSourceTable
+            fundSources={fundSources}
+            pagination={pagination}
+            onEdit={openEditDialog}
+            onDetails={openDetailsDialog}
+            onDelete={openDeleteDialog}
+            isLoading={isLoading}
+            isDeleting={isDeleting}
+            onDeleteFundSource={deleteFundSource}
+            onPageChange={setPage}
+            sortBy={sortBy}
+            sortOrder={sortOrder}
+            onSort={handleSort}
+          />
+        </div>
 
         {/* Dialogs */}
         <FundSourceCreateDialog

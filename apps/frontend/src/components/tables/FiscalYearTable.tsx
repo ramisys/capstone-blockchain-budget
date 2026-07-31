@@ -12,6 +12,8 @@ import { Badge } from '../ui/Badge';
 import { Button } from '../ui/Button';
 import { DropdownMenu } from '../ui/DropdownMenu';
 import { DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '../ui/DropdownMenu';
+import Pagination from '../ui/Pagination';
+import SortableHeader from '../ui/SortableHeader';
 
 interface FiscalYear {
   id: string;
@@ -42,6 +44,10 @@ interface FiscalYearTableProps {
   isActivating?: boolean;
   onDeleteFiscalYear: (id: string) => void;
   onSetActiveFiscalYear: (id: string) => void;
+  onPageChange: (page: number) => void;
+  sortBy: string;
+  sortOrder: 'asc' | 'desc';
+  onSort: (sortKey: string) => void;
 }
 
 const StatusBadge: React.FC<{ status: 'Active' | 'Inactive' | 'Archived' }> = ({ status }) => {
@@ -66,7 +72,11 @@ const FiscalYearTable: React.FC<FiscalYearTableProps> = ({
   isDeleting = false,
   isActivating = false,
   onDeleteFiscalYear,
-  onSetActiveFiscalYear
+  onSetActiveFiscalYear,
+  onPageChange,
+  sortBy,
+  sortOrder,
+  onSort
 }) => {
   return (
     <div className="space-y-4">
@@ -78,19 +88,19 @@ const FiscalYearTable: React.FC<FiscalYearTableProps> = ({
           <TableHeader className="bg-slate-50">
             <TableRow>
               <TableCell className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">
-                Fiscal Year Code
+                <SortableHeader label="Fiscal Year Code" sortKey="code" sortBy={sortBy} sortOrder={sortOrder} onSort={onSort} />
               </TableCell>
               <TableCell className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">
-                Description
+                <SortableHeader label="Description" sortKey="description" sortBy={sortBy} sortOrder={sortOrder} onSort={onSort} />
               </TableCell>
               <TableCell className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">
-                Start Date
+                <SortableHeader label="Start Date" sortKey="startDate" sortBy={sortBy} sortOrder={sortOrder} onSort={onSort} />
               </TableCell>
               <TableCell className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">
-                End Date
+                <SortableHeader label="End Date" sortKey="endDate" sortBy={sortBy} sortOrder={sortOrder} onSort={onSort} />
               </TableCell>
               <TableCell className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">
-                Status
+                <SortableHeader label="Status" sortKey="status" sortBy={sortBy} sortOrder={sortOrder} onSort={onSort} />
               </TableCell>
               <TableCell className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">
                 Actions
@@ -201,32 +211,13 @@ const FiscalYearTable: React.FC<FiscalYearTableProps> = ({
       </div>
 
       {fiscalYears.length > 0 && (
-        <div className="flex justify-between items-center text-sm text-slate-500">
-          <span className="flex items-center">
-            Showing {fiscalYears.length} of {pagination.total} fiscal years
-          </span>
-          <div className="flex items-center space-x-2">
-            <button
-              onClick={() => {
-                // TODO: Implement previous page logic
-              }}
-              disabled={pagination.page <= 1}
-              className="px-3 py-1 text-slate-500 hover:text-slate-700 border border-slate-300 rounded hover:bg-slate-50 disabled:opacity-50"
-            >
-              ‹
-            </button>
-            <span>{pagination.page} of {pagination.totalPages}</span>
-            <button
-              onClick={() => {
-                // TODO: Implement next page logic
-              }}
-              disabled={pagination.page >= pagination.totalPages}
-              className="px-3 py-1 text-slate-500 hover:text-slate-700 border border-slate-300 rounded hover:bg-slate-50 disabled:opacity-50"
-            >
-              ›
-            </button>
-          </div>
-        </div>
+        <Pagination
+          page={pagination.page}
+          totalPages={pagination.totalPages}
+          total={pagination.total}
+          pageSize={pagination.limit}
+          onPageChange={onPageChange}
+        />
       )}
     </div>
   );

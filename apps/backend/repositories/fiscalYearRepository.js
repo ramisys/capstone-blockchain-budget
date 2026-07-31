@@ -93,6 +93,12 @@ class FiscalYearRepository {
     if (filters.endDate) {
       where.endDate = { lte: new Date(filters.endDate) };
     }
+    if (filters.search) {
+      where.OR = [
+        { code: { contains: filters.search } },
+        { description: { contains: filters.search } },
+      ];
+    }
 
     const page = parseInt(pagination.page) || 1;
     const limit = parseInt(pagination.limit) || 10;
@@ -140,6 +146,12 @@ class FiscalYearRepository {
     }
     if (filters.endDate) {
       where.endDate = { lte: new Date(filters.endDate) };
+    }
+    if (filters.search) {
+      where.OR = [
+        { code: { contains: filters.search } },
+        { description: { contains: filters.search } },
+      ];
     }
 
     return prisma.fiscalYear.count({ where });

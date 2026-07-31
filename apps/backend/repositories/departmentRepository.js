@@ -107,6 +107,14 @@ class DepartmentRepository {
     if (filters.status) {
       where.status = filters.status;
     }
+    if (filters.search) {
+      where.OR = [
+        { code: { contains: filters.search } },
+        { name: { contains: filters.search } },
+        { officeHead: { contains: filters.search } },
+        { email: { contains: filters.search } },
+      ];
+    }
 
     const page = parseInt(pagination.page) || 1;
     const limit = parseInt(pagination.limit) || 10;
@@ -157,6 +165,14 @@ class DepartmentRepository {
     }
     if (filters.status) {
       where.status = filters.status;
+    }
+    if (filters.search) {
+      where.OR = [
+        { code: { contains: filters.search } },
+        { name: { contains: filters.search } },
+        { officeHead: { contains: filters.search } },
+        { email: { contains: filters.search } },
+      ];
     }
 
     return prisma.department.count({ where });

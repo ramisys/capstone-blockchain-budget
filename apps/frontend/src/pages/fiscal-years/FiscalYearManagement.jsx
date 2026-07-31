@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { useFiscalYears, useCreateFiscalYear, useUpdateFiscalYear, useDeleteFiscalYear, useSetActiveFiscalYear } from '../../hooks/useFiscalYears';
+import { useListControls } from '../../hooks/useListControls';
+import SearchInput from '../../components/ui/SearchInput';
 import { Button } from '../../components/ui/Button';
 import { FiscalYearTable } from '../../components/tables/FiscalYearTable';
 import { FiscalYearCreateDialog } from '../../components/dialogs/FiscalYearCreateDialog';
@@ -11,11 +13,27 @@ import { Card } from '../../components/ui/Card';
 
 export function FiscalYearManagement() {
   const {
+    search,
+    setSearch,
+    debouncedSearch,
+    page,
+    setPage,
+    pageSize,
+    sortBy,
+    sortOrder,
+    handleSort
+  } = useListControls();
+
+  const {
     data: fiscalYearsData,
     isLoading,
     isError,
     error
-  } = useFiscalYears();
+  } = useFiscalYears(
+    { search: debouncedSearch || undefined },
+    { page, limit: pageSize },
+    { sortBy, sortOrder }
+  );
 
   const [selectedFiscalYear, setSelectedFiscalYear] = useState(null);
   const [dialogState, setDialogState] = useState({
@@ -180,19 +198,33 @@ export function FiscalYearManagement() {
         </div>
 
         {/* Fiscal Year Table */}
-        <FiscalYearTable
-          fiscalYears={fiscalYears}
-          pagination={pagination}
-          onEdit={openEditDialog}
-          onDetails={openDetailsDialog}
-          onDelete={openDeleteDialog}
-          onActivate={openActivateDialog}
-          isLoading={isLoading}
-          isDeleting={isDeleting}
-          isActivating={isActivating}
-          onDeleteFiscalYear={deleteFiscalYear}
-          onSetActiveFiscalYear={setActiveFiscalYear}
-        />
+        <div className="space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <SearchInput
+              value={search}
+              onChange={setSearch}
+              placeholder="Search fiscal years by code or description..."
+              className="w-full sm:max-w-md"
+            />
+          </div>
+          <FiscalYearTable
+            fiscalYears={fiscalYears}
+            pagination={pagination}
+            onEdit={openEditDialog}
+            onDetails={openDetailsDialog}
+            onDelete={openDeleteDialog}
+            onActivate={openActivateDialog}
+            isLoading={isLoading}
+            isDeleting={isDeleting}
+            isActivating={isActivating}
+            onDeleteFiscalYear={deleteFiscalYear}
+            onSetActiveFiscalYear={setActiveFiscalYear}
+            onPageChange={setPage}
+            sortBy={sortBy}
+            sortOrder={sortOrder}
+            onSort={handleSort}
+          />
+        </div>
 
         {/* Dialogs */}
         <FiscalYearCreateDialog

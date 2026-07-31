@@ -84,6 +84,7 @@ class BudgetProgramController {
         departmentId: req.query.departmentId,
         budgetCategoryId: req.query.budgetCategoryId,
         status: req.query.status,
+        search: req.query.search,
       };
 
       const pagination = {

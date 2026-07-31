@@ -74,6 +74,7 @@ export const fundSourceQuerySchema = z.object({
   name: z.string().optional(),
   description: z.string().optional(),
   status: z.enum(USER_STATUS_LIST).optional(),
+  search: z.string().optional(),
   sortBy: z
     .enum(['code', 'name', 'description', 'status', 'createdAt', 'updatedAt'])
     .optional()

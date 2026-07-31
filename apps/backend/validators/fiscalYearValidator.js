@@ -83,6 +83,7 @@ export const fiscalYearQuerySchema = z.object({
   isActive: z.boolean().optional(),
   startDate: z.string().optional(),
   endDate: z.string().optional(),
+  search: z.string().optional(),
   sortBy: z
     .enum(['code', 'description', 'startDate', 'endDate', 'status', 'isActive', 'createdAt', 'updatedAt'])
     .optional()
