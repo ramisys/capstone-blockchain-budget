@@ -28,6 +28,6 @@ export const fiscalYearApi = {
 
   // Set fiscal year as active
   setActiveFiscalYear: (id) => {
-    return apiClient.put(`/fiscal-years/${id}/activate`);
+    return apiClient.patch(`/fiscal-years/${id}/activate`);
   }
 };
