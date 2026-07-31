@@ -87,22 +87,22 @@ class DepartmentRepository {
     const where = {};
 
     if (filters.code) {
-      where.code = { contains: filters.code, mode: 'insensitive' };
+      where.code = { contains: filters.code };
     }
     if (filters.name) {
-      where.name = { contains: filters.name, mode: 'insensitive' };
+      where.name = { contains: filters.name };
     }
     if (filters.officeHead) {
-      where.officeHead = { contains: filters.officeHead, mode: 'insensitive' };
+      where.officeHead = { contains: filters.officeHead };
     }
     if (filters.contactNumber) {
-      where.contactNumber = { contains: filters.contactNumber, mode: 'insensitive' };
+      where.contactNumber = { contains: filters.contactNumber };
     }
     if (filters.email) {
-      where.email = { contains: filters.email, mode: 'insensitive' };
+      where.email = { contains: filters.email };
     }
     if (filters.officeAddress) {
-      where.officeAddress = { contains: filters.officeAddress, mode: 'insensitive' };
+      where.officeAddress = { contains: filters.officeAddress };
     }
     if (filters.status) {
       where.status = filters.status;
@@ -138,22 +138,22 @@ class DepartmentRepository {
     const where = {};
 
     if (filters.code) {
-      where.code = { contains: filters.code, mode: 'insensitive' };
+      where.code = { contains: filters.code };
     }
     if (filters.name) {
-      where.name = { contains: filters.name, mode: 'insensitive' };
+      where.name = { contains: filters.name };
     }
     if (filters.officeHead) {
-      where.officeHead = { contains: filters.officeHead, mode: 'insensitive' };
+      where.officeHead = { contains: filters.officeHead };
     }
     if (filters.contactNumber) {
-      where.contactNumber = { contains: filters.contactNumber, mode: 'insensitive' };
+      where.contactNumber = { contains: filters.contactNumber };
     }
     if (filters.email) {
-      where.email = { contains: filters.email, mode: 'insensitive' };
+      where.email = { contains: filters.email };
     }
     if (filters.officeAddress) {
-      where.officeAddress = { contains: filters.officeAddress, mode: 'insensitive' };
+      where.officeAddress = { contains: filters.officeAddress };
     }
     if (filters.status) {
       where.status = filters.status;

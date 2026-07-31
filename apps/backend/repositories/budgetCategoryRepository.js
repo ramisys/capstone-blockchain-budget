@@ -87,13 +87,13 @@ class BudgetCategoryRepository {
     const where = {};
 
     if (filters.code) {
-      where.code = { contains: filters.code, mode: 'insensitive' };
+      where.code = { contains: filters.code };
     }
     if (filters.name) {
-      where.name = { contains: filters.name, mode: 'insensitive' };
+      where.name = { contains: filters.name };
     }
     if (filters.description) {
-      where.description = { contains: filters.description, mode: 'insensitive' };
+      where.description = { contains: filters.description };
     }
     if (filters.status) {
       where.status = filters.status;
@@ -129,13 +129,13 @@ class BudgetCategoryRepository {
     const where = {};
 
     if (filters.code) {
-      where.code = { contains: filters.code, mode: 'insensitive' };
+      where.code = { contains: filters.code };
     }
     if (filters.name) {
-      where.name = { contains: filters.name, mode: 'insensitive' };
+      where.name = { contains: filters.name };
     }
     if (filters.description) {
-      where.description = { contains: filters.description, mode: 'insensitive' };
+      where.description = { contains: filters.description };
     }
     if (filters.status) {
       where.status = filters.status;
