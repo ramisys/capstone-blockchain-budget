@@ -1,10 +1,5 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../hooks/useAuth';
-import { useFiscalYears } from '../hooks/useFiscalYears';
-import { useFundSources } from '../hooks/useFundSources';
-import { useDepartments } from '../hooks/useDepartments';
-import { useBudgetCategories } from '../hooks/useBudgetCategories';
-import { useBudgetPrograms } from '../hooks/useBudgetPrograms';
 import { Card, CardBody, CardHeader } from '../components/ui/Card';
 import { Spinner } from '../components/ui/Spinner';
 import { Alert } from '../components/ui/Alert';
@@ -13,13 +8,6 @@ import apiClient from '../api/apiClient';
 
 export function Dashboard() {
   const { user } = useAuth();
-
-  // Hooks for budget allocation data
-  const { data: fyData, isLoading: fyLoading, error: fyError } = useFiscalYears();
-  const { data: fsData, isLoading: fsLoading, error: fsError } = useFundSources();
-  const { data: deptData, isLoading: deptLoading, error: deptError } = useDepartments();
-  const { data: bcData, isLoading: bcLoading, error: bcError } = useBudgetCategories();
-  const { data: bpData, isLoading: bpLoading, error: bpError } = useBudgetPrograms();
 
   // State for stats
   const [stats, setStats] = useState(null);
@@ -46,30 +34,12 @@ export function Dashboard() {
   const [blockchainLoading, setBlockchainLoading] = useState(true);
   const [blockchainError, setBlockchainError] = useState(null);
 
-  // Fetch dashboard stats - UPDATED to include budget allocation stats
+  // Fetch dashboard stats
   const fetchStats = async () => {
     try {
       setStatsLoading(true);
       const response = await apiClient.get('/dashboard/stats');
-
-      // Get counts from our hooks
-      const fiscalYearsCount = fyData?.fiscalYears?.length || 0;
-      const fundSourcesCount = fsData?.fundSources?.length || 0;
-      const departmentsCount = deptData?.departments?.length || 0;
-      const budgetCategoriesCount = bcData?.budgetCategories?.length || 0;
-      const budgetProgramsCount = bpData?.budgetPrograms?.length || 0;
-
-      // Merge the stats from API with our budget allocation counts
-      const combinedStats = {
-        ...response.data.data.stats,
-        fiscalYears: fiscalYearsCount,
-        fundSources: fundSourcesCount,
-        departments: departmentsCount,
-        budgetCategories: budgetCategoriesCount,
-        budgetPrograms: budgetProgramsCount
-      };
-
-      setStats(combinedStats);
+      setStats(response.data.data.stats);
       setStatsError(null);
     } catch (err) {
       setStatsError(err.response?.data?.message || 'Failed to fetch stats');
@@ -278,13 +248,13 @@ export function Dashboard() {
               <h6 className="mb-0 text-sm font-semibold text-slate-500">Fiscal Years</h6>
             </CardHeader>
             <CardBody className="text-center">
-              {fyLoading ? (
+              {statsLoading ? (
                 <Spinner size="sm" />
-              ) : fyError ? (
-                <Alert variant="danger">{fyError}</Alert>
+              ) : statsError ? (
+                <Alert variant="danger">{statsError}</Alert>
               ) : (
                 <>
-                  <h2 className="display-4 fw-bold text-blue-600 mb-2">{fyData?.fiscalYears?.length || 0}</h2>
+                  <h2 className="display-4 fw-bold text-blue-600 mb-2">{formatNumber(stats.fiscalYears)}</h2>
                   <p className="text-muted">Configure fiscal periods</p>
                 </>
               )}
@@ -297,13 +267,13 @@ export function Dashboard() {
               <h6 className="mb-0 text-sm font-semibold text-slate-500">Fund Sources</h6>
             </CardHeader>
             <CardBody className="text-center">
-              {fsLoading ? (
+              {statsLoading ? (
                 <Spinner size="sm" />
-              ) : fsError ? (
-                <Alert variant="danger">{fsError}</Alert>
+              ) : statsError ? (
+                <Alert variant="danger">{statsError}</Alert>
               ) : (
                 <>
-                  <h2 className="display-4 fw-bold text-green-600 mb-2">{fsData?.fundSources?.length || 0}</h2>
+                  <h2 className="display-4 fw-bold text-green-600 mb-2">{formatNumber(stats.fundSources)}</h2>
                   <p className="text-muted">Track funding sources</p>
                 </>
               )}
@@ -316,13 +286,13 @@ export function Dashboard() {
               <h6 className="mb-0 text-sm font-semibold text-slate-500">Departments</h6>
             </CardHeader>
             <CardBody className="text-center">
-              {deptLoading ? (
+              {statsLoading ? (
                 <Spinner size="sm" />
-              ) : deptError ? (
-                <Alert variant="danger">{deptError}</Alert>
+              ) : statsError ? (
+                <Alert variant="danger">{statsError}</Alert>
               ) : (
                 <>
-                  <h2 className="display-4 fw-bold text-yellow-600 mb-2">{deptData?.departments?.length || 0}</h2>
+                  <h2 className="display-4 fw-bold text-yellow-600 mb-2">{formatNumber(stats.departments)}</h2>
                   <p className="text-muted">Manage organizational units</p>
                 </>
               )}
@@ -335,13 +305,13 @@ export function Dashboard() {
               <h6 className="mb-0 text-sm font-semibold text-slate-500">Budget Categories</h6>
             </CardHeader>
             <CardBody className="text-center">
-              {bcLoading ? (
+              {statsLoading ? (
                 <Spinner size="sm" />
-              ) : bcError ? (
-                <Alert variant="danger">{bcError}</Alert>
+              ) : statsError ? (
+                <Alert variant="danger">{statsError}</Alert>
               ) : (
                 <>
-                  <h2 className="display-4 fw-bold text-purple-600 mb-2">{bcData?.budgetCategories?.length || 0}</h2>
+                  <h2 className="display-4 fw-bold text-purple-600 mb-2">{formatNumber(stats.budgetCategories)}</h2>
                   <p className="text-muted">Categorize budget allocations</p>
                 </>
               )}
@@ -354,13 +324,13 @@ export function Dashboard() {
               <h6 className="mb-0 text-sm font-semibold text-slate-500">Budget Programs</h6>
             </CardHeader>
             <CardBody className="text-center">
-              {bpLoading ? (
+              {statsLoading ? (
                 <Spinner size="sm" />
-              ) : bpError ? (
-                <Alert variant="danger">{bpError}</Alert>
+              ) : statsError ? (
+                <Alert variant="danger">{statsError}</Alert>
               ) : (
                 <>
-                  <h2 className="display-4 fw-bold text-indigo-600 mb-2">{bpData?.budgetPrograms?.length || 0}</h2>
+                  <h2 className="display-4 fw-bold text-indigo-600 mb-2">{formatNumber(stats.budgetPrograms)}</h2>
                   <p className="text-muted">Define budget programs</p>
                 </>
               )}

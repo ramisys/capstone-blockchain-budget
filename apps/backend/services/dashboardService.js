@@ -1,4 +1,9 @@
 import { userRepository } from '../repositories/userRepository.js';
+import { fiscalYearRepository } from '../repositories/fiscalYearRepository.js';
+import { fundSourceRepository } from '../repositories/fundSourceRepository.js';
+import { departmentRepository } from '../repositories/departmentRepository.js';
+import { budgetCategoryRepository } from '../repositories/budgetCategoryRepository.js';
+import { budgetProgramRepository } from '../repositories/budgetProgramRepository.js';
 import { ROLES } from '../constants/roles.js';
 import { USER_STATUS } from '../constants/status.js';
 
@@ -8,8 +13,23 @@ class DashboardService {
    * @returns {Promise<Object>} Dashboard statistics
    */
   async getDashboardStats() {
-    const stats = await userRepository.getDashboardStatsAggregated();
-    return stats;
+    const [userStats, fiscalYears, fundSources, departments, budgetCategories, budgetPrograms] = await Promise.all([
+      userRepository.getDashboardStatsAggregated(),
+      fiscalYearRepository.count(),
+      fundSourceRepository.count(),
+      departmentRepository.count(),
+      budgetCategoryRepository.count(),
+      budgetProgramRepository.count(),
+    ]);
+
+    return {
+      ...userStats,
+      fiscalYears,
+      fundSources,
+      departments,
+      budgetCategories,
+      budgetPrograms,
+    };
   }
 
   /**
