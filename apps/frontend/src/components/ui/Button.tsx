@@ -1,6 +1,17 @@
 import React from 'react';
 import { Loader2 } from 'lucide-react';
 
+export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+  children?: React.ReactNode;
+  variant?: 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger' | 'accent';
+  size?: 'sm' | 'md' | 'lg' | 'icon';
+  type?: 'button' | 'submit' | 'reset';
+  disabled?: boolean;
+  loading?: boolean;
+  className?: string;
+  onClick?: (event: React.MouseEvent<HTMLButtonElement>) => void;
+}
+
 export function Button({
   children,
   variant = 'primary',
@@ -11,7 +22,7 @@ export function Button({
   className = '',
   onClick,
   ...props
-}) {
+}: ButtonProps) {
   const getVariantStyles = () => {
     switch (variant) {
       case 'primary':
@@ -37,6 +48,8 @@ export function Button({
         return 'px-3 py-1.5 text-xs font-medium rounded-lg gap-1.5';
       case 'lg':
         return 'px-5 py-3 text-base font-semibold rounded-xl gap-2.5';
+      case 'icon':
+        return 'w-9 h-9 p-0 rounded-lg gap-0';
       case 'md':
       default:
         return 'px-4 py-2 text-sm font-medium rounded-xl gap-2';
@@ -56,3 +69,5 @@ export function Button({
     </button>
   );
 }
+
+export default Button;

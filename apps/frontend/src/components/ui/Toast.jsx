@@ -25,9 +25,10 @@ export function ToastProvider({ children }) {
   const showSuccess = useCallback((msg) => addToast(msg, 'success'), [addToast]);
   const showError = useCallback((msg) => addToast(msg, 'error'), [addToast]);
   const showInfo = useCallback((msg) => addToast(msg, 'info'), [addToast]);
+  const showToast = useCallback((msg, type = 'success') => addToast(msg, type), [addToast]);
 
   return (
-    <ToastContext.Provider value={{ addToast, removeToast, showSuccess, showError, showInfo }}>
+    <ToastContext.Provider value={{ addToast, removeToast, showSuccess, showError, showInfo, showToast }}>
       {children}
       {createPortal(
         <div className="fixed top-5 right-5 z-10000 flex flex-col gap-3 max-w-sm w-full pointer-events-none px-4 sm:px-0">
@@ -49,6 +50,7 @@ export function useToast() {
       showSuccess: (msg) => console.log('Toast success:', msg),
       showError: (msg) => console.error('Toast error:', msg),
       showInfo: (msg) => console.log('Toast info:', msg),
+      showToast: (msg, type) => console.log(`Toast ${type}:`, msg),
       addToast: () => {},
       removeToast: () => {},
     };

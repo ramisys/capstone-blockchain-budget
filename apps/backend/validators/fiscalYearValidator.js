@@ -53,7 +53,7 @@ export const updateFiscalYearSchema = z.object({
     .optional(),
   endDate: z
     .string()
-    .refine((date) => !isNaN(date.parse(date)), { message: 'Invalid end date' })
+    .refine((date) => !isNaN(Date.parse(date)), { message: 'Invalid end date' })
     .optional(),
   status: z
     .enum(FISCAL_YEAR_STATUS_LIST, {

@@ -1,5 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../hooks/useAuth';
+import { useFiscalYears } from '../hooks/useFiscalYears';
+import { useFundSources } from '../hooks/useFundSources';
+import { useDepartments } from '../hooks/useDepartments';
+import { useBudgetCategories } from '../hooks/useBudgetCategories';
+import { useBudgetPrograms } from '../hooks/useBudgetPrograms';
 import { Card, CardBody, CardHeader } from '../components/ui/Card';
 import { Spinner } from '../components/ui/Spinner';
 import { Alert } from '../components/ui/Alert';
@@ -8,6 +13,13 @@ import apiClient from '../api/apiClient';
 
 export function Dashboard() {
   const { user } = useAuth();
+
+  // Hooks for budget allocation data
+  const { data: fyData, isLoading: fyLoading, error: fyError } = useFiscalYears();
+  const { data: fsData, isLoading: fsLoading, error: fsError } = useFundSources();
+  const { data: deptData, isLoading: deptLoading, error: deptError } = useDepartments();
+  const { data: bcData, isLoading: bcLoading, error: bcError } = useBudgetCategories();
+  const { data: bpData, isLoading: bpLoading, error: bpError } = useBudgetPrograms();
 
   // State for stats
   const [stats, setStats] = useState(null);
@@ -34,12 +46,30 @@ export function Dashboard() {
   const [blockchainLoading, setBlockchainLoading] = useState(true);
   const [blockchainError, setBlockchainError] = useState(null);
 
-  // Fetch dashboard stats
+  // Fetch dashboard stats - UPDATED to include budget allocation stats
   const fetchStats = async () => {
     try {
       setStatsLoading(true);
       const response = await apiClient.get('/dashboard/stats');
-      setStats(response.data.data.stats);
+
+      // Get counts from our hooks
+      const fiscalYearsCount = fyData?.fiscalYears?.length || 0;
+      const fundSourcesCount = fsData?.fundSources?.length || 0;
+      const departmentsCount = deptData?.departments?.length || 0;
+      const budgetCategoriesCount = bcData?.budgetCategories?.length || 0;
+      const budgetProgramsCount = bpData?.budgetPrograms?.length || 0;
+
+      // Merge the stats from API with our budget allocation counts
+      const combinedStats = {
+        ...response.data.data.stats,
+        fiscalYears: fiscalYearsCount,
+        fundSources: fundSourcesCount,
+        departments: departmentsCount,
+        budgetCategories: budgetCategoriesCount,
+        budgetPrograms: budgetProgramsCount
+      };
+
+      setStats(combinedStats);
       setStatsError(null);
     } catch (err) {
       setStatsError(err.response?.data?.message || 'Failed to fetch stats');
@@ -236,6 +266,107 @@ export function Dashboard() {
             )}
           </CardBody>
         </Card>
+      </div>
+
+      {/* Budget Allocation Setup */}
+      <div className="mb-6">
+        <h2 className="text-xl font-bold text-slate-900 mb-4">Budget Allocation Setup</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+          {/* Fiscal Years */}
+          <Card className="h-full">
+            <CardHeader className="pb-4">
+              <h6 className="mb-0 text-sm font-semibold text-slate-500">Fiscal Years</h6>
+            </CardHeader>
+            <CardBody className="text-center">
+              {fyLoading ? (
+                <Spinner size="sm" />
+              ) : fyError ? (
+                <Alert variant="danger">{fyError}</Alert>
+              ) : (
+                <>
+                  <h2 className="display-4 fw-bold text-blue-600 mb-2">{fyData?.fiscalYears?.length || 0}</h2>
+                  <p className="text-muted">Configure fiscal periods</p>
+                </>
+              )}
+            </CardBody>
+          </Card>
+
+          {/* Fund Sources */}
+          <Card className="h-full">
+            <CardHeader className="pb-4">
+              <h6 className="mb-0 text-sm font-semibold text-slate-500">Fund Sources</h6>
+            </CardHeader>
+            <CardBody className="text-center">
+              {fsLoading ? (
+                <Spinner size="sm" />
+              ) : fsError ? (
+                <Alert variant="danger">{fsError}</Alert>
+              ) : (
+                <>
+                  <h2 className="display-4 fw-bold text-green-600 mb-2">{fsData?.fundSources?.length || 0}</h2>
+                  <p className="text-muted">Track funding sources</p>
+                </>
+              )}
+            </CardBody>
+          </Card>
+
+          {/* Departments */}
+          <Card className="h-full">
+            <CardHeader className="pb-4">
+              <h6 className="mb-0 text-sm font-semibold text-slate-500">Departments</h6>
+            </CardHeader>
+            <CardBody className="text-center">
+              {deptLoading ? (
+                <Spinner size="sm" />
+              ) : deptError ? (
+                <Alert variant="danger">{deptError}</Alert>
+              ) : (
+                <>
+                  <h2 className="display-4 fw-bold text-yellow-600 mb-2">{deptData?.departments?.length || 0}</h2>
+                  <p className="text-muted">Manage organizational units</p>
+                </>
+              )}
+            </CardBody>
+          </Card>
+
+          {/* Budget Categories */}
+          <Card className="h-full">
+            <CardHeader className="pb-4">
+              <h6 className="mb-0 text-sm font-semibold text-slate-500">Budget Categories</h6>
+            </CardHeader>
+            <CardBody className="text-center">
+              {bcLoading ? (
+                <Spinner size="sm" />
+              ) : bcError ? (
+                <Alert variant="danger">{bcError}</Alert>
+              ) : (
+                <>
+                  <h2 className="display-4 fw-bold text-purple-600 mb-2">{bcData?.budgetCategories?.length || 0}</h2>
+                  <p className="text-muted">Categorize budget allocations</p>
+                </>
+              )}
+            </CardBody>
+          </Card>
+
+          {/* Budget Programs */}
+          <Card className="h-full">
+            <CardHeader className="pb-4">
+              <h6 className="mb-0 text-sm font-semibold text-slate-500">Budget Programs</h6>
+            </CardHeader>
+            <CardBody className="text-center">
+              {bpLoading ? (
+                <Spinner size="sm" />
+              ) : bpError ? (
+                <Alert variant="danger">{bpError}</Alert>
+              ) : (
+                <>
+                  <h2 className="display-4 fw-bold text-indigo-600 mb-2">{bpData?.budgetPrograms?.length || 0}</h2>
+                  <p className="text-muted">Define budget programs</p>
+                </>
+              )}
+            </CardBody>
+          </Card>
+        </div>
       </div>
 
       {/* Charts Section */}

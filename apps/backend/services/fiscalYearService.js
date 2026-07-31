@@ -29,9 +29,11 @@ class FiscalYearService {
       throw new AppError('Fiscal year date range overlaps with an existing fiscal year', HTTP_STATUS.CONFLICT);
     }
 
-    // Set default status if not provided
+    // Set default status if not provided and normalize dates
     const dataToCreate = {
       ...fiscalYearData,
+      startDate,
+      endDate,
       status: fiscalYearData.status || FISCAL_YEAR_STATUS.INACTIVE,
       isActive: fiscalYearData.isActive || false,
     };
@@ -120,9 +122,11 @@ class FiscalYearService {
       }
     }
 
-    // Set default values for status and isActive if not provided
+    // Set default values for status and isActive if not provided and normalize dates
     const dataToUpdate = {
       ...updateData,
+      ...(updateData.startDate && { startDate }),
+      ...(updateData.endDate && { endDate }),
       status: updateData.status || existingFiscalYear.status,
       isActive: updateData.isActive !== undefined ? updateData.isActive : existingFiscalYear.isActive,
     };
