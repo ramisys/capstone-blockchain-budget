@@ -4,49 +4,12 @@ import { USER_STATUS } from '../constants/status.js';
 
 class DashboardService {
   /**
-   * Get dashboard statistics
+   * Get dashboard statistics using a single aggregation query
    * @returns {Promise<Object>} Dashboard statistics
    */
   async getDashboardStats() {
-    // Get total users count
-    const totalUsers = await userRepository.count({});
-
-    // Get active users count
-    const activeUsers = await userRepository.count({
-      where: { status: USER_STATUS.ACTIVE },
-    });
-
-    // Get inactive users count
-    const inactiveUsers = await userRepository.count({
-      where: { status: USER_STATUS.INACTIVE },
-    });
-
-    // Get count by role
-    const administrators = await userRepository.count({
-      where: { role: ROLES.ADMINISTRATOR, status: USER_STATUS.ACTIVE },
-    });
-
-    const treasurers = await userRepository.count({
-      where: { role: ROLES.TREASURER, status: USER_STATUS.ACTIVE },
-    });
-
-    const budgetOfficers = await userRepository.count({
-      where: { role: ROLES.BUDGET_OFFICER, status: USER_STATUS.ACTIVE },
-    });
-
-    const auditors = await userRepository.count({
-      where: { role: ROLES.AUDITOR, status: USER_STATUS.ACTIVE },
-    });
-
-    return {
-      totalUsers,
-      activeUsers,
-      inactiveUsers,
-      administrators,
-      treasurers,
-      budgetOfficers,
-      auditors,
-    };
+    const stats = await userRepository.getDashboardStatsAggregated();
+    return stats;
   }
 
   /**
@@ -57,8 +20,6 @@ class DashboardService {
     // Get users by role
     const usersByRoleRaw = await userRepository.aggregateRoleCounts();
 
-    console.log("usersByRoleRaw:", usersByRoleRaw);
-
     // Format the data for the frontend
     const usersByRole = usersByRoleRaw.map((roleCount) => ({
       role: this.formatRole(roleCount.role),
@@ -67,8 +28,6 @@ class DashboardService {
 
     // Get users by status
     const usersByStatusRaw = await userRepository.aggregateStatusCounts();
-
-    console.log("usersByStatusRaw:", usersByStatusRaw);
 
     // Format the data for the frontend
     const usersByStatus = usersByStatusRaw.map((statusCount) => ({
