@@ -16,6 +16,7 @@ import { DepartmentManagement } from '../pages/departments/DepartmentManagement'
 import { BudgetCategoryManagement } from '../pages/budget-categories/BudgetCategoryManagement';
 import { BudgetProgramManagement } from '../pages/budget-programs/BudgetProgramManagement';
 import { BudgetAllocationOverview } from '../pages/budget-allocation/BudgetAllocationOverview';
+import { ROLES } from '../constants/roles';
 
 export function AppRoutes() {
   return (
@@ -39,11 +40,39 @@ export function AppRoutes() {
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/profile" element={<Profile />} />
 
-        {/* User Management Routes */}
-        <Route path="/users" element={<UserList />} />
-        <Route path="/users/new" element={<UserForm />} />
-        <Route path="/users/:id" element={<UserDetail />} />
-        <Route path="/users/:id/edit" element={<UserForm />} />
+        {/* User Management Routes (Administrator only) */}
+        <Route
+          path="/users"
+          element={
+            <ProtectedRoute roles={[ROLES.ADMINISTRATOR]}>
+              <UserList />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/users/new"
+          element={
+            <ProtectedRoute roles={[ROLES.ADMINISTRATOR]}>
+              <UserForm />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/users/:id"
+          element={
+            <ProtectedRoute roles={[ROLES.ADMINISTRATOR]}>
+              <UserDetail />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/users/:id/edit"
+          element={
+            <ProtectedRoute roles={[ROLES.ADMINISTRATOR]}>
+              <UserForm />
+            </ProtectedRoute>
+          }
+        />
 
         {/* Budget Allocation Structured Routes */}
         <Route path="/budget-allocation" element={<BudgetAllocationOverview />} />
