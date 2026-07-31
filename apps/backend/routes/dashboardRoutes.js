@@ -16,12 +16,12 @@ const router = Router();
 router.use(authenticate);
 
 // Apply authorization to all dashboard routes (only allowed roles can access)
-router.use(authorize([
+router.use(authorize(
   ROLES.ADMINISTRATOR,
   ROLES.TREASURER,
   ROLES.BUDGET_OFFICER,
   ROLES.AUDITOR
-]));
+));
 
 /**
  * @route   GET /api/dashboard/stats
