@@ -1,6 +1,24 @@
+import { Prisma } from '@prisma/client';
 import { AppError } from '../errors/appError.js';
+import { PrismaError } from '../errors/prismaError.js';
 import { formatErrorResponse } from '../utils/responseFormatter.js';
 import { HTTP_STATUS } from '../constants/httpStatus.js';
+
+/**
+ * Detect whether an error was thrown by the Prisma client.
+ *
+ * @param {Error} err - Error object thrown
+ * @returns {boolean} True if the error originates from Prisma
+ */
+const isPrismaError = (err) => {
+  return (
+    err instanceof Prisma.PrismaClientKnownRequestError ||
+    err instanceof Prisma.PrismaClientValidationError ||
+    err instanceof Prisma.PrismaClientInitializationError ||
+    err instanceof Prisma.PrismaClientRustPanicError ||
+    err instanceof Prisma.PrismaClientUnknownRequestError
+  );
+};
 
 /**
  * Centralized Express Error Handling Middleware.
@@ -14,13 +32,20 @@ export const errorHandler = (err, req, res, next) => {
   let statusCode = err.statusCode || HTTP_STATUS.INTERNAL_SERVER_ERROR;
   let message = err.message || 'Internal server error';
   let errors = err.errors || [];
+  let normalized = false;
 
-  // Handle Prisma Known Request Errors (e.g. Unique Constraint Violation)
-  if (err.code === 'P2002') {
-    statusCode = HTTP_STATUS.CONFLICT;
-    const targetFields = err.meta?.target ? err.meta.target.join(', ') : 'field';
-    message = `A record with this ${targetFields} already exists`;
-    errors = [{ field: targetFields, message }];
+  // Normalize Prisma errors into operational errors with proper HTTP status codes
+  if (isPrismaError(err)) {
+    normalized = true;
+    const prismaError = PrismaError.fromError(err);
+    statusCode = prismaError.statusCode;
+    message = prismaError.message;
+    errors = prismaError.errors;
+
+    // Keep database issues visible outside production for debugging
+    if (process.env.NODE_ENV !== 'production') {
+      console.error(`Prisma Error (${err.code || err.name}):`, err.message);
+    }
   }
 
   // Hide internal error details in production
@@ -30,7 +55,7 @@ export const errorHandler = (err, req, res, next) => {
   }
 
   // Log non-operational errors for debugging
-  if (!err.isOperational) {
+  if (!err.isOperational && !normalized) {
     console.error('Unhandled System Error:', err);
   }
 

@@ -64,14 +64,12 @@ export const fundSourceQuerySchema = z.object({
     .string()
     .regex(/^\d+$/, 'Page must be a positive integer')
     .optional()
-    .transform(val => (val ? parseInt(val, 10) : 1))
-    .default(1),
+    .transform(val => (val ? parseInt(val, 10) : 1)),
   limit: z
     .string()
     .regex(/^\d+$/, 'Limit must be a positive integer')
     .optional()
-    .transform(val => (val ? parseInt(val, 10) : 10))
-    .default(10),
+    .transform(val => (val ? parseInt(val, 10) : 10)),
   code: z.string().optional(),
   name: z.string().optional(),
   description: z.string().optional(),

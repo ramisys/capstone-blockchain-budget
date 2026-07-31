@@ -106,14 +106,12 @@ export const userQuerySchema = z.object({
     .string()
     .regex(/^\d+$/, 'Page must be a positive integer')
     .optional()
-    .transform(val => (val ? parseInt(val, 10) : 1))
-    .default(1),
+    .transform(val => (val ? parseInt(val, 10) : 1)),
   limit: z
     .string()
     .regex(/^\d+$/, 'Limit must be a positive integer')
     .optional()
-    .transform(val => (val ? parseInt(val, 10) : 10))
-    .default(10),
+    .transform(val => (val ? parseInt(val, 10) : 10)),
   role: z.enum(ROLE_LIST).optional(),
   status: z.enum(USER_STATUS_LIST).optional(),
   search: z.string().optional(),
