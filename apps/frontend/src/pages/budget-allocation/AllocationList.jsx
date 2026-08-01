@@ -12,6 +12,7 @@ import { AllocationCreateDialog } from '../../components/dialogs/AllocationCreat
 import { AllocationEditDialog } from '../../components/dialogs/AllocationEditDialog';
 import { AllocationDetailsDialog } from '../../components/dialogs/AllocationDetailsDialog';
 import { Button } from '../../components/ui/Button';
+import { useToast } from '../../components/ui/Toast';
 import { ROLES } from '../../constants/roles';
 import { Plus, AlertCircle } from 'lucide-react';
 
@@ -21,6 +22,8 @@ const canCreateAllocation = (role) =>
 export function AllocationList() {
   const { user } = useAuth();
   const role = user?.role || '';
+
+  const { showToast } = useToast();
 
   const {
     search,
@@ -70,8 +73,22 @@ export function AllocationList() {
   const handleDelete = () => {
     if (!deleteTarget) return;
     deleteAllocation(deleteTarget.id, {
-      onSuccess: () => setDeleteTarget(null),
-      onError: () => setDeleteTarget(null),
+      onSuccess: () => {
+        setDeleteTarget(null);
+        showToast(
+          role === ROLES.ADMINISTRATOR
+            ? `Allocation ${deleteTarget.allocationCode} archived successfully`
+            : `Allocation ${deleteTarget.allocationCode} deleted successfully`,
+          'success'
+        );
+      },
+      onError: (err) => {
+        setDeleteTarget(null);
+        showToast(
+          err?.response?.data?.message || 'Failed to delete allocation',
+          'error'
+        );
+      },
     });
   };
 

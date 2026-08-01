@@ -31,7 +31,6 @@ const ConfirmDeleteDialog: React.FC<ConfirmDeleteDialogProps> = ({
 }) => {
   const handleConfirm = async () => {
     await onConfirm();
-    onClose();
   };
 
   return (
