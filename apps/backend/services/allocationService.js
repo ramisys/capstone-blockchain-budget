@@ -1,4 +1,4 @@
-import { allocationRepository } from '../repositories/allocationRepository.js';
+import { allocationRepository, DUPLICATE_ALLOCATION_MESSAGE } from '../repositories/allocationRepository.js';
 import { fiscalYearRepository } from '../repositories/fiscalYearRepository.js';
 import { departmentRepository } from '../repositories/departmentRepository.js';
 import { fundSourceRepository } from '../repositories/fundSourceRepository.js';
@@ -46,10 +46,7 @@ class AllocationService {
       programId: allocationData.programId,
     });
     if (duplicate) {
-      throw new AppError(
-        'An allocation already exists for this fiscal year, department, program, fund source, and category',
-        HTTP_STATUS.CONFLICT
-      );
+      throw new AppError(DUPLICATE_ALLOCATION_MESSAGE, HTTP_STATUS.CONFLICT);
     }
 
     const prefix = this.buildCodePrefix(resolved.fiscalYear.startDate);
@@ -65,6 +62,13 @@ class AllocationService {
         description: allocationData.description,
         status: ALLOCATION_STATUS.DRAFT,
         createdBy: userId,
+      },
+      {
+        fiscalYearId: allocationData.fiscalYearId,
+        departmentId: allocationData.departmentId,
+        fundSourceId: allocationData.fundSourceId,
+        categoryId: allocationData.categoryId,
+        programId: allocationData.programId,
       }
     );
 
@@ -180,10 +184,7 @@ class AllocationService {
         existing.id
       );
       if (duplicate) {
-        throw new AppError(
-          'An allocation already exists for this fiscal year, department, program, fund source, and category',
-          HTTP_STATUS.CONFLICT
-        );
+        throw new AppError(DUPLICATE_ALLOCATION_MESSAGE, HTTP_STATUS.CONFLICT);
       }
 
       if (departmentChanged) dataToUpdate.departmentId = updateData.departmentId;

@@ -499,11 +499,12 @@ async function runAllocationServiceTests() {
 
   console.log('\n9. createWithSequentialCode (code generator) Tests:');
 
-  function mockCodeGenerator(existingCodes) {
+  function mockCodeGenerator(existingCodes, findFirstResult) {
     const rows = existingCodes.map((allocationCode) => ({ allocationCode }));
     prisma.$transaction = async (fn) =>
       fn({
         budgetAllocation: {
+          findFirst: async () => findFirstResult,
           findMany: async (args) => {
             const prefixFilter = args.where?.allocationCode?.startsWith;
             return rows.filter((row) => !prefixFilter || row.allocationCode.startsWith(prefixFilter));
@@ -545,6 +546,46 @@ async function runAllocationServiceTests() {
     const result = await allocationRepository.createWithSequentialCode('BA-2026', 'fy-2026', {});
 
     assert.equal(result.allocationCode, 'BA-2026-001');
+  });
+
+  await test('should reject a duplicate combination detected inside the transaction', async () => {
+    mockCodeGenerator([], { id: 'existing-1' });
+
+    await assert.rejects(
+      () =>
+        allocationRepository.createWithSequentialCode(
+          'BA-2026',
+          'fy-2026',
+          { departmentId: 'dept-1' },
+          {
+            fiscalYearId: 'fy-2026',
+            departmentId: 'dept-1',
+            fundSourceId: 'fund-1',
+            categoryId: 'cat-1',
+            programId: 'prog-1',
+          }
+        ),
+      (err) => err instanceof AppError && err.statusCode === HTTP_STATUS.CONFLICT
+    );
+  });
+
+  await test('should generate a code when no duplicate exists inside the transaction', async () => {
+    mockCodeGenerator(['BA-2026-001'], null);
+
+    const result = await allocationRepository.createWithSequentialCode(
+      'BA-2026',
+      'fy-2026',
+      { departmentId: 'dept-1' },
+      {
+        fiscalYearId: 'fy-2026',
+        departmentId: 'dept-1',
+        fundSourceId: 'fund-1',
+        categoryId: 'cat-1',
+        programId: 'prog-1',
+      }
+    );
+
+    assert.equal(result.allocationCode, 'BA-2026-002');
   });
 
   console.log(`\n✨ Allocation Service Unit Tests Completed: ${passedTests}/${totalTests} Passed!\n`);

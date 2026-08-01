@@ -4,6 +4,11 @@ import {
   ACTIVE_ALLOCATION_STATUSES,
   EXCLUDED_ALLOCATION_STATUSES,
 } from '../constants/allocationStatus.js';
+import { AppError } from '../errors/appError.js';
+import { HTTP_STATUS } from '../constants/httpStatus.js';
+
+export const DUPLICATE_ALLOCATION_MESSAGE =
+  'An allocation already exists for this fiscal year, department, program, fund source, and category';
 
 /**
  * Relations eagerly loaded with every allocation query so callers never
@@ -194,11 +199,33 @@ class AllocationRepository {
    * @param {string} prefix - Code prefix, e.g. "BA-2026"
    * @param {string} fiscalYearId - Fiscal year the code sequence belongs to
    * @param {Object} data - Allocation data (without allocationCode)
+   * @param {Object|null} combo - Reference combination
+   *        ({ fiscalYearId, departmentId, fundSourceId, categoryId, programId }) to
+   *        guard against duplicate allocations inside the transaction. When omitted
+   *        the uniqueness check is skipped (used by the code-generator tests).
    * @returns {Promise<Object>} Created allocation with related entities
    */
-  async createWithSequentialCode(prefix, fiscalYearId, data) {
+  async createWithSequentialCode(prefix, fiscalYearId, data, combo = null) {
     return prisma.$transaction(
       async (tx) => {
+        if (combo) {
+          const duplicate = await tx.budgetAllocation.findFirst({
+            where: {
+              deletedAt: null,
+              fiscalYearId: combo.fiscalYearId,
+              departmentId: combo.departmentId,
+              fundSourceId: combo.fundSourceId,
+              categoryId: combo.categoryId,
+              programId: combo.programId,
+              status: { notIn: EXCLUDED_ALLOCATION_STATUSES },
+            },
+            select: { id: true },
+          });
+          if (duplicate) {
+            throw new AppError(DUPLICATE_ALLOCATION_MESSAGE, HTTP_STATUS.CONFLICT);
+          }
+        }
+
         const existing = await tx.budgetAllocation.findMany({
           where: {
             fiscalYearId,
