@@ -11,9 +11,8 @@ import type { Allocation } from '../../types/allocation';
 
 const canEditAllocation = (role: string, status?: string) => {
   if (!status) return false;
-  if (role === ROLES.ADMINISTRATOR) return status !== 'Archived';
-  if (role === ROLES.BUDGET_OFFICER) return status === 'Draft';
-  return false;
+  if (role !== ROLES.ADMINISTRATOR && role !== ROLES.BUDGET_OFFICER) return false;
+  return status === 'Draft';
 };
 
 const canArchiveAllocation = (role: string, status?: string) => {

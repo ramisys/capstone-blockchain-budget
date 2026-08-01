@@ -25,9 +25,8 @@ import type { AllocationStatus } from '../../types/allocation';
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
 
 const canEditAllocation = (role: string, status: AllocationStatus): boolean => {
-  if (role === ROLES.ADMINISTRATOR) return status !== 'Archived';
-  if (role === ROLES.BUDGET_OFFICER) return status === 'Draft';
-  return false;
+  if (role !== ROLES.ADMINISTRATOR && role !== ROLES.BUDGET_OFFICER) return false;
+  return status === 'Draft';
 };
 
 const canArchiveAllocation = (role: string, status: AllocationStatus): boolean => {
