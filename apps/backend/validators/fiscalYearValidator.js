@@ -22,6 +22,13 @@ export const createFiscalYearSchema = z.object({
     .string({ required_error: 'End date is required' })
     .refine((date) => !isNaN(Date.parse(date)), { message: 'Invalid end date' }),
   // Optional fields with defaults
+  budgetAmount: z
+    .number({
+      invalid_type_error: 'Budget amount must be a number',
+    })
+    .nonnegative('Budget amount must not be negative')
+    .max(999999999999.99, 'Budget amount is too large')
+    .optional(),
   status: z
     .enum(FISCAL_YEAR_STATUS_LIST, {
       errorMap: () => ({ message: 'Invalid fiscal year status' }),
@@ -54,6 +61,13 @@ export const updateFiscalYearSchema = z.object({
   endDate: z
     .string()
     .refine((date) => !isNaN(Date.parse(date)), { message: 'Invalid end date' })
+    .optional(),
+  budgetAmount: z
+    .number({
+      invalid_type_error: 'Budget amount must be a number',
+    })
+    .nonnegative('Budget amount must not be negative')
+    .max(999999999999.99, 'Budget amount is too large')
     .optional(),
   status: z
     .enum(FISCAL_YEAR_STATUS_LIST, {

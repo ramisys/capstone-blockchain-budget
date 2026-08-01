@@ -3,6 +3,7 @@ import { AppError } from '../errors/appError.js';
 import { PrismaError } from '../errors/prismaError.js';
 import { formatErrorResponse } from '../utils/responseFormatter.js';
 import { HTTP_STATUS } from '../constants/httpStatus.js';
+import { logger } from '../utils/logger.js';
 
 /**
  * Detect whether an error was thrown by the Prisma client.
@@ -44,7 +45,7 @@ export const errorHandler = (err, req, res, next) => {
 
     // Keep database issues visible outside production for debugging
     if (process.env.NODE_ENV !== 'production') {
-      console.error(`Prisma Error (${err.code || err.name}):`, err.message);
+      logger.error(`Prisma Error (${err.code || err.name})`, new Error(err.message));
     }
   }
 
@@ -56,7 +57,7 @@ export const errorHandler = (err, req, res, next) => {
 
   // Log non-operational errors for debugging
   if (!err.isOperational && !normalized) {
-    console.error('Unhandled System Error:', err);
+    logger.error('Unhandled System Error', err);
   }
 
   return res.status(statusCode).json(formatErrorResponse(message, errors));

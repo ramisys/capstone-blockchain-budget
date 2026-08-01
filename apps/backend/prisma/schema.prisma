@@ -25,86 +25,138 @@ enum FiscalYearStatus {
   Archived
 }
 
+enum AllocationStatus {
+  Draft
+  PendingApproval
+  Approved
+  Rejected
+  Archived
+}
+
 model FiscalYear {
-  id           String   @id @default(uuid())
-  code         String   @unique
+  id           String           @id @default(uuid())
+  code         String           @unique
   description  String
   startDate    DateTime
   endDate      DateTime
+  budgetAmount Decimal          @default(0) @db.Decimal(14, 2)
   status       FiscalYearStatus @default(Inactive)
-  isActive     Boolean        @default(false)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  isActive     Boolean          @default(false)
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
 
-  @@map("fiscal_years")
+  allocations BudgetAllocation[]
+
   @@index([code])
   @@index([startDate, endDate])
+  @@map("fiscal_years")
 }
 
 model FundSource {
-  id         String   @id @default(uuid())
-  code       String   @unique
-  name       String
+  id          String             @id @default(uuid())
+  code        String             @unique
+  name        String
   description String?
-  status     Status   @default(Active)
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  status      Status             @default(Active)
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+  allocations BudgetAllocation[]
 
-  @@map("fund_sources")
   @@index([code])
+  @@map("fund_sources")
 }
 
 model Department {
-  id           String   @id @default(uuid())
-  code         String   @unique
-  name         String   @unique
-  officeHead   String?
-  contactNumber String?
-  email        String?
-  officeAddress String?
-  status       Status   @default(Active)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id             String             @id @default(uuid())
+  code           String             @unique
+  name           String             @unique
+  officeHead     String?
+  contactNumber  String?
+  email          String?
+  officeAddress  String?
+  status         Status             @default(Active)
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+  budgetPrograms BudgetProgram[]    @relation("DepartmentBudgetProgram")
+  allocations    BudgetAllocation[]
 
-  @@map("departments")
   @@index([code])
   @@index([name])
-  budgetPrograms BudgetProgram[] @relation("DepartmentBudgetProgram")
+  @@map("departments")
 }
 
 model BudgetCategory {
-  id         String   @id @default(uuid())
-  code       String   @unique
-  name       String   @unique
-  description String?
-  status     Status   @default(Active)
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  id             String             @id @default(uuid())
+  code           String             @unique
+  name           String             @unique
+  description    String?
+  status         Status             @default(Active)
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+  budgetPrograms BudgetProgram[]    @relation("BudgetCategoryBudgetProgram")
+  allocations    BudgetAllocation[]
 
-  @@map("budget_categories")
   @@index([code])
   @@index([name])
-  budgetPrograms BudgetProgram[] @relation("BudgetCategoryBudgetProgram")
+  @@map("budget_categories")
 }
 
 model BudgetProgram {
-  id             String   @id @default(uuid())
-  code           String   @unique
-  name           String
-  description    String?
-  departmentId   String
+  id               String   @id @default(uuid())
+  code             String   @unique
+  name             String
+  description      String?
+  departmentId     String
   budgetCategoryId String
-  status         Status   @default(Active)
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  status           Status   @default(Active)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 
-  department     Department @relation("DepartmentBudgetProgram", fields: [departmentId], references: [id])
+  department     Department     @relation("DepartmentBudgetProgram", fields: [departmentId], references: [id])
   budgetCategory BudgetCategory @relation("BudgetCategoryBudgetProgram", fields: [budgetCategoryId], references: [id])
 
-  @@map("budget_programs")
+  allocations BudgetAllocation[]
+
   @@index([code])
   @@index([departmentId])
   @@index([budgetCategoryId])
+  @@map("budget_programs")
+}
+
+model BudgetAllocation {
+  id              String           @id @default(uuid())
+  allocationCode  String           @unique
+  fiscalYearId    String
+  departmentId    String
+  fundSourceId    String
+  categoryId      String
+  programId       String
+  allocatedAmount Decimal          @db.Decimal(14, 2)
+  description     String?          @db.VarChar(500)
+  status          AllocationStatus @default(Draft)
+  createdBy       String
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  deletedAt       DateTime?
+
+  fiscalYear FiscalYear     @relation(fields: [fiscalYearId], references: [id])
+  department Department     @relation(fields: [departmentId], references: [id])
+  fundSource FundSource     @relation(fields: [fundSourceId], references: [id])
+  category   BudgetCategory @relation(fields: [categoryId], references: [id])
+  program    BudgetProgram  @relation(fields: [programId], references: [id])
+  creator    User           @relation(fields: [createdBy], references: [id])
+
+  @@index([allocationCode])
+  @@index([fiscalYearId])
+  @@index([departmentId])
+  @@index([fundSourceId])
+  @@index([categoryId])
+  @@index([programId])
+  @@index([createdBy])
+  @@index([status])
+  @@index([createdAt])
+  @@index([deletedAt])
+  @@map("budget_allocations")
 }
 
 model User {
@@ -116,6 +168,8 @@ model User {
   status    Status   @default(Active)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  allocations BudgetAllocation[]
 
   @@map("users")
 }

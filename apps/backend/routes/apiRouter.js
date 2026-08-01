@@ -7,6 +7,7 @@ import fundSourceRoutes from './fundSourceRoutes.js';
 import departmentRoutes from './departmentRoutes.js';
 import budgetCategoryRoutes from './budgetCategoryRoutes.js';
 import budgetProgramRoutes from './budgetProgramRoutes.js';
+import allocationRoutes from './allocationRoutes.js';
 
 const apiRouter = Router();
 
@@ -33,5 +34,8 @@ apiRouter.use('/budget-categories', budgetCategoryRoutes);
 
 // Mount budget program routes
 apiRouter.use('/budget-programs', budgetProgramRoutes);
+
+// Mount budget allocation routes
+apiRouter.use('/allocations', allocationRoutes);
 
 export default apiRouter;

@@ -1,4 +1,5 @@
 import { ValidationError } from '../errors/apiError.js';
+import { logger } from '../utils/logger.js';
 
 /**
  * Generic Express middleware generator for Zod schema validation.
@@ -17,6 +18,7 @@ export const validateRequest = (schema, target = 'body') => {
         message: err.message,
       }));
 
+      logger.warn(`Validation failed on ${req.method} ${req.originalUrl}: ${JSON.stringify(formattedErrors)}`);
       return next(new ValidationError('Validation failed', formattedErrors));
     }
 

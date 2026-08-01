@@ -1,0 +1,346 @@
+import { Prisma } from '@prisma/client';
+import prisma from '../models/prismaClient.js';
+import {
+  ACTIVE_ALLOCATION_STATUSES,
+  EXCLUDED_ALLOCATION_STATUSES,
+} from '../constants/allocationStatus.js';
+
+/**
+ * Relations eagerly loaded with every allocation query so callers never
+ * trigger N+1 queries. The creator is selected explicitly to avoid exposing
+ * the password hash.
+ */
+const allocationInclude = {
+  fiscalYear: true,
+  department: true,
+  fundSource: true,
+  category: true,
+  program: true,
+  creator: {
+    select: { id: true, fullName: true, email: true, role: true },
+  },
+};
+
+class AllocationRepository {
+  /**
+   * Find an allocation by ID (including soft-deleted rows; the service layer
+   * decides whether a soft-deleted record should be returned).
+   *
+   * @param {string} id - Allocation ID
+   * @returns {Promise<Object|null>} Allocation object or null
+   */
+  async findById(id) {
+    return prisma.budgetAllocation.findUnique({
+      where: { id },
+      include: allocationInclude,
+    });
+  }
+
+  /**
+   * Find many allocations with filtering, pagination, and sorting.
+   *
+   * @param {Object} filters - Filter criteria (search, fiscalYearId, departmentId,
+   *                           fundSourceId, categoryId, programId, status, dateFrom, dateTo)
+   * @param {Object} pagination - Pagination options (page, limit)
+   * @param {Object} ordering - Ordering options (sortBy, sortOrder)
+   * @returns {Promise<Array>} List of allocations
+   */
+  async findMany(filters = {}, pagination = {}, ordering = {}) {
+    const where = this.buildWhere(filters);
+
+    const page = parseInt(pagination.page) || 1;
+    const limit = parseInt(pagination.limit) || 10;
+    const skip = (page - 1) * limit;
+
+    return prisma.budgetAllocation.findMany({
+      where,
+      skip,
+      take: limit,
+      orderBy: this.buildOrderBy(ordering),
+      include: allocationInclude,
+    });
+  }
+
+  /**
+   * Count allocations matching the list filters (excludes soft-deleted).
+   *
+   * @param {Object} filters - Same filter criteria as findMany
+   * @returns {Promise<number>} Count
+   */
+  async count(filters = {}) {
+    return prisma.budgetAllocation.count({
+      where: this.buildWhere(filters),
+    });
+  }
+
+  /**
+   * Count allocations matching an arbitrary where clause.
+   *
+   * @param {Object} where - Prisma where clause
+   * @returns {Promise<number>} Count
+   */
+  async countAll(where = {}) {
+    return prisma.budgetAllocation.count({ where });
+  }
+
+  /**
+   * Sum allocatedAmount across live (non-deleted, non-excluded-status)
+   * allocations in the given scope.
+   *
+   * @param {Object} scope - Extra equality filters (e.g. { fiscalYearId })
+   * @returns {Promise<Object>} Prisma aggregate result
+   */
+  async aggregateActiveAmount(scope = {}) {
+    return prisma.budgetAllocation.aggregate({
+      where: {
+        deletedAt: null,
+        status: { in: ACTIVE_ALLOCATION_STATUSES },
+        ...scope,
+      },
+      _sum: { allocatedAmount: true },
+    });
+  }
+
+  /**
+   * Sum allocatedAmount for an arbitrary where clause.
+   *
+   * @param {Object} where - Prisma where clause
+   * @returns {Promise<Object>} Prisma aggregate result
+   */
+  async aggregateAmount(where = {}) {
+    return prisma.budgetAllocation.aggregate({
+      where,
+      _sum: { allocatedAmount: true },
+    });
+  }
+
+  /**
+   * Count allocations grouped by status (excludes soft-deleted) within a scope.
+   *
+   * @param {Object} scope - Extra equality filters
+   * @returns {Promise<Array>} Grouped counts, e.g. [{ status: 'Draft', _count: 3 }]
+   */
+  async countByStatus(scope = {}) {
+    return prisma.budgetAllocation.groupBy({
+      by: ['status'],
+      where: { deletedAt: null, ...scope },
+      _count: true,
+    });
+  }
+
+  /**
+   * List distinct fiscal year IDs for allocations matching a where clause.
+   *
+   * @param {Object} where - Prisma where clause
+   * @returns {Promise<Array>} Array of { fiscalYearId }
+   */
+  async distinctFiscalYearIds(where = {}) {
+    return prisma.budgetAllocation.findMany({
+      where,
+      distinct: ['fiscalYearId'],
+      select: { fiscalYearId: true },
+    });
+  }
+
+  /**
+   * Sum budgetAmount across the given fiscal years.
+   *
+   * @param {Array<string>} yearIds - Fiscal year IDs
+   * @returns {Promise<Object>} Prisma aggregate result
+   */
+  async sumFiscalYearBudgets(yearIds) {
+    return prisma.fiscalYear.aggregate({
+      where: { id: { in: yearIds } },
+      _sum: { budgetAmount: true },
+    });
+  }
+
+  /**
+   * Check whether a live allocation already exists for the same fiscal year,
+   * department, program, fund source, and category combination. Rejected,
+   * Archived, and soft-deleted allocations do not block new allocations.
+   *
+   * @param {Object} combo - Combination of references to check
+   * @param {string|null} excludeId - Allocation ID to exclude (for updates)
+   * @returns {Promise<boolean>} True if a duplicate exists
+   */
+  async duplicateExists(
+    { fiscalYearId, departmentId, fundSourceId, categoryId, programId },
+    excludeId = null
+  ) {
+    const allocation = await prisma.budgetAllocation.findFirst({
+      where: {
+        deletedAt: null,
+        fiscalYearId,
+        departmentId,
+        fundSourceId,
+        categoryId,
+        programId,
+        status: { notIn: EXCLUDED_ALLOCATION_STATUSES },
+        ...(excludeId && { id: { not: excludeId } }),
+      },
+    });
+    return !!allocation;
+  }
+
+  /**
+   * Create an allocation with an auto-generated sequential code.
+   *
+   * The sequence is computed and the insert performed inside a serializable
+   * transaction so concurrent creations cannot produce duplicate codes. The
+   * sequence counts every allocation for the fiscal year (including soft-deleted
+   * rows) because deleted records keep their unique codes.
+   *
+   * @param {string} prefix - Code prefix, e.g. "BA-2026"
+   * @param {string} fiscalYearId - Fiscal year the code sequence belongs to
+   * @param {Object} data - Allocation data (without allocationCode)
+   * @returns {Promise<Object>} Created allocation with related entities
+   */
+  async createWithSequentialCode(prefix, fiscalYearId, data) {
+    return prisma.$transaction(
+      async (tx) => {
+        const existing = await tx.budgetAllocation.findMany({
+          where: {
+            fiscalYearId,
+            allocationCode: { startsWith: `${prefix}-` },
+          },
+          select: { allocationCode: true },
+        });
+
+        let maxSequence = 0;
+        for (const { allocationCode } of existing) {
+          const sequence = parseInt(allocationCode.slice(prefix.length + 1), 10);
+          if (Number.isFinite(sequence) && sequence > maxSequence) {
+            maxSequence = sequence;
+          }
+        }
+
+        const allocationCode = `${prefix}-${String(maxSequence + 1).padStart(3, '0')}`;
+
+        return tx.budgetAllocation.create({
+          data: { ...data, allocationCode },
+          include: allocationInclude,
+        });
+      },
+      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }
+    );
+  }
+
+  /**
+   * Update an allocation by ID.
+   *
+   * @param {string} id - Allocation ID
+   * @param {Object} data - Data to update
+   * @returns {Promise<Object>} Updated allocation with related entities
+   */
+  async update(id, data) {
+    return prisma.budgetAllocation.update({
+      where: { id },
+      data,
+      include: allocationInclude,
+    });
+  }
+
+  /**
+   * Soft-delete an allocation by setting its deletedAt timestamp.
+   *
+   * @param {string} id - Allocation ID
+   * @returns {Promise<Object>} Updated allocation
+   */
+  async softDelete(id) {
+    return prisma.budgetAllocation.update({
+      where: { id },
+      data: { deletedAt: new Date() },
+    });
+  }
+
+  /**
+   * Build a Prisma where clause from list filters. Shared by findMany and count.
+   *
+   * @private
+   * @param {Object} filters - Filter criteria
+   * @returns {Object} Prisma where clause
+   */
+  buildWhere(filters = {}) {
+    const where = { deletedAt: null };
+
+    if (filters.fiscalYearId) {
+      where.fiscalYearId = filters.fiscalYearId;
+    }
+    if (filters.departmentId) {
+      where.departmentId = filters.departmentId;
+    }
+    if (filters.fundSourceId) {
+      where.fundSourceId = filters.fundSourceId;
+    }
+    if (filters.categoryId) {
+      where.categoryId = filters.categoryId;
+    }
+    if (filters.programId) {
+      where.programId = filters.programId;
+    }
+    if (filters.status) {
+      where.status = filters.status;
+    }
+
+    // "Date created" range filter (dateTo is inclusive to end of day)
+    if (filters.dateFrom || filters.dateTo) {
+      where.createdAt = {};
+      if (filters.dateFrom) {
+        where.createdAt.gte = new Date(filters.dateFrom);
+      }
+      if (filters.dateTo) {
+        const endOfDay = new Date(filters.dateTo);
+        endOfDay.setHours(23, 59, 59, 999);
+        where.createdAt.lte = endOfDay;
+      }
+    }
+
+    // Fuzzy search across code, description, and related entity names
+    if (filters.search) {
+      where.OR = [
+        { allocationCode: { contains: filters.search } },
+        { description: { contains: filters.search } },
+        { department: { name: { contains: filters.search } } },
+        { fundSource: { name: { contains: filters.search } } },
+        { category: { name: { contains: filters.search } } },
+        { program: { name: { contains: filters.search } } },
+      ];
+    }
+
+    return where;
+  }
+
+  /**
+   * Build a Prisma orderBy clause from semantic sorting options.
+   *
+   * @private
+   * @param {Object} ordering - Ordering options (sortBy, sortOrder)
+   * @returns {Object} Prisma orderBy clause
+   */
+  buildOrderBy(ordering = {}) {
+    const { sortBy, sortOrder } = ordering;
+
+    switch (sortBy) {
+      case 'newest':
+        return { createdAt: 'desc' };
+      case 'oldest':
+        return { createdAt: 'asc' };
+      case 'highest':
+        return { allocatedAmount: 'desc' };
+      case 'lowest':
+        return { allocatedAmount: 'asc' };
+      case 'code':
+        return { allocationCode: 'asc' };
+      case 'department':
+        return { department: { name: 'asc' } };
+      default:
+        if (sortBy) {
+          return { [sortBy]: sortOrder || 'asc' };
+        }
+        return { createdAt: 'desc' };
+    }
+  }
+}
+
+export const allocationRepository = new AllocationRepository();
