@@ -9,6 +9,7 @@ import {
   allocationQuerySchema,
   allocationStatisticsSchema,
   remainingBudgetQuerySchema,
+  allocationIdParamSchema,
 } from '../validators/allocationValidator.js';
 import { ROLES } from '../constants/roles.js';
 
@@ -70,6 +71,7 @@ router.get(
 router.get(
   '/:id',
   authorize(...READ_ROLES),
+  validateRequest(allocationIdParamSchema, 'params'),
   (req, res, next) => allocationController.getAllocationById(req, res, next)
 );
 
@@ -93,6 +95,7 @@ router.post(
 router.put(
   '/:id',
   authorize(...WRITE_ROLES),
+  validateRequest(allocationIdParamSchema, 'params'),
   validateRequest(updateAllocationSchema),
   (req, res, next) => allocationController.updateAllocation(req, res, next)
 );
@@ -105,6 +108,7 @@ router.put(
 router.delete(
   '/:id',
   authorize(...WRITE_ROLES),
+  validateRequest(allocationIdParamSchema, 'params'),
   (req, res, next) => allocationController.deleteAllocation(req, res, next)
 );
 
