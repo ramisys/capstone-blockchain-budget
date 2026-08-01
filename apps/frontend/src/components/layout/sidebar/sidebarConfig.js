@@ -2,6 +2,7 @@ import {
   LayoutDashboard,
   WalletCards,
   LayoutGrid,
+  PieChart,
   CalendarDays,
   Banknote,
   Building2,
@@ -42,6 +43,11 @@ export const navigationConfig = [
             exact: true,
           },
           {
+            label: 'Allocation Dashboard',
+            path: '/budget-allocation/allocations/dashboard',
+            icon: PieChart,
+          },
+          {
             label: 'Fiscal Years',
             path: '/budget-allocation/fiscal-years',
             legacyPaths: ['/fiscal-years'],
@@ -76,7 +82,6 @@ export const navigationConfig = [
             path: '/budget-allocation/allocations',
             legacyPaths: ['/budget-allocations'],
             icon: Wallet,
-            status: 'Planned',
           },
           {
             label: 'Approval Workflow',

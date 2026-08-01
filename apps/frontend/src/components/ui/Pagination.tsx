@@ -7,6 +7,7 @@ interface PaginationProps {
   total: number;
   pageSize: number;
   onPageChange: (page: number) => void;
+  label?: string;
 }
 
 const getPageNumbers = (current: number, total: number): (number | '…')[] => {
@@ -32,6 +33,7 @@ const Pagination: React.FC<PaginationProps> = ({
   total,
   pageSize,
   onPageChange,
+  label = 'entries',
 }) => {
   if (totalPages <= 1) return null;
 
@@ -41,7 +43,7 @@ const Pagination: React.FC<PaginationProps> = ({
   return (
     <div className="flex flex-col sm:flex-row justify-between items-center gap-3 text-sm text-slate-500">
       <span>
-        Showing {from}–{to} of {total} entries
+        Showing {from}–{to} of {total} {label}
       </span>
       <div className="flex items-center space-x-1.5">
         <button

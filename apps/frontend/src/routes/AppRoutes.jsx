@@ -16,6 +16,8 @@ import { DepartmentManagement } from '../pages/departments/DepartmentManagement'
 import { BudgetCategoryManagement } from '../pages/budget-categories/BudgetCategoryManagement';
 import { BudgetProgramManagement } from '../pages/budget-programs/BudgetProgramManagement';
 import { BudgetAllocationOverview } from '../pages/budget-allocation/BudgetAllocationOverview';
+import { AllocationDashboard } from '../pages/budget-allocation/AllocationDashboard';
+import { AllocationList } from '../pages/budget-allocation/AllocationList';
 import { ROLES } from '../constants/roles';
 
 export function AppRoutes() {
@@ -81,15 +83,19 @@ export function AppRoutes() {
         <Route path="/budget-allocation/departments" element={<DepartmentManagement />} />
         <Route path="/budget-allocation/budget-categories" element={<BudgetCategoryManagement />} />
         <Route path="/budget-allocation/budget-programs" element={<BudgetProgramManagement />} />
+        <Route path="/budget-allocation/allocations/dashboard" element={<AllocationDashboard />} />
+        <Route path="/budget-allocation/allocations" element={<AllocationList />} />
         <Route
-          path="/budget-allocation/allocations"
-          element={
-            <div className="p-8 text-center">
-              <h2 className="text-2xl font-bold text-slate-900 mb-4">Budget Allocations</h2>
-              <p className="text-slate-500 mb-6">Planned feature in Phase 5</p>
-              <button className="btn btn-outline-primary">Notify Me When Available</button>
-            </div>
-          }
+          path="/budget-allocation/allocations/new"
+          element={<Navigate to="/budget-allocation/allocations" replace />}
+        />
+        <Route
+          path="/budget-allocation/allocations/:id/edit"
+          element={<Navigate to="/budget-allocation/allocations" replace />}
+        />
+        <Route
+          path="/budget-allocation/allocations/:id"
+          element={<Navigate to="/budget-allocation/allocations" replace />}
         />
         <Route
           path="/budget-allocation/approval-workflow"

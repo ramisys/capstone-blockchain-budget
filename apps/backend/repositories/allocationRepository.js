@@ -331,9 +331,9 @@ class AllocationRepository {
       case 'lowest':
         return { allocatedAmount: 'asc' };
       case 'code':
-        return { allocationCode: 'asc' };
+        return { allocationCode: sortOrder || 'asc' };
       case 'department':
-        return { department: { name: 'asc' } };
+        return { department: { name: sortOrder || 'asc' } };
       default:
         if (sortBy) {
           return { [sortBy]: sortOrder || 'asc' };
