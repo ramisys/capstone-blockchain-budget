@@ -1,7 +1,7 @@
 import { Prisma } from '@prisma/client';
 import prisma from '../models/prismaClient.js';
 import {
-  ACTIVE_ALLOCATION_STATUSES,
+  ALLOCATION_STATUS,
   EXCLUDED_ALLOCATION_STATUSES,
 } from '../constants/allocationStatus.js';
 import { AppError } from '../errors/appError.js';
@@ -89,17 +89,18 @@ class AllocationRepository {
   }
 
   /**
-   * Sum allocatedAmount across live (non-deleted, non-excluded-status)
-   * allocations in the given scope.
+   * Sum allocatedAmount across approved (committed) allocations in the given
+   * scope. Remaining-budget calculations subtract only approved amounts; Draft
+   * and PendingApproval allocations do not commit budget.
    *
    * @param {Object} scope - Extra equality filters (e.g. { fiscalYearId })
    * @returns {Promise<Object>} Prisma aggregate result
    */
-  async aggregateActiveAmount(scope = {}) {
+  async aggregateApprovedAmount(scope = {}) {
     return prisma.budgetAllocation.aggregate({
       where: {
         deletedAt: null,
-        status: { in: ACTIVE_ALLOCATION_STATUSES },
+        status: ALLOCATION_STATUS.APPROVED,
         ...scope,
       },
       _sum: { allocatedAmount: true },

@@ -24,7 +24,7 @@ const repositoryMethods = {
     findMany: allocationRepository.findMany,
     count: allocationRepository.count,
     countAll: allocationRepository.countAll,
-    aggregateActiveAmount: allocationRepository.aggregateActiveAmount,
+    aggregateApprovedAmount: allocationRepository.aggregateApprovedAmount,
     countByStatus: allocationRepository.countByStatus,
     distinctFiscalYearIds: allocationRepository.distinctFiscalYearIds,
     sumFiscalYearBudgets: allocationRepository.sumFiscalYearBudgets,
@@ -438,7 +438,7 @@ async function runAllocationServiceTests() {
   await test('should compute statistics scoped to a fiscal year', async () => {
     fiscalYearRepository.findById = async () => fiscalYear;
     allocationRepository.countAll = async () => 5;
-    allocationRepository.aggregateActiveAmount = async () => ({
+    allocationRepository.aggregateApprovedAmount = async () => ({
       _sum: { allocatedAmount: new Prisma.Decimal('250000.00') },
     });
     allocationRepository.countByStatus = async () => [
@@ -477,6 +477,23 @@ async function runAllocationServiceTests() {
 
     assert.equal(result.totalBudget, 500000);
     assert.equal(result.totalAllocated, 180000);
+    assert.equal(result.remainingBudget, 320000);
+  });
+
+  await test('should sum only approved allocations for the allocated amount', async () => {
+    fiscalYearRepository.findById = async () => fiscalYear;
+    let capturedWhere = null;
+    allocationRepository.sumFiscalYearBudgets = async () => ({
+      _sum: { budgetAmount: new Prisma.Decimal('500000.00') },
+    });
+    allocationRepository.aggregateAmount = async (where) => {
+      capturedWhere = where;
+      return { _sum: { allocatedAmount: new Prisma.Decimal('180000.00') } };
+    };
+
+    const result = await allocationService.getRemainingBudget({ fiscalYearId: fiscalYear.id });
+
+    assert.equal(capturedWhere.status, ALLOCATION_STATUS.APPROVED);
     assert.equal(result.remainingBudget, 320000);
   });
 

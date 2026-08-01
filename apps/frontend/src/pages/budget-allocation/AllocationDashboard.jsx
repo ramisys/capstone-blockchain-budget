@@ -114,7 +114,7 @@ export function AllocationDashboard() {
                 value={formatCurrency(statistics?.totalAllocatedAmount ?? 0)}
                 icon={Banknote}
                 iconClassName="bg-emerald-50 text-emerald-600"
-                subtitle="Across live allocations"
+                subtitle="Across approved allocations"
               />
               <StatisticsCard
                 title="Remaining Budget"

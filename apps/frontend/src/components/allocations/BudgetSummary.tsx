@@ -60,7 +60,7 @@ const BudgetSummary: React.FC<BudgetSummaryProps> = ({ data, loading = false }) 
         ) : (
           <>
             {statCard('Total Budget', formatCurrency(totalBudget))}
-            {statCard('Allocated Budget', formatCurrency(totalAllocated))}
+            {statCard('Approved Allocations', formatCurrency(totalAllocated))}
             {statCard('Remaining Budget', formatCurrency(remainingBudget))}
           </>
         )}
@@ -87,7 +87,7 @@ const BudgetSummary: React.FC<BudgetSummaryProps> = ({ data, loading = false }) 
           )}
         </div>
         <div className="flex items-center justify-between text-xs text-slate-400 mt-2">
-          <span>{formatCurrency(totalAllocated)} allocated</span>
+          <span>{formatCurrency(totalAllocated)} approved</span>
           <span>{formatCurrency(totalBudget)} total budget</span>
         </div>
       </div>

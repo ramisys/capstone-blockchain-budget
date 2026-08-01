@@ -14,7 +14,6 @@ import {
   ALLOCATION_STATUS,
   ALLOCATION_CODE_PREFIX,
   ALLOWED_STATUS_TRANSITIONS,
-  EXCLUDED_ALLOCATION_STATUSES,
 } from '../constants/allocationStatus.js';
 import { toNumber, MAX_AMOUNT } from '../utils/amountUtils.js';
 import { logger } from '../utils/logger.js';
@@ -270,14 +269,14 @@ class AllocationService {
       }
     }
 
-    const [totalAllocations, activeAggregate, statusGroups, distinctYears] = await Promise.all([
+    const [totalAllocations, approvedAggregate, statusGroups, distinctYears] = await Promise.all([
       allocationRepository.countAll({ deletedAt: null, ...scope }),
-      allocationRepository.aggregateActiveAmount(scope),
+      allocationRepository.aggregateApprovedAmount(scope),
       allocationRepository.countByStatus(scope),
       allocationRepository.distinctFiscalYearIds({ deletedAt: null, ...scope }),
     ]);
 
-    const totalAllocatedAmount = toNumber(activeAggregate._sum.allocatedAmount);
+    const totalAllocatedAmount = toNumber(approvedAggregate._sum.allocatedAmount);
 
     const statusCounts = {
       draftCount: 0,
@@ -325,8 +324,9 @@ class AllocationService {
   /**
    * Compute total budget, total allocated, and remaining budget.
    *
-   * Remaining Budget = Total Budget (fiscal year budgetAmount ceilings) minus the
-   * sum of live allocations. Rejected, Archived, and soft-deleted allocations are
+   * Remaining Budget = Total Budget (fiscal year budgetAmount ceilings) minus
+   * the sum of approved allocations. Draft and PendingApproval allocations do
+   * not commit budget; Rejected, Archived, and soft-deleted allocations are
    * excluded.
    *
    * @param {Object} filters - Optional { fiscalYearId, fundSourceId, departmentId }
@@ -350,7 +350,7 @@ class AllocationService {
 
     const baseWhere = {
       deletedAt: null,
-      status: { notIn: EXCLUDED_ALLOCATION_STATUSES },
+      status: ALLOCATION_STATUS.APPROVED,
       ...(fundSourceId && { fundSourceId }),
       ...(departmentId && { departmentId }),
     };

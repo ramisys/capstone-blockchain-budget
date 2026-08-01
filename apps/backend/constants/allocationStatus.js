@@ -15,17 +15,6 @@ export const ALLOCATION_STATUS = {
 export const ALLOCATION_STATUS_LIST = Object.values(ALLOCATION_STATUS);
 
 /**
- * Statuses considered "live" (not yet decided / still in effect).
- * Rejected, Archived, and soft-deleted allocations are excluded from
- * remaining-budget and allocated-amount computations.
- */
-export const ACTIVE_ALLOCATION_STATUSES = [
-  ALLOCATION_STATUS.DRAFT,
-  ALLOCATION_STATUS.PENDING_APPROVAL,
-  ALLOCATION_STATUS.APPROVED,
-];
-
-/**
  * Statuses excluded from remaining-budget computations.
  */
 export const EXCLUDED_ALLOCATION_STATUSES = [
