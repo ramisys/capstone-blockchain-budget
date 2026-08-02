@@ -1,4 +1,4 @@
-import { createContext, useState, useEffect, useCallback } from 'react';
+import { createContext, useState, useEffect, useCallback, useMemo } from 'react';
 import { authApi } from '../api/auth';
 
 export const AuthContext = createContext(null);
@@ -70,15 +70,20 @@ export function AuthProvider({ children }) {
     initAuth();
   }, []);
 
-  const value = {
-    user,
-    isAuthenticated,
-    loading,
-    initializing,
-    login,
-    logout,
-    hasRole: (...roles) => user && roles.includes(user.role),
-  };
+  const hasRole = useCallback((...roles) => !!user && roles.includes(user.role), [user]);
+
+  const value = useMemo(
+    () => ({
+      user,
+      isAuthenticated,
+      loading,
+      initializing,
+      login,
+      logout,
+      hasRole,
+    }),
+    [user, isAuthenticated, loading, initializing, login, logout, hasRole]
+  );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
