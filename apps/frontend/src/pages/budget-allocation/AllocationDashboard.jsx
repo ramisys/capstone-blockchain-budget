@@ -36,7 +36,7 @@ export function AllocationDashboard() {
   const { user } = useAuth();
   const role = user?.role || '';
 
-  const [selectedFiscalYearId, setSelectedFiscalYearId] = useState<string | undefined>(undefined);
+  const [selectedFiscalYearId, setSelectedFiscalYearId] = useState(undefined);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
 
   const { fiscalYears, isLoading: optionsLoading } = useAllocationOptions();
