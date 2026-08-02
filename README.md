@@ -24,10 +24,12 @@ capstone/
 - **Vite** — Build tool and dev server
 - **React Router DOM** — Client-side routing
 - **Axios** — HTTP client with JWT interceptors
-- **Bootstrap 5** — CSS framework (custom-styled)
+- **Bootstrap 5** — CSS framework (custom-styled with navy/gold theme)
 - **React Hook Form** — Form state management
 - **Zod** — Schema validation
 - **Context API** — Authentication state
+- **Lucide React** — Icon library
+- **Recharts** — Charting library
 
 ### Backend
 - **Node.js** — Runtime
@@ -138,79 +140,186 @@ npm run build:frontend
 | `npm run test:backend` | Run backend test suite |
 | `npm run build:frontend` | Build frontend for production |
 
+## API Endpoints
+
+### Authentication (`/api/auth`)
+- `POST /login` — Authenticate user & get JWT token (public, rate-limited)
+- `POST /logout` — Invalidate session (requires auth)
+- `GET /me` — Get current user profile (requires auth)
+- `GET /health` — Server health check (public)
+
+### Dashboard (`/api/dashboard`) — Private (Admin, Treasurer, BudgetOfficer, Auditor)
+- `GET /stats` — Dashboard statistics
+- `GET /charts` — Dashboard charts data
+- `GET /activities` — Recent activities
+- `GET /notifications` — Notifications
+- `GET /blockchain` — Blockchain status
+
+### Users (`/api/users`) — Private (Admin only)
+- `GET /` — Get all users with filtering and pagination
+- `GET /:id` — Get user by ID
+- `POST /` — Create a new user
+- `PUT /:id` — Update user by ID
+- `DELETE /:id` — Delete user by ID
+- `PATCH /:id/role` — Change user role
+- `PATCH /:id/status` — Change user status
+
+### Fiscal Years (`/api/fiscal-years`) — Private (all authenticated roles)
+- `GET /` — Get all fiscal years
+- `GET /:id` — Get fiscal year by ID
+- `POST /` — Create fiscal year
+- `PUT /:id` — Update fiscal year
+- `DELETE /:id` — Delete fiscal year
+
+### Departments (`/api/departments`) — Private (all authenticated roles)
+- `GET /` — Get all departments
+- `GET /:id` — Get department by ID
+- `POST /` — Create department
+- `PUT /:id` — Update department
+- `DELETE /:id` — Delete department
+
+### Fund Sources (`/api/fund-sources`) — Private (all authenticated roles)
+- `GET /` — Get all fund sources
+- `GET /:id` — Get fund source by ID
+- `POST /` — Create fund source
+- `PUT /:id` — Update fund source
+- `DELETE /:id` — Delete fund source
+
+### Budget Categories (`/api/budget-categories`) — Private (all authenticated roles)
+- `GET /` — Get all budget categories
+- `GET /:id` — Get budget category by ID
+- `POST /` — Create budget category
+- `PUT /:id` — Update budget category
+- `DELETE /:id` — Delete budget category
+
+### Budget Programs (`/api/budget-programs`) — Private (all authenticated roles)
+- `GET /` — Get all budget programs
+- `GET /:id` — Get budget program by ID
+- `POST /` — Create budget program
+- `PUT /:id` — Update budget program
+- `DELETE /:id` — Delete budget program
+
+### Budget Allocations (`/api/allocations`) — Private (roles vary)
+- `GET /` — Get all allocations with filtering, pagination, sorting (Admin, Treasurer, BudgetOfficer, Auditor)
+- `GET /statistics` — Get allocation dashboard statistics (Admin, Treasurer, BudgetOfficer, Auditor)
+- `GET /remaining-budget` — Get total budget, allocated, and remaining (Admin, Treasurer, BudgetOfficer, Auditor)
+- `GET /:id` — Get allocation by ID (Admin, Treasurer, BudgetOfficer, Auditor)
+- `POST /` — Create new budget allocation (Admin, BudgetOfficer)
+- `PUT /:id` — Update draft budget allocation (Admin, BudgetOfficer)
+- `DELETE /:id` — Soft-delete budget allocation (Admin, BudgetOfficer)
+
+## Database Schema
+
+### Core Models
+- **User** — Authentication & authorization (id, fullName, email, password, role, status)
+- **FiscalYear** — Budget periods (id, code, description, startDate, endDate, budgetAmount, status)
+- **FundSource** — Funding sources (id, code, name, description, status)
+- **Department** — Organizational units (id, code, name, officeHead, contactNumber, email, officeAddress, status)
+- **BudgetCategory** — Expense categories (id, code, name, description, status)
+- **BudgetProgram** — Programs linking departments & categories (id, code, name, description, departmentId, budgetCategoryId, status)
+- **BudgetAllocation** — Budget allocations (id, allocationCode, fiscalYearId, departmentId, fundSourceId, categoryId, programId, allocatedAmount, description, status, createdBy)
+
+### Enums
+- **Role**: Administrator, Treasurer, BudgetOfficer, Auditor
+- **Status**: Active, Inactive
+- **FiscalYearStatus**: Active, Inactive, Archived
+- **AllocationStatus**: Draft, PendingApproval, Approved, Rejected, Archived
+
+## Frontend Pages
+
+### Authentication
+- **Login** — User authentication
+- **Profile** — User profile management
+
+### Dashboard
+- **Dashboard** — Main dashboard with stats, charts, activities, notifications, blockchain status
+
+### Budget Allocation
+- **BudgetAllocationOverview** — Multi-tab overview (Dashboard, Allocations, Departments, Fund Sources, Categories, Programs)
+- **AllocationDashboard** — Statistics cards, budget utilization, fiscal year filter
+- **AllocationList** — List with filters, pagination, create/edit/delete actions
+
+### Master Data Management
+- **FiscalYears** — CRUD for fiscal years
+- **Departments** — CRUD for departments
+- **FundSources** — CRUD for fund sources
+- **BudgetCategories** — CRUD for budget categories
+- **BudgetPrograms** — CRUD for budget programs
+
+### System
+- **Forbidden** — 403 page
+- **NotFound** — 404 page
+
 ## Development Progress
 
-| Phase | Status |
-|-------|--------|
-| Phase 1 | ✅ Completed |
-| Phase 2 | ✅ Completed |
-| Phase 3 | ✅ Completed |
-| Phase 4 | ⏳ Planned |
-| Phase 5 | ⏳ Planned |
-| Phase 6 | ⏳ Planned |
-| Phase 7 | ⏳ Planned |
-| Phase 8 | ⏳ Planned |
-| Phase 9 | ⏳ Planned |
-| Phase 10 | ⏳ Planned |
-| Phase 11 | ⏳ Planned |
-| Phase 12 | ⏳ Planned |
+| Phase | Status | Description |
+|-------|--------|-------------|
+| Phase 1 | ✅ Completed | Authentication & Authorization (JWT, RBAC, protected routes) |
+| Phase 2 | ✅ Completed | User Management (CRUD, role assignment, status management) |
+| Phase 3 | ✅ Completed | Dashboard & Analytics (KPI cards, charts, activities, notifications) |
+| Phase 4 | 🟢 In Progress | Budget Allocation Management (CRUD, approval workflow, categories) |
+| Phase 5 | ⏳ Planned | Expense Monitoring & Tracking |
+| Phase 6 | ⏳ Planned | Audit Logs & Blockchain Integration |
+| Phase 7 | ⏳ Planned | Reports & Analytics Dashboard |
+| Phase 8 | ⏳ Planned | System Optimization & Performance |
+| Phase 9 | ⏳ Planned | Security Enhancements |
+| Phase 10 | ⏳ Planned | User Experience Refinements |
+| Phase 11 | ⏳ Planned | Documentation & Training |
+| Phase 12 | ⏳ Planned | Finalization & Defense Preparation |
 
-## Current Focus
+## Current Focus (Phase 4)
 
-The team is currently planning:
-- Budget allocation CRUD
-- Approval workflow for budget allocations
-- Budget categories and departments
-- Multi-year budget planning
+The team is currently implementing:
+- Budget allocation CRUD operations
+- Allocation approval workflow (Draft → PendingApproval → Approved/Rejected)
+- Master data management (Fiscal Years, Departments, Fund Sources, Categories, Programs)
+- Multi-year budget planning support
+- Budget utilization tracking and statistics
 
 ## Development Roadmap
 
-### ✅ Phase 1 – Project Foundation (Completed)
-Features:
-- Project setup
-- System architecture
-- Authentication & authorization
-- Database schema
-- Initial UI layout
-- Routing and navigation
+### ✅ Phase 1 – Authentication & Authorization (Completed)
+- Project setup & architecture
+- JWT-based authentication
+- Role-Based Access Control (Admin, Treasurer, BudgetOfficer, Auditor)
+- Protected routes & authentication context
+- Input validation & security headers
 
 ### ✅ Phase 2 – User Management System (Completed)
-Features:
 - User CRUD operations
 - Role-based access control
-- User validation
-- Search and filtering
-- User profile/details
-- Permission management
+- User validation & search/filtering
+- User profile/details view
+- Permission management (Admin only)
 
 ### ✅ Phase 3 – Dashboard & Analytics (Completed)
-Features:
-- Dashboard layout
-- KPI/Summary cards
-- Budget statistics
-- Interactive charts
-- Recent activities
-- Financial summaries
+- Dashboard layout with stats cards
+- KPI/Summary cards (totals, active/inactive, role breakdown)
+- Interactive charts (users by role, users by status)
+- Recent activities feed
+- Notifications system
+- Blockchain status display
 - Backend API integration
-- Responsive dashboard
+- Responsive design
 
-### ⏳ Phase 4 – Budget Allocation Management
-Planned Features:
-- Budget allocation CRUD
+### 🟢 Phase 4 – Budget Allocation Management (In Progress)
+- Budget allocation CRUD operations
 - Allocation approval workflow
-- Budget categories and departments
+- Master data CRUD (Fiscal Years, Departments, Fund Sources, Categories, Programs)
 - Multi-year budget planning
+- Budget utilization tracking
+- Statistics dashboard with filters
 
 ### ⏳ Phase 5 – Expense Monitoring & Tracking
-Planned Features:
 - Expense submission and approval workflow
 - Expense categorization and tagging
 - Receipt attachment and management
 - Expense policy enforcement
 - Real-time expense tracking dashboards
+- Budget utilization tracking
+- Expense history and reporting
 
 ### ⏳ Phase 6 – Audit Logs & Blockchain Integration
-Planned Features:
 - Immutable audit trail for all financial transactions
 - Blockchain-based transaction verification
 - Smart contract integration for budget execution
@@ -218,7 +327,6 @@ Planned Features:
 - Compliance reporting tools
 
 ### ⏳ Phase 7 – Reports & Analytics Dashboard
-Planned Features:
 - Financial reporting tools (budget vs. actual)
 - Spending trend analysis and forecasting
 - Custom report generation
@@ -226,35 +334,30 @@ Planned Features:
 - Interactive data visualizations
 
 ### ⏳ Phase 8 – System Optimization & Performance
-Planned Features:
 - Database query optimization
 - API response caching
 - Frontend performance improvements
 - Load testing and stress testing
 
 ### ⏳ Phase 9 – Security Enhancements
-Planned Features:
 - Advanced security testing
 - Penetration testing
 - Security monitoring and alerting
 - Data encryption at rest and in transit
 
 ### ⏳ Phase 10 – User Experience Refinements
-Planned Features:
 - User feedback integration
 - UI/UX improvements based on usability testing
 - Accessibility enhancements (WCAG compliance)
 - Multi-language support
 
 ### ⏳ Phase 11 – Documentation & Training
-Planned Features:
 - Comprehensive user manuals
 - Technical documentation
 - Training materials and video tutorials
 - FAQ and troubleshooting guides
 
 ### ⏳ Phase 12 – Finalization & Defense Preparation
-Planned Features:
 - Final system testing and bug fixing
 - Preparation for capstone defense
 - Final presentation and demo
@@ -262,6 +365,4 @@ Planned Features:
 
 ## Summary of Improvements
 
-This README provides a clear overview of the project's technology stack, setup instructions, development progress, and detailed roadmap for all 12 phases of development.
-
-Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>
+This README provides a clear overview of the project's technology stack, setup instructions, API endpoints, database schema, frontend pages, development progress, and detailed roadmap for all 12 phases of development.
