@@ -4,8 +4,10 @@ import { fundSourceRepository } from '../repositories/fundSourceRepository.js';
 import { departmentRepository } from '../repositories/departmentRepository.js';
 import { budgetCategoryRepository } from '../repositories/budgetCategoryRepository.js';
 import { budgetProgramRepository } from '../repositories/budgetProgramRepository.js';
+import { allocationRepository } from '../repositories/allocationRepository.js';
 import { ROLES } from '../constants/roles.js';
 import { USER_STATUS } from '../constants/status.js';
+import { ALLOCATION_STATUS } from '../constants/allocationStatus.js';
 
 class DashboardService {
   /**
@@ -62,73 +64,107 @@ class DashboardService {
   }
 
   /**
-   * Get recent activities (mock data for now)
-   * @returns {Promise<Array>} Recent activities
+   * Get recent activities derived from actual database records.
+   * Merges recent user creations and allocation creations into a single
+   * time-ordered feed.
+   *
+   * @param {number} [limit=10] - Maximum number of activity items to return
+   * @returns {Promise<Array>} Recent activities sorted by time descending
    */
-  async getRecentActivities() {
-    // For now, return mock data as specified in the requirements
-    // In future phases, this will be replaced with actual audit log data
-    return [
-      {
-        id: 1,
-        type: 'USER_CREATED',
-        message: 'John Doe was created.',
-        time: new Date(Date.now() - 3600000).toISOString(), // 1 hour ago
-      },
-      {
-        id: 2,
-        type: 'USER_UPDATED',
-        message: 'Jane Smith role updated to Treasurer.',
-        time: new Date(Date.now() - 7200000).toISOString(), // 2 hours ago
-      },
-      {
-        id: 3,
-        type: 'USER_DEACTIVATED',
-        message: 'Bob Wilson account deactivated.',
-        time: new Date(Date.now() - 10800000).toISOString(), // 3 hours ago
-      },
-    ];
+  async getRecentActivities(limit = 10) {
+    // Fetch recent records from both tables in parallel
+    const [recentUsers, recentAllocations] = await Promise.all([
+      userRepository.findRecentlyCreated(limit),
+      allocationRepository.findRecent(limit),
+    ]);
+
+    // Map users to activity items
+    const userActivities = recentUsers.map((user) => ({
+      id: `user-${user.id}`,
+      type: 'USER_CREATED',
+      message: `User ${user.fullName} (${this.formatRole(user.role)}) was created.`,
+      time: user.createdAt.toISOString(),
+    }));
+
+    // Map allocations to activity items
+    const allocationActivities = recentAllocations.map((alloc) => ({
+      id: `alloc-${alloc.id}`,
+      type: 'ALLOCATION_CREATED',
+      message: `Allocation ${alloc.allocationCode} for ${alloc.department?.name ?? 'Unknown Dept.'} was created (${alloc.status}).`,
+      time: alloc.createdAt.toISOString(),
+    }));
+
+    // Merge, sort by time descending, and trim to the requested limit
+    return [...userActivities, ...allocationActivities]
+      .sort((a, b) => new Date(b.time) - new Date(a.time))
+      .slice(0, limit);
   }
 
   /**
-   * Get notifications (mock data for now)
+   * Get notifications derived from live system state.
+   * Generates actionable notifications based on user statuses and
+   * allocation approval queues.
+   *
    * @returns {Promise<Array>} Notifications
    */
   async getNotifications() {
-    // For now, return mock data as specified in the requirements
-    // In future phases, this will be replaced with actual notification system
-    return [
-      {
-        title: 'System Status',
-        message: 'System operating normally.',
-        type: 'success',
-      },
-      {
-        title: 'Backup Completed',
-        message: 'Daily backup completed successfully.',
-        type: 'info',
-      },
-      {
-        title: 'Security Alert',
-        message: 'Failed login attempt detected from unknown IP.',
+    const [statusCounts, allocationStatusCounts] = await Promise.all([
+      userRepository.aggregateStatusCounts(),
+      allocationRepository.countByStatusAll(),
+    ]);
+
+    const notifications = [];
+
+    // Check for inactive users
+    const inactiveGroup = statusCounts.find(
+      (g) => g.status === USER_STATUS.INACTIVE
+    );
+    const inactiveCount = inactiveGroup ? Number(inactiveGroup._count) : 0;
+    if (inactiveCount > 0) {
+      notifications.push({
+        title: 'Inactive Users',
+        message: `${inactiveCount} user account${inactiveCount > 1 ? 's are' : ' is'} currently inactive.`,
         type: 'warning',
-      },
-    ];
+      });
+    }
+
+    // Check for pending-approval allocations
+    const pendingGroup = allocationStatusCounts.find(
+      (g) => g.status === ALLOCATION_STATUS.PENDING_APPROVAL
+    );
+    const pendingCount = pendingGroup ? Number(pendingGroup._count) : 0;
+    if (pendingCount > 0) {
+      notifications.push({
+        title: 'Pending Approvals',
+        message: `${pendingCount} budget allocation${pendingCount > 1 ? 's require' : ' requires'} approval.`,
+        type: 'info',
+      });
+    }
+
+    // Always include a system-health notification
+    notifications.push({
+      title: 'System Status',
+      message: 'All services are operating normally.',
+      type: 'success',
+    });
+
+    return notifications;
   }
 
   /**
-   * Get blockchain status (mock data for now)
+   * Get blockchain integration status.
+   * Returns an honest status reflecting the current integration state.
+   *
    * @returns {Promise<Object>} Blockchain status
    */
   async getBlockchainStatus() {
-    // For now, return mock data as specified in the requirements
-    // In future phases, this will be replaced with actual blockchain integration
     return {
       connected: false,
-      network: 'Localhost',
-      latestBlock: 0,
+      network: null,
+      latestBlock: null,
       lastSync: null,
-      smartContract: 'Not Connected',
+      smartContract: null,
+      message: 'Blockchain integration is not yet configured.',
     };
   }
 

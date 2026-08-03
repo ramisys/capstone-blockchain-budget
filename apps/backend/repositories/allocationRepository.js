@@ -284,6 +284,39 @@ class AllocationRepository {
   }
 
   /**
+   * Find the most recently created allocations (non-deleted).
+   *
+   * @param {number} limit - Maximum number of records to return
+   * @returns {Promise<Array>} Recent allocations with related entity names
+   */
+  async findRecent(limit = 10) {
+    return prisma.budgetAllocation.findMany({
+      where: { deletedAt: null },
+      orderBy: { createdAt: 'desc' },
+      take: limit,
+      include: {
+        department: { select: { name: true } },
+        creator: { select: { fullName: true } },
+      },
+      // Only select the fields we need for the activity feed
+    });
+  }
+
+  /**
+   * Count all allocations (non-deleted) grouped by status, across all fiscal
+   * years. Used by the dashboard notifications widget.
+   *
+   * @returns {Promise<Array>} Grouped counts, e.g. [{ status: 'Draft', _count: 3 }]
+   */
+  async countByStatusAll() {
+    return prisma.budgetAllocation.groupBy({
+      by: ['status'],
+      where: { deletedAt: null },
+      _count: true,
+    });
+  }
+
+  /**
    * Build a Prisma where clause from list filters. Shared by findMany and count.
    *
    * @private

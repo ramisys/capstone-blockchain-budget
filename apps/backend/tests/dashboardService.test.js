@@ -6,8 +6,10 @@ import { fundSourceRepository } from '../repositories/fundSourceRepository.js';
 import { departmentRepository } from '../repositories/departmentRepository.js';
 import { budgetCategoryRepository } from '../repositories/budgetCategoryRepository.js';
 import { budgetProgramRepository } from '../repositories/budgetProgramRepository.js';
+import { allocationRepository } from '../repositories/allocationRepository.js';
 import { ROLES } from '../constants/roles.js';
 import { USER_STATUS } from '../constants/status.js';
+import { ALLOCATION_STATUS } from '../constants/allocationStatus.js';
 
 const originalMethods = {
   userStats: userRepository.getDashboardStatsAggregated,
@@ -18,6 +20,9 @@ const originalMethods = {
   departmentCount: departmentRepository.count,
   budgetCategoryCount: budgetCategoryRepository.count,
   budgetProgramCount: budgetProgramRepository.count,
+  findRecentlyCreated: userRepository.findRecentlyCreated,
+  allocFindRecent: allocationRepository.findRecent,
+  allocCountByStatusAll: allocationRepository.countByStatusAll,
 };
 
 function resetMocks() {
@@ -29,6 +34,9 @@ function resetMocks() {
   departmentRepository.count = originalMethods.departmentCount;
   budgetCategoryRepository.count = originalMethods.budgetCategoryCount;
   budgetProgramRepository.count = originalMethods.budgetProgramCount;
+  userRepository.findRecentlyCreated = originalMethods.findRecentlyCreated;
+  allocationRepository.findRecent = originalMethods.allocFindRecent;
+  allocationRepository.countByStatusAll = originalMethods.allocCountByStatusAll;
 }
 
 async function runDashboardServiceTests() {
@@ -105,34 +113,131 @@ async function runDashboardServiceTests() {
     ]);
   });
 
-  console.log('\n3. Mock Data Methods Tests:');
-  await test('should return three recent activities', async () => {
-    const activities = await dashboardService.getRecentActivities();
+  console.log('\n3. getRecentActivities Tests:');
+  await test('should merge user and allocation activities sorted by time descending', async () => {
+    const now = new Date();
+    const oneHourAgo = new Date(now.getTime() - 3600000);
+    const twoHoursAgo = new Date(now.getTime() - 7200000);
+    const threeHoursAgo = new Date(now.getTime() - 10800000);
+
+    userRepository.findRecentlyCreated = async () => [
+      { id: 'u1', fullName: 'Jane Smith', role: ROLES.TREASURER, status: USER_STATUS.ACTIVE, createdAt: oneHourAgo, updatedAt: oneHourAgo },
+      { id: 'u2', fullName: 'Bob Wilson', role: ROLES.BUDGET_OFFICER, status: USER_STATUS.ACTIVE, createdAt: threeHoursAgo, updatedAt: threeHoursAgo },
+    ];
+    allocationRepository.findRecent = async () => [
+      { id: 'a1', allocationCode: 'BA-2026-001', department: { name: 'Engineering' }, creator: { fullName: 'Admin' }, status: 'Draft', createdAt: twoHoursAgo },
+    ];
+
+    const activities = await dashboardService.getRecentActivities(10);
 
     assert.equal(activities.length, 3);
-    assert.ok(activities.every((a) => a.id && a.type && a.message && a.time));
+    // Should be sorted newest first
+    assert.equal(activities[0].id, 'user-u1');
+    assert.equal(activities[0].type, 'USER_CREATED');
+    assert.ok(activities[0].message.includes('Jane Smith'));
+    assert.ok(activities[0].message.includes('Treasurer'));
+
+    assert.equal(activities[1].id, 'alloc-a1');
+    assert.equal(activities[1].type, 'ALLOCATION_CREATED');
+    assert.ok(activities[1].message.includes('BA-2026-001'));
+    assert.ok(activities[1].message.includes('Engineering'));
+
+    assert.equal(activities[2].id, 'user-u2');
   });
 
-  await test('should return three notifications', async () => {
+  await test('should respect the limit parameter', async () => {
+    const now = new Date();
+    userRepository.findRecentlyCreated = async () => [
+      { id: 'u1', fullName: 'A', role: ROLES.ADMINISTRATOR, status: USER_STATUS.ACTIVE, createdAt: new Date(now.getTime() - 1000), updatedAt: now },
+      { id: 'u2', fullName: 'B', role: ROLES.TREASURER, status: USER_STATUS.ACTIVE, createdAt: new Date(now.getTime() - 2000), updatedAt: now },
+      { id: 'u3', fullName: 'C', role: ROLES.AUDITOR, status: USER_STATUS.ACTIVE, createdAt: new Date(now.getTime() - 3000), updatedAt: now },
+    ];
+    allocationRepository.findRecent = async () => [];
+
+    const activities = await dashboardService.getRecentActivities(2);
+    assert.equal(activities.length, 2);
+  });
+
+  await test('should return empty array when no records exist', async () => {
+    userRepository.findRecentlyCreated = async () => [];
+    allocationRepository.findRecent = async () => [];
+
+    const activities = await dashboardService.getRecentActivities();
+    assert.deepEqual(activities, []);
+  });
+
+  console.log('\n4. getNotifications Tests:');
+  await test('should generate warning when inactive users exist', async () => {
+    userRepository.aggregateStatusCounts = async () => [
+      { status: USER_STATUS.ACTIVE, _count: 8 },
+      { status: USER_STATUS.INACTIVE, _count: 2 },
+    ];
+    allocationRepository.countByStatusAll = async () => [];
+
     const notifications = await dashboardService.getNotifications();
 
-    assert.equal(notifications.length, 3);
-    assert.ok(notifications.every((n) => n.title && n.message && n.type));
+    const warning = notifications.find((n) => n.type === 'warning');
+    assert.ok(warning, 'Expected a warning notification');
+    assert.ok(warning.message.includes('2'));
+    assert.ok(warning.title === 'Inactive Users');
   });
 
-  await test('should return the mock blockchain status object', async () => {
+  await test('should generate info notification for pending approvals', async () => {
+    userRepository.aggregateStatusCounts = async () => [
+      { status: USER_STATUS.ACTIVE, _count: 5 },
+    ];
+    allocationRepository.countByStatusAll = async () => [
+      { status: ALLOCATION_STATUS.DRAFT, _count: 3 },
+      { status: ALLOCATION_STATUS.PENDING_APPROVAL, _count: 4 },
+    ];
+
+    const notifications = await dashboardService.getNotifications();
+
+    const info = notifications.find((n) => n.type === 'info');
+    assert.ok(info, 'Expected an info notification');
+    assert.ok(info.message.includes('4'));
+    assert.ok(info.title === 'Pending Approvals');
+  });
+
+  await test('should always include a system-status success notification', async () => {
+    userRepository.aggregateStatusCounts = async () => [
+      { status: USER_STATUS.ACTIVE, _count: 5 },
+    ];
+    allocationRepository.countByStatusAll = async () => [];
+
+    const notifications = await dashboardService.getNotifications();
+
+    const success = notifications.find((n) => n.type === 'success');
+    assert.ok(success, 'Expected a success notification');
+    assert.equal(success.title, 'System Status');
+  });
+
+  await test('should only include system-status when nothing needs attention', async () => {
+    userRepository.aggregateStatusCounts = async () => [
+      { status: USER_STATUS.ACTIVE, _count: 5 },
+    ];
+    allocationRepository.countByStatusAll = async () => [
+      { status: ALLOCATION_STATUS.APPROVED, _count: 10 },
+    ];
+
+    const notifications = await dashboardService.getNotifications();
+    assert.equal(notifications.length, 1);
+    assert.equal(notifications[0].type, 'success');
+  });
+
+  console.log('\n5. getBlockchainStatus Tests:');
+  await test('should return an honest not-configured status', async () => {
     const status = await dashboardService.getBlockchainStatus();
 
-    assert.deepEqual(status, {
-      connected: false,
-      network: 'Localhost',
-      latestBlock: 0,
-      lastSync: null,
-      smartContract: 'Not Connected',
-    });
+    assert.equal(status.connected, false);
+    assert.equal(status.network, null);
+    assert.equal(status.latestBlock, null);
+    assert.equal(status.lastSync, null);
+    assert.equal(status.smartContract, null);
+    assert.equal(status.message, 'Blockchain integration is not yet configured.');
   });
 
-  console.log('\n4. formatRole / formatStatus Helpers Tests:');
+  console.log('\n6. formatRole / formatStatus Helpers Tests:');
   await test('should map all known roles to display labels and fall back for unknown roles', () => {
     assert.equal(dashboardService.formatRole(ROLES.ADMINISTRATOR), 'Administrator');
     assert.equal(dashboardService.formatRole(ROLES.TREASURER), 'Treasurer');

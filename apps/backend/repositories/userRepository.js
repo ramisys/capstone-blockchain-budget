@@ -120,6 +120,20 @@ class UserRepository {
     };
   }
 
+  /**
+   * Find the most recently created users.
+   *
+   * @param {number} limit - Maximum number of records to return
+   * @returns {Promise<Array>} Recent users (without password hash)
+   */
+  async findRecentlyCreated(limit = 10) {
+    return prisma.user.findMany({
+      select: { id: true, fullName: true, role: true, status: true, createdAt: true, updatedAt: true },
+      orderBy: { createdAt: 'desc' },
+      take: limit,
+    });
+  }
+
   async deleteUser(id) {
     return prisma.user.delete({
       where: { id },
