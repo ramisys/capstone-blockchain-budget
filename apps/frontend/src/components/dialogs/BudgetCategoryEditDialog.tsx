@@ -28,7 +28,7 @@ interface BudgetCategoryEditDialogProps {
   onClose: () => void;
   categoryId: string;
   initialData: any;
-  onSubmit: ({ id, data }: { id: string; data: BudgetCategoryFormData }) => Promise<void>;
+  onSubmit: ({ id, data }: { id: string; data: BudgetCategoryFormData }) => any;
   isLoading?: boolean;
 }
 

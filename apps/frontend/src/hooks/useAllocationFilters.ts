@@ -31,7 +31,7 @@ export function useAllocationFilters(): AllocationFilterControls {
     setFilters((prev) => {
       const next = { ...prev };
       if (value) {
-        next[key] = value;
+        next[key] = value as any;
       } else {
         delete next[key];
       }

@@ -9,7 +9,7 @@ interface BudgetCategoryDeleteDialogProps {
   onClose: () => void;
   categoryId: string;
   categoryName: string;
-  onSubmit: (id: string) => Promise<void>;
+  onSubmit: (id: string) => any;
   isLoading?: boolean;
 }
 

@@ -34,7 +34,7 @@ interface DepartmentEditDialogProps {
   onClose: () => void;
   departmentId: string;
   initialData: any;
-  onSubmit: ({ id, data }: { id: string; data: DepartmentFormData }) => Promise<void>;
+  onSubmit: ({ id, data }: { id: string; data: DepartmentFormData }) => any;
   isLoading?: boolean;
 }
 

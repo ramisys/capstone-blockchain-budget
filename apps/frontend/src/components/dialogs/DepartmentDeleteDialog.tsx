@@ -9,7 +9,7 @@ interface DepartmentDeleteDialogProps {
   onClose: () => void;
   departmentId: string;
   departmentName: string;
-  onSubmit: (id: string) => Promise<void>;
+  onSubmit: (id: string) => any;
   isLoading?: boolean;
 }
 

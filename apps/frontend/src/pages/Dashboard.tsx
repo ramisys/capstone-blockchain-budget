@@ -348,7 +348,7 @@ export function Dashboard() {
               <h6 className="mb-0 text-sm font-semibold text-slate-500">Users by Role</h6>
               <div className="dropdown">
                 <button className="btn btn-link p-0 text-muted fs-6 dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
-                  <i class="bi bi-three-dots"></i>
+                  <i className="bi bi-three-dots"></i>
                 </button>
                 <ul className="dropdown-menu dropdown-menu-end">
                   <li><a className="dropdown-item" href="#">View Details</a></li>
@@ -419,7 +419,7 @@ export function Dashboard() {
               <h6 className="mb-0 text-sm font-semibold text-slate-500">Users by Status</h6>
               <div className="dropdown">
                 <button className="btn btn-link p-0 text-muted fs-6 dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
-                  <i class="bi bi-three-dots"></i>
+                  <i className="bi bi-three-dots"></i>
                 </button>
                 <ul className="dropdown-menu dropdown-menu-end">
                   <li><a className="dropdown-item" href="#">View Details</a></li>
@@ -469,10 +469,10 @@ export function Dashboard() {
               <div className="activity-list">
                 {activities.map((activity, index) => (
                   <div key={activity.id} className="d-flex align-items-start mb-3">
-                    <div className="flex-shrink-0 me-3">
+                    <div className="shrink-0 me-3">
                       <div className="activity-dot bg-gray-500" />
                     </div>
-                    <div className="flex-grow-1">
+                    <div className="grow">
                       <div className="fw-medium">{activity.message}</div>
                       <div className="small text-muted">
                         {activity.user} · {new Date(activity.time).toLocaleString()}
@@ -504,12 +504,12 @@ export function Dashboard() {
               <div className="notification-list">
                 {notifications.map((notification, index) => (
                   <div key={notification.id} className="d-flex align-items-start mb-3">
-                    <div className="flex-shrink-0 me-3">
+                    <div className="shrink-0 me-3">
                       <div className={`notification-icon ${getTailwindColorFromType(notification.type)}`}>
-                        <i class="bi bi-bell"></i>
+                        <i className="bi bi-bell"></i>
                       </div>
                     </div>
-                    <div className="flex-grow-1">
+                    <div className="grow">
                       <div className="fw-medium">{notification.title}</div>
                       <div className="small text-muted">{truncateText(notification.message, 100)}</div>
                     </div>
@@ -530,7 +530,7 @@ export function Dashboard() {
             <h6 className="mb-0 text-sm font-semibold text-slate-500">Blockchain Status</h6>
             <div className="dropdown">
               <button className="btn btn-link p-0 text-muted fs-6 dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
-                <i class="bi bi-three-dots"></i>
+                <i className="bi bi-three-dots"></i>
               </button>
               <ul className="dropdown-menu dropdown-menu-end">
                 <li><a className="dropdown-item" href="#">View Details</a></li>

@@ -9,7 +9,7 @@ interface FiscalYearActivateDialogProps {
   onClose: () => void;
   fiscalYearId: string;
   fiscalYearName: string;
-  onSubmit: (id: string) => Promise<void>;
+  onSubmit: (id: string) => any;
   isLoading?: boolean;
 }
 

@@ -26,7 +26,7 @@ interface FundSourceFormData {
 interface FundSourceCreateDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (data: FundSourceFormData) => Promise<void>;
+  onSubmit: (data: FundSourceFormData) => any;
   isLoading?: boolean;
 }
 

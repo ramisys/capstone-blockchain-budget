@@ -9,7 +9,7 @@ interface BudgetProgramDeleteDialogProps {
   onClose: () => void;
   programId: string;
   programName: string;
-  onSubmit: (id: string) => Promise<void>;
+  onSubmit: (id: string) => any;
   isLoading?: boolean;
 }
 

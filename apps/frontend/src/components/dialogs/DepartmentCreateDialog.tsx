@@ -32,7 +32,7 @@ interface DepartmentFormData {
 interface DepartmentCreateDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (data: DepartmentFormData) => Promise<void>;
+  onSubmit: (data: DepartmentFormData) => any;
   isLoading?: boolean;
 }
 

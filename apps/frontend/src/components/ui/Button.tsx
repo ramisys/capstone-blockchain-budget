@@ -3,7 +3,7 @@ import { Loader2 } from 'lucide-react';
 
 export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   children?: React.ReactNode;
-  variant?: 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger' | 'accent';
+  variant?: 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger' | 'destructive' | 'accent';
   size?: 'sm' | 'md' | 'lg' | 'icon';
   type?: 'button' | 'submit' | 'reset';
   disabled?: boolean;
@@ -34,6 +34,7 @@ export function Button({
       case 'ghost':
         return 'bg-transparent hover:bg-slate-100 text-slate-600 hover:text-slate-900 focus:ring-slate-400/20';
       case 'danger':
+      case 'destructive':
         return 'bg-red-600 hover:bg-red-700 active:bg-red-800 text-white shadow-sm hover:shadow-md hover:shadow-red-500/20 focus:ring-red-500/30';
       case 'accent':
         return 'bg-amber-500 hover:bg-amber-600 text-white shadow-sm focus:ring-amber-500/30';

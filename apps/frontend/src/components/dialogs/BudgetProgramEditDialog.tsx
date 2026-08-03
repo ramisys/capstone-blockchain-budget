@@ -32,7 +32,7 @@ interface BudgetProgramEditDialogProps {
   onClose: () => void;
   programId: string;
   initialData: any;
-  onSubmit: ({ id, data }: { id: string; data: BudgetProgramFormData }) => Promise<void>;
+  onSubmit: ({ id, data }: { id: string; data: BudgetProgramFormData }) => any;
   isLoading?: boolean;
   departments?: Array<{ id: string; name: string }>;
   budgetCategories?: Array<{ id: string; name: string }>;

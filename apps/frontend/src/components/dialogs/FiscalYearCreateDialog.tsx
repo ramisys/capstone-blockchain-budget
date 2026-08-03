@@ -43,7 +43,7 @@ interface FormSchemaInput extends FiscalYearFormData {
 interface FiscalYearCreateDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (data: FiscalYearFormData) => Promise<void>;
+  onSubmit: (data: FiscalYearFormData) => any;
   isLoading?: boolean;
 }
 

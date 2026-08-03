@@ -28,7 +28,7 @@ interface FundSourceEditDialogProps {
   onClose: () => void;
   fundSourceId: string;
   initialData: any;
-  onSubmit: ({ id, data }: { id: string; data: FundSourceFormData }) => Promise<void>;
+  onSubmit: ({ id, data }: { id: string; data: FundSourceFormData }) => any;
   isLoading?: boolean;
 }
 

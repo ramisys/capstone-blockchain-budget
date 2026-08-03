@@ -30,7 +30,7 @@ interface BudgetProgramFormData {
 interface BudgetProgramCreateDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (data: BudgetProgramFormData) => Promise<void>;
+  onSubmit: (data: BudgetProgramFormData) => any;
   isLoading?: boolean;
   departments?: Array<{ id: string; name: string }>;
   budgetCategories?: Array<{ id: string; name: string }>;

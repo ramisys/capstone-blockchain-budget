@@ -1,10 +1,21 @@
 import { createContext, useState, useEffect, useCallback, useMemo } from 'react';
-import { authApi } from '../api/auth';
+import type { ReactNode } from 'react';
+import { authApi, type AuthUser } from '../api/auth';
 
-export const AuthContext = createContext(null);
+export interface AuthContextValue {
+  user: AuthUser | null;
+  isAuthenticated: boolean;
+  loading: boolean;
+  initializing: boolean;
+  login: (email: string, password: string) => Promise<AuthUser>;
+  logout: () => Promise<void>;
+  hasRole: (...roles: string[]) => boolean;
+}
 
-export function AuthProvider({ children }) {
-  const [user, setUser] = useState(null);
+export const AuthContext = createContext<AuthContextValue | null>(null);
+
+export function AuthProvider({ children }: { children: ReactNode }) {
+  const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [initializing, setInitializing] = useState(true);
 
@@ -24,7 +35,7 @@ export function AuthProvider({ children }) {
     }
   }, []);
 
-  const login = useCallback(async (email, password) => {
+  const login = useCallback(async (email: string, password: string) => {
     const response = await authApi.login(email, password);
     const { user: userData, token, refreshToken } = response.data.data;
 
@@ -71,7 +82,7 @@ export function AuthProvider({ children }) {
           setUser(userData);
           localStorage.setItem('auth_user', JSON.stringify(userData));
         }
-      } catch (error) {
+      } catch (error: any) {
         if (error?.name === 'CanceledError' || error?.name === 'AbortError' || error?.code === 'ERR_CANCELED') {
           return;
         }
@@ -97,9 +108,9 @@ export function AuthProvider({ children }) {
     };
   }, []);
 
-  const hasRole = useCallback((...roles) => !!user && roles.includes(user.role), [user]);
+  const hasRole = useCallback((...roles: string[]) => !!user && roles.includes(user.role), [user]);
 
-  const value = useMemo(
+  const value = useMemo<AuthContextValue>(
     () => ({
       user,
       isAuthenticated,

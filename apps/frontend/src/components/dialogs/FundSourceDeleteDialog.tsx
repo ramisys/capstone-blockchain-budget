@@ -9,7 +9,7 @@ interface FundSourceDeleteDialogProps {
   onClose: () => void;
   fundSourceId: string;
   fundSourceName: string;
-  onSubmit: (id: string) => Promise<void>;
+  onSubmit: (id: string) => any;
   isLoading?: boolean;
 }
 

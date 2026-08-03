@@ -12,7 +12,9 @@ export const ALLOCATION_STATUS = {
   APPROVED: 'Approved',
   REJECTED: 'Rejected',
   ARCHIVED: 'Archived',
-};
+} as const;
+
+export type AllocationStatusValue = (typeof ALLOCATION_STATUS)[keyof typeof ALLOCATION_STATUS];
 
 export const ALLOCATION_STATUS_LIST = [
   ALLOCATION_STATUS.DRAFT,

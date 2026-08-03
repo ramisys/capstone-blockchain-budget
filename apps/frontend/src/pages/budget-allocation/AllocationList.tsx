@@ -82,7 +82,7 @@ export function AllocationList() {
           'success'
         );
       },
-      onError: (err) => {
+      onError: (err: any) => {
         setDeleteTarget(null);
         showToast(
           err?.response?.data?.message || 'Failed to delete allocation',

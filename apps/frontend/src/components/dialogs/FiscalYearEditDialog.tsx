@@ -33,7 +33,7 @@ interface FiscalYearEditDialogProps {
   onClose: () => void;
   fiscalYearId: string;
   initialData: any;
-  onSubmit: (payload: { id: string; data: FiscalYearFormData }) => Promise<void>;
+  onSubmit: (payload: { id: string; data: FiscalYearFormData }) => any;
   isLoading?: boolean;
 }
 

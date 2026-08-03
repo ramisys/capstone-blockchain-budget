@@ -26,7 +26,7 @@ interface BudgetCategoryFormData {
 interface BudgetCategoryCreateDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (data: BudgetCategoryFormData) => Promise<void>;
+  onSubmit: (data: BudgetCategoryFormData) => any;
   isLoading?: boolean;
 }
 
