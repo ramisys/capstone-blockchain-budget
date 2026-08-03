@@ -202,7 +202,12 @@ const AllocationTable: React.FC<AllocationTableProps> = ({
                         <div className="flex items-center justify-end">
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-slate-700">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 text-slate-400 hover:text-slate-700"
+                                aria-label={`Actions for ${allocation.allocationCode}`}
+                              >
                                 <MoreVertical className="h-4 w-4" />
                               </Button>
                             </DropdownMenuTrigger>
@@ -220,7 +225,7 @@ const AllocationTable: React.FC<AllocationTableProps> = ({
                               {archiveAllowed && (
                                 <DropdownMenuItem
                                   onClick={() => onDelete(allocation)}
-                                  className="text-red-600 focus:bg-red-50 focus:text-red-700"
+                                  className="text-red-600 focus:bg-red-50"
                                 >
                                   <Archive className="mr-2 h-4 w-4 text-red-500" />
                                   {role === ROLES.ADMINISTRATOR ? 'Archive' : 'Delete'}
