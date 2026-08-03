@@ -53,8 +53,9 @@ class AllocationRepository {
   async findMany(filters = {}, pagination = {}, ordering = {}) {
     const where = this.buildWhere(filters);
 
+    const MAX_LIMIT = 100;
     const page = parseInt(pagination.page) || 1;
-    const limit = parseInt(pagination.limit) || 10;
+    const limit = Math.min(parseInt(pagination.limit) || 10, MAX_LIMIT);
     const skip = (page - 1) * limit;
 
     return prisma.budgetAllocation.findMany({
