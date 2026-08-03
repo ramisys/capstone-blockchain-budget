@@ -9,7 +9,7 @@ export const authApi = {
     return apiClient.post('/auth/logout');
   },
 
-  me() {
-    return apiClient.get('/auth/me');
+  me(options) {
+    return apiClient.get('/auth/me', options);
   },
 };

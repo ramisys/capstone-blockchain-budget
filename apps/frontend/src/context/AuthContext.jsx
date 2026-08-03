@@ -34,40 +34,61 @@ export function AuthProvider({ children }) {
   }, []);
 
   useEffect(() => {
+    let isMounted = true;
+    const controller = new AbortController();
+
     const initAuth = async () => {
       const token = localStorage.getItem('auth_token');
       const storedUser = localStorage.getItem('auth_user');
 
       if (!token) {
-        setLoading(false);
-        setInitializing(false);
+        if (isMounted) {
+          setLoading(false);
+          setInitializing(false);
+        }
         return;
       }
 
       if (storedUser) {
         try {
-          setUser(JSON.parse(storedUser));
+          if (isMounted) {
+            setUser(JSON.parse(storedUser));
+          }
         } catch {
           localStorage.removeItem('auth_user');
         }
       }
 
       try {
-        const response = await authApi.me();
-        const userData = response.data.data.user;
-        setUser(userData);
-        localStorage.setItem('auth_user', JSON.stringify(userData));
-      } catch {
-        localStorage.removeItem('auth_token');
-        localStorage.removeItem('auth_user');
-        setUser(null);
+        const response = await authApi.me({ signal: controller.signal });
+        if (isMounted) {
+          const userData = response.data.data.user;
+          setUser(userData);
+          localStorage.setItem('auth_user', JSON.stringify(userData));
+        }
+      } catch (error) {
+        if (error?.name === 'CanceledError' || error?.name === 'AbortError' || error?.code === 'ERR_CANCELED') {
+          return;
+        }
+        if (isMounted) {
+          localStorage.removeItem('auth_token');
+          localStorage.removeItem('auth_user');
+          setUser(null);
+        }
       } finally {
-        setLoading(false);
-        setInitializing(false);
+        if (isMounted) {
+          setLoading(false);
+          setInitializing(false);
+        }
       }
     };
 
     initAuth();
+
+    return () => {
+      isMounted = false;
+      controller.abort();
+    };
   }, []);
 
   const hasRole = useCallback((...roles) => !!user && roles.includes(user.role), [user]);
