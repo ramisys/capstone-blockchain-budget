@@ -1,14 +1,25 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Card } from '../../components/ui/Card';
-import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
 import { useFiscalYears } from '../../hooks/useFiscalYears';
 import { useFundSources } from '../../hooks/useFundSources';
 import { useDepartments } from '../../hooks/useDepartments';
 import { useBudgetCategories } from '../../hooks/useBudgetCategories';
 import { useBudgetPrograms } from '../../hooks/useBudgetPrograms';
-import { CalendarDays, Banknote, Building2, FolderTree, ClipboardList, ArrowRight, CheckCircle2, Clock } from 'lucide-react';
+import { useAllocationStatistics } from '../../hooks/useAllocations';
+import {
+  CalendarDays,
+  Banknote,
+  Building2,
+  FolderTree,
+  ClipboardList,
+  ArrowRight,
+  CheckCircle2,
+  Clock,
+  Wallet,
+  LayoutDashboard,
+} from 'lucide-react';
 
 export function BudgetAllocationOverview() {
   const [stats, setStats] = useState({
@@ -17,6 +28,7 @@ export function BudgetAllocationOverview() {
     departments: 0,
     budgetCategories: 0,
     budgetPrograms: 0,
+    allocations: 0,
   });
 
   const [loading, setLoading] = useState(true);
@@ -26,6 +38,7 @@ export function BudgetAllocationOverview() {
   const { data: deptData, isLoading: deptLoading } = useDepartments();
   const { data: bcData, isLoading: bcLoading } = useBudgetCategories();
   const { data: bpData, isLoading: bpLoading } = useBudgetPrograms();
+  const { data: allocStats, isLoading: allocLoading } = useAllocationStatistics();
 
   useEffect(() => {
     const loadStats = () => {
@@ -35,6 +48,7 @@ export function BudgetAllocationOverview() {
         const departmentsCount = deptData?.pagination?.total ?? deptData?.departments?.length ?? 0;
         const budgetCategoriesCount = bcData?.pagination?.total ?? bcData?.budgetCategories?.length ?? 0;
         const budgetProgramsCount = bpData?.pagination?.total ?? bpData?.budgetPrograms?.length ?? 0;
+        const allocationsCount = allocStats?.totalAllocations ?? 0;
 
         setStats({
           fiscalYears: fiscalYearsCount,
@@ -42,6 +56,7 @@ export function BudgetAllocationOverview() {
           departments: departmentsCount,
           budgetCategories: budgetCategoriesCount,
           budgetPrograms: budgetProgramsCount,
+          allocations: allocationsCount,
         });
       } catch (error) {
         console.error('Error loading stats:', error);
@@ -50,10 +65,23 @@ export function BudgetAllocationOverview() {
       }
     };
 
-    if (!fyLoading || !fsLoading || !deptLoading || !bcLoading || !bpLoading) {
+    if (!fyLoading || !fsLoading || !deptLoading || !bcLoading || !bpLoading || !allocLoading) {
       loadStats();
     }
-  }, [fyData, fsData, deptData, bcData, bpData, fyLoading, fsLoading, deptLoading, bcLoading, bpLoading]);
+  }, [
+    fyData,
+    fsData,
+    deptData,
+    bcData,
+    bpData,
+    allocStats,
+    fyLoading,
+    fsLoading,
+    deptLoading,
+    bcLoading,
+    bpLoading,
+    allocLoading,
+  ]);
 
   if (loading) {
     return (
@@ -64,8 +92,8 @@ export function BudgetAllocationOverview() {
             <p className="text-slate-500">Manage master data, budget allocations, and approval workflows.</p>
           </div>
 
-          <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-5">
-            {[1, 2, 3, 4, 5].map((_, index) => (
+          <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-6">
+            {[1, 2, 3, 4, 5, 6].map((_, index) => (
               <Card key={index} className="p-6 animate-pulse">
                 <div className="flex items-center justify-between">
                   <div className="space-y-2">
@@ -96,7 +124,19 @@ export function BudgetAllocationOverview() {
         {/* Statistics Cards */}
         <div>
           <h2 className="text-lg font-semibold text-slate-900 mb-4">Summary Statistics</h2>
-          <div className="grid gap-5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-5">
+          <div className="grid gap-5 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6">
+            <Card className="p-6 h-full hover:shadow-md transition-shadow duration-200 border-slate-200/80">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm font-medium text-slate-500 mb-1">Allocations</p>
+                  <p className="text-3xl font-bold text-slate-900">{stats.allocations}</p>
+                </div>
+                <div className="w-12 h-12 bg-indigo-50 rounded-xl flex items-center justify-center shrink-0">
+                  <Wallet className="h-6 w-6 text-indigo-600" />
+                </div>
+              </div>
+            </Card>
+
             <Card className="p-6 h-full hover:shadow-md transition-shadow duration-200 border-slate-200/80">
               <div className="flex items-center justify-between gap-3">
                 <div>
@@ -151,8 +191,8 @@ export function BudgetAllocationOverview() {
                   <p className="text-sm font-medium text-slate-500 mb-1">Programs</p>
                   <p className="text-3xl font-bold text-slate-900">{stats.budgetPrograms}</p>
                 </div>
-                <div className="w-12 h-12 bg-indigo-50 rounded-xl flex items-center justify-center shrink-0">
-                  <ClipboardList className="h-6 w-6 text-indigo-600" />
+                <div className="w-12 h-12 bg-teal-50 rounded-xl flex items-center justify-center shrink-0">
+                  <ClipboardList className="h-6 w-6 text-teal-600" />
                 </div>
               </div>
             </Card>
@@ -161,8 +201,28 @@ export function BudgetAllocationOverview() {
 
         {/* Explore Modules Cards */}
         <div>
-          <h2 className="text-lg font-semibold text-slate-900 mb-4">Explore Master Data Modules</h2>
+          <h2 className="text-lg font-semibold text-slate-900 mb-4">Explore Budget & Master Data Modules</h2>
           <div className="grid gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
+            <LinkTo
+              to="/budget-allocation/allocations/dashboard"
+              title="Allocation Dashboard"
+              description="Monitor high-level budget distribution, remaining balances, status summaries, and fiscal metrics."
+              count={stats.allocations}
+              icon={<LayoutDashboard className="h-5 w-5 text-indigo-600" />}
+              iconBg="bg-indigo-50"
+              actionLabel="View Dashboard"
+            />
+
+            <LinkTo
+              to="/budget-allocation/allocations"
+              title="Budget Allocations"
+              description="Create, review, update, and manage departmental budget allocations across funding lines."
+              count={stats.allocations}
+              icon={<Wallet className="h-5 w-5 text-emerald-600" />}
+              iconBg="bg-emerald-50"
+              actionLabel="Manage Allocations"
+            />
+
             <LinkTo
               to="/budget-allocation/fiscal-years"
               title="Fiscal Years"
@@ -204,8 +264,8 @@ export function BudgetAllocationOverview() {
               title="Budget Programs"
               description="Define strategic budget programs and associate them with categories and departments."
               count={stats.budgetPrograms}
-              icon={<ClipboardList className="h-5 w-5 text-indigo-600" />}
-              iconBg="bg-indigo-50"
+              icon={<ClipboardList className="h-5 w-5 text-teal-600" />}
+              iconBg="bg-teal-50"
             />
           </div>
         </div>
@@ -236,15 +296,15 @@ export function BudgetAllocationOverview() {
 
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-100">
                 <div className="flex items-center gap-3">
-                  <Clock className="w-5 h-5 text-indigo-500 shrink-0" />
+                  <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0" />
                   <div>
                     <span className="text-sm font-semibold text-slate-900">Budget Allocation Engine</span>
                     <p className="text-xs text-slate-500">Annual budget distribution, line item entries, and revision logs</p>
                   </div>
                 </div>
-                <span className="inline-flex items-center px-3 py-1 text-xs font-semibold bg-indigo-50 text-indigo-700 rounded-full border border-indigo-200/80 w-fit">
-                  Planned Phase
-                </span>
+                <Badge variant="default" className="px-3 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200/80 font-medium w-fit">
+                  Completed
+                </Badge>
               </div>
 
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-100">
@@ -281,7 +341,25 @@ export function BudgetAllocationOverview() {
 }
 
 // Navigation card component with spacious layout and micro-interactions
-function LinkTo({ to, title, description, count, icon, iconBg = "bg-blue-50" }) {
+interface LinkToProps {
+  to: string;
+  title: string;
+  description: string;
+  count: number;
+  icon: React.ReactNode;
+  iconBg?: string;
+  actionLabel?: string;
+}
+
+function LinkTo({
+  to,
+  title,
+  description,
+  count,
+  icon,
+  iconBg = 'bg-blue-50',
+  actionLabel,
+}: LinkToProps) {
   return (
     <Link
       to={to}
@@ -308,7 +386,7 @@ function LinkTo({ to, title, description, count, icon, iconBg = "bg-blue-50" }) 
         </div>
 
         <div className="pt-4 border-t border-slate-100 flex items-center justify-between text-xs font-semibold text-indigo-600 group-hover:text-indigo-700">
-          <span>Manage {title}</span>
+          <span>{actionLabel || `Manage ${title}`}</span>
           <ArrowRight className="w-4 h-4 transform group-hover:translate-x-1 transition-transform duration-200" />
         </div>
       </Card>
