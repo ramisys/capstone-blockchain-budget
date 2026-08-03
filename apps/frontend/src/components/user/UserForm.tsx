@@ -3,7 +3,6 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
-import { useTranslation } from 'react-i18next';
 import {
   ArrowLeft,
   User,
@@ -40,20 +39,19 @@ export function UserForm() {
   const [error, setError] = useState(null);
   const [showPassword, setShowPassword] = useState(false);
   const [enablePasswordEdit, setEnablePasswordEdit] = useState(false);
-  const { t } = useTranslation();
 
   // Check if user is admin
   const isAdmin = user?.role === ROLES.ADMINISTRATOR;
 
   // Form validation schema
   const validationSchema = yup.object({
-    fullName: yup.string().required(t('validation.fullNameRequired')),
-    email: yup.string().email(t('validation.emailInvalid')).required(t('validation.emailRequired')),
+    fullName: yup.string().required('Full Name is required'),
+    email: yup.string().email('Please enter a valid email address').required('Email Address is required'),
     password: id
-      ? yup.string().min(8, t('validation.passwordMinLength')).notRequired()
-      : yup.string().min(8, t('validation.passwordMinLength')).required(t('validation.passwordRequired')),
-    role: yup.string().required(t('validation.roleRequired')),
-    status: yup.string().required(t('validation.statusRequired')),
+      ? yup.string().min(8, 'Password must be at least 8 characters').notRequired()
+      : yup.string().min(8, 'Password must be at least 8 characters').required('Password is required'),
+    role: yup.string().required('Role is required'),
+    status: yup.string().required('Status is required'),
   });
 
   const {
@@ -108,7 +106,7 @@ export function UserForm() {
             status: response.data.data.user.status,
           });
         } catch (err) {
-          setError(err.response?.data?.message || t('errors.fetchUserFailed'));
+          setError(err.response?.data?.message || 'Failed to fetch user details.');
         } finally {
           setLoading(false);
         }
@@ -116,11 +114,11 @@ export function UserForm() {
 
       fetchUserData();
     }
-  }, [id, reset, setValue, t]);
+  }, [id, reset, setValue]);
 
   const onSubmit = async (data) => {
     if (!isAdmin) {
-      setError(t('errors.accessDenied'));
+      setError('Access Denied: Admin privileges required.');
       return;
     }
 
@@ -159,7 +157,7 @@ export function UserForm() {
         });
       }
     } catch (err) {
-      setError(err.response?.data?.message || t('errors.operationFailed'));
+      setError(err.response?.data?.message || 'Operation failed. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -169,23 +167,23 @@ export function UserForm() {
     return (
       <div className="max-w-4xl mx-auto p-6">
         <Alert variant="danger" icon={<AlertCircle className="w-5 h-5 text-red-600" />}>
-          {t('errors.accessDenied')}
+          Access Denied: Admin privileges required.
         </Alert>
       </div>
     );
   }
 
-  const pageTitle = id ? t('user.editUser') : t('user.addNewUser');
+  const pageTitle = id ? 'Edit User' : 'Add New User';
   const pageSubtitle = id
-    ? t('user.editUserSubtitle', 'Update user account details and system permissions.')
-    : t('user.addNewUserSubtitle', 'Create a new user account and assign system permissions.');
+    ? 'Update user account details and permissions.'
+    : 'Create a new user account and assign system permissions.';
   const submitButtonText = id
     ? loading
-      ? t('user.updatingUser', 'Updating User...')
-      : t('user.updateUser', 'Update User')
+      ? 'Updating User...'
+      : 'Update User'
     : loading
-    ? t('user.creatingUser', 'Creating User...')
-    : t('user.createUser', 'Create User');
+    ? 'Creating User...'
+    : 'Create User';
 
   return (
     <div className="min-h-screen bg-slate-50/50 py-8 px-4 sm:px-6 lg:px-8">
@@ -195,16 +193,16 @@ export function UserForm() {
           <button
             type="button"
             onClick={() => navigate('/users')}
-            className="inline-flex items-center text-[var(--font-size-xs)] font-semibold uppercase tracking-wider text-slate-500 hover:text-indigo-600 transition-colors group focus:outline-none focus:ring-2 focus:ring-indigo-500/20 rounded-md px-1.5 py-1 -ml-1.5"
+            className="inline-flex items-center text-xs font-semibold uppercase tracking-wider text-slate-500 hover:text-indigo-600 transition-colors group focus:outline-none focus:ring-2 focus:ring-indigo-500/20 rounded-md px-1.5 py-1 -ml-1.5"
             aria-label="Back to User Management"
           >
             <ArrowLeft className="w-4 h-4 mr-1.5 transition-transform group-hover:-translate-x-1" />
-            {t('user.backToUsers', '← Back to User Management')}
+            Back to User Management
           </button>
 
           <div>
-            <h1 className="text-[var(--font-size-2xl)] sm:text-[var(--font-size-3xl)] font-bold tracking-tight text-slate-900">{pageTitle}</h1>
-            <p className="mt-1 text-[var(--font-size-sm)] text-slate-500">{pageSubtitle}</p>
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900">{pageTitle}</h1>
+            <p className="mt-1 text-sm text-slate-500">{pageSubtitle}</p>
           </div>
         </div>
 
@@ -222,12 +220,12 @@ export function UserForm() {
             <div className="space-y-5">
               <div className="border-b border-slate-100 pb-3 flex items-center justify-between">
                 <div>
-                  <h2 className="text-[var(--font-size-base)] font-semibold text-slate-900 flex items-center gap-2">
+                  <h2 className="text-base font-semibold text-slate-900 flex items-center gap-2">
                     <User className="w-4 h-4 text-indigo-600" />
-                    {t('user.personalInfo', 'Personal Information')}
+                    Personal Information
                   </h2>
-                  <p className="text-[var(--font-size-xs)] text-slate-500 mt-0.5">
-                    {t('user.personalInfoDesc', "Enter the user's full name and email address.")}
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Enter the user's personal details and primary email address.
                   </p>
                 </div>
               </div>
@@ -235,8 +233,8 @@ export function UserForm() {
               <div className="grid grid-cols-1 gap-5">
                 {/* Full Name */}
                 <div>
-                  <label htmlFor="fullName" className="block text-[var(--font-size-xs)] font-semibold uppercase tracking-wider text-slate-700 mb-1.5">
-                    {t('form.fullName')} <span className="text-red-500">*</span>
+                  <label htmlFor="fullName" className="block text-xs font-semibold uppercase tracking-wider text-slate-700 mb-1.5">
+                    Full Name <span className="text-red-500">*</span>
                   </label>
                   <div className="relative rounded-xl shadow-xs">
                     <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
@@ -247,18 +245,18 @@ export function UserForm() {
                       type="text"
                       disabled={loading}
                       {...register('fullName')}
-                      className={`w-full pl-10 pr-3.5 py-2.5 text-[var(--font-size-sm)] border rounded-xl transition-all focus:outline-none focus:ring-2 disabled:opacity-60 disabled:bg-slate-50 ${
+                      className={`w-full pl-10 pr-3.5 py-2.5 text-sm border rounded-xl transition-all focus:outline-none focus:ring-2 disabled:opacity-60 disabled:bg-slate-50 ${
                         errors.fullName
                           ? 'border-red-500 bg-red-50/20 text-slate-900 focus:ring-red-500/20'
                           : 'border-slate-300 bg-white text-slate-900 hover:border-slate-400 focus:ring-indigo-500/20'
                       }`}
-                      placeholder={t('form.fullNamePlaceholder')}
+                      placeholder="Enter full name"
                       aria-invalid={!!errors.fullName}
                       aria-describedby={errors.fullName ? 'fullName-error' : undefined}
                     />
                   </div>
                   {errors.fullName && (
-                    <div id="fullName-error" className="flex items-center gap-1 text-[var(--font-size-xs)] text-red-600 mt-1.5 font-medium" role="alert">
+                    <div id="fullName-error" className="flex items-center gap-1 text-xs text-red-600 mt-1.5 font-medium" role="alert">
                       <AlertCircle className="w-3.5 h-3.5 shrink-0" />
                       <span>{errors.fullName.message}</span>
                     </div>
@@ -267,8 +265,8 @@ export function UserForm() {
 
                 {/* Email Address */}
                 <div>
-                  <label htmlFor="email" className="block text-[var(--font-size-xs)] font-semibold uppercase tracking-wider text-slate-700 mb-1.5">
-                    {t('form.email')} <span className="text-red-500">*</span>
+                  <label htmlFor="email" className="block text-xs font-semibold uppercase tracking-wider text-slate-700 mb-1.5">
+                    Email Address <span className="text-red-500">*</span>
                   </label>
                   <div className="relative rounded-xl shadow-xs">
                     <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
@@ -279,18 +277,18 @@ export function UserForm() {
                       type="email"
                       disabled={loading}
                       {...register('email')}
-                      className={`w-full pl-10 pr-3.5 py-2.5 text-[var(--font-size-sm)] border rounded-xl transition-all focus:outline-none focus:ring-2 disabled:opacity-60 disabled:bg-slate-50 ${
+                      className={`w-full pl-10 pr-3.5 py-2.5 text-sm border rounded-xl transition-all focus:outline-none focus:ring-2 disabled:opacity-60 disabled:bg-slate-50 ${
                         errors.email
                           ? 'border-red-500 bg-red-50/20 text-slate-900 focus:ring-red-500/20'
                           : 'border-slate-300 bg-white text-slate-900 hover:border-slate-400 focus:ring-indigo-500/20'
                       }`}
-                      placeholder={t('form.emailPlaceholder')}
+                      placeholder="Enter email address"
                       aria-invalid={!!errors.email}
                       aria-describedby={errors.email ? 'email-error' : undefined}
                     />
                   </div>
                   {errors.email && (
-                    <div id="email-error" className="flex items-center gap-1 text-[var(--font-size-xs)] text-red-600 mt-1.5 font-medium" role="alert">
+                    <div id="email-error" className="flex items-center gap-1 text-xs text-red-600 mt-1.5 font-medium" role="alert">
                       <AlertCircle className="w-3.5 h-3.5 shrink-0" />
                       <span>{errors.email.message}</span>
                     </div>
@@ -302,12 +300,12 @@ export function UserForm() {
             {/* SECTION 2: Security */}
             <div className="space-y-5">
               <div className="border-b border-slate-100 pb-3">
-                <h2 className="text-[var(--font-size-base)] font-semibold text-slate-900 flex items-center gap-2">
+                <h2 className="text-base font-semibold text-slate-900 flex items-center gap-2">
                   <Lock className="w-4 h-4 text-indigo-600" />
-                  {t('user.security', 'Security')}
+                  Security
                 </h2>
-                <p className="text-[var(--font-size-xs)] text-slate-500 mt-0.5">
-                  {t('user.securityDesc', 'Set account password and view security requirements.')}
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Set account authentication password and view security requirements.
                 </p>
               </div>
 
@@ -315,8 +313,8 @@ export function UserForm() {
                 /* Create Mode Password Field */
                 <div className="space-y-3">
                   <div>
-                    <label htmlFor="password" className="block text-[var(--font-size-xs)] font-semibold uppercase tracking-wider text-slate-700 mb-1.5">
-                      {t('form.password')} <span className="text-red-500">*</span>
+                    <label htmlFor="password" className="block text-xs font-semibold uppercase tracking-wider text-slate-700 mb-1.5">
+                      Password <span className="text-red-500">*</span>
                     </label>
                     <div className="relative rounded-xl shadow-xs">
                       <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
@@ -327,12 +325,12 @@ export function UserForm() {
                         type={showPassword ? 'text' : 'password'}
                         disabled={loading}
                         {...register('password')}
-                        className={`w-full pl-10 pr-11 py-2.5 text-[var(--font-size-sm)] border rounded-xl transition-all focus:outline-none focus:ring-2 disabled:opacity-60 disabled:bg-slate-50 ${
+                        className={`w-full pl-10 pr-11 py-2.5 text-sm border rounded-xl transition-all focus:outline-none focus:ring-2 disabled:opacity-60 disabled:bg-slate-50 ${
                           errors.password
                             ? 'border-red-500 bg-red-50/20 text-slate-900 focus:ring-red-500/20'
                             : 'border-slate-300 bg-white text-slate-900 hover:border-slate-400 focus:ring-indigo-500/20'
                         }`}
-                        placeholder={t('form.passwordPlaceholder')}
+                        placeholder="Create a secure password"
                         aria-invalid={!!errors.password}
                         aria-describedby={errors.password ? 'password-error' : undefined}
                       />
@@ -346,7 +344,7 @@ export function UserForm() {
                       </button>
                     </div>
                     {errors.password && (
-                      <div id="password-error" className="flex items-center gap-1 text-[var(--font-size-xs)] text-red-600 mt-1.5 font-medium" role="alert">
+                      <div id="password-error" className="flex items-center gap-1 text-xs text-red-600 mt-1.5 font-medium" role="alert">
                         <AlertCircle className="w-3.5 h-3.5 shrink-0" />
                         <span>{errors.password.message}</span>
                       </div>
@@ -358,7 +356,7 @@ export function UserForm() {
                     <div className="p-4 bg-slate-50 border border-slate-200/80 rounded-xl space-y-3 animate-in fade-in duration-200">
                       {/* Strength Progress */}
                       <div className="space-y-1.5">
-                        <div className="flex justify-between items-center text-[var(--font-size-xs)] font-semibold">
+                        <div className="flex justify-between items-center text-xs font-semibold">
                           <span className="text-slate-600">Password Strength</span>
                           <span className={strength.textColor}>{strength.label}</span>
                         </div>
@@ -368,7 +366,7 @@ export function UserForm() {
                       </div>
 
                       {/* Requirements Checklist */}
-                      <div className="pt-2 border-t border-slate-200/60 grid grid-cols-1 sm:grid-cols-2 gap-2 text-[var(--font-size-xs)]">
+                      <div className="pt-2 border-t border-slate-200/60 grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
                         {passwordRequirements.map((req, idx) => (
                           <div key={idx} className="flex items-center gap-1.5">
                             {req.met ? (
@@ -388,14 +386,14 @@ export function UserForm() {
               ) : (
                 /* Edit Mode Password Toggle */
                 <div className="space-y-3">
-                  <label className="flex items-center text-[var(--font-size-sm)] font-medium text-slate-800 cursor-pointer select-none">
+                  <label className="flex items-center text-sm font-medium text-slate-800 cursor-pointer select-none">
                     <input
                       type="checkbox"
                       checked={enablePasswordEdit}
                       onChange={(e) => setEnablePasswordEdit(e.target.checked)}
                       className="h-4 w-4 text-indigo-600 focus:ring-indigo-500/20 border-slate-300 rounded transition"
                     />
-                    <span className="ml-2.5">{t('form.changePassword', 'Change Password')}</span>
+                    <span className="ml-2.5">Change Password</span>
                   </label>
 
                   {enablePasswordEdit && (
@@ -407,8 +405,8 @@ export function UserForm() {
                         type={showPassword ? 'text' : 'password'}
                         disabled={loading}
                         {...register('password')}
-                        className="w-full pl-10 pr-11 py-2.5 text-[var(--font-size-sm)] border border-slate-300 rounded-xl transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500/20 hover:border-slate-400 bg-white text-slate-900"
-                        placeholder={t('form.newPassword', 'Enter new password')}
+                        className="w-full pl-10 pr-11 py-2.5 text-sm border border-slate-300 rounded-xl transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500/20 hover:border-slate-400 bg-white text-slate-900"
+                        placeholder="Enter new password"
                       />
                       <button
                         type="button"
@@ -427,15 +425,15 @@ export function UserForm() {
             {/* SECTION 3: Account Settings */}
             <div className="space-y-5">
               <div className="border-b border-slate-100 pb-3">
-                <h2 className="text-[var(--font-size-base)] font-semibold text-slate-900 flex items-center gap-2">
+                <h2 className="text-base font-semibold text-slate-900 flex items-center gap-2">
                   <Sliders className="w-4 h-4 text-indigo-600" />
-                  {t('user.accountSettings', 'Account Settings')}
+                  Account Settings
                 </h2>
-                <p className="text-[var(--font-size-xs)] text-slate-500 mt-0.5">
-                  {t('user.accountSettingsDesc', 'Assign permissions role and active status.')}
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Assign system permissions role and account operational status.
                 </p>
                 {id && id === user?.id && (
-                  <p className="text-[var(--font-size-xs)] text-amber-700 bg-amber-50 border border-amber-200/80 rounded-lg p-2.5 mt-2 font-medium">
+                  <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200/80 rounded-lg p-2.5 mt-2 font-medium">
                     ⚠️ Note: You are currently editing your own account. Demoting your role or deactivating your status is guarded by system Last Admin protection to prevent lockout.
                   </p>
                 )}
@@ -444,8 +442,8 @@ export function UserForm() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                 {/* Role Selector */}
                 <div>
-                  <label htmlFor="role" className="block text-[var(--font-size-xs)] font-semibold uppercase tracking-wider text-slate-700 mb-1.5">
-                    {t('form.role')} <span className="text-red-500">*</span>
+                  <label htmlFor="role" className="block text-xs font-semibold uppercase tracking-wider text-slate-700 mb-1.5">
+                    Role <span className="text-red-500">*</span>
                   </label>
                   <div className="relative rounded-xl shadow-xs">
                     <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
@@ -455,7 +453,7 @@ export function UserForm() {
                       id="role"
                       disabled={loading}
                       {...register('role')}
-                      className={`w-full pl-10 pr-8 py-2.5 text-[var(--font-size-sm)] border rounded-xl transition-all focus:outline-none focus:ring-2 cursor-pointer disabled:opacity-60 disabled:bg-slate-50 ${
+                      className={`w-full pl-10 pr-8 py-2.5 text-sm border rounded-xl transition-all focus:outline-none focus:ring-2 cursor-pointer disabled:opacity-60 disabled:bg-slate-50 ${
                         errors.role
                           ? 'border-red-500 bg-red-50/20 text-slate-900 focus:ring-red-500/20'
                           : 'border-slate-300 bg-white text-slate-900 hover:border-slate-400 focus:ring-indigo-500/20'
@@ -463,16 +461,16 @@ export function UserForm() {
                       aria-invalid={!!errors.role}
                       aria-describedby={errors.role ? 'role-error' : undefined}
                     >
-                      <option value="">{t('form.selectRole')}</option>
+                      <option value="">Select a role</option>
                       {Object.entries(ROLES).map(([key, value]) => (
                         <option key={key} value={value}>
-                          {ROLE_LABELS[value] || t(`role.${key.toLowerCase()}`)}
+                          {ROLE_LABELS[value] || key}
                         </option>
                       ))}
                     </select>
                   </div>
                   {errors.role && (
-                    <div id="role-error" className="flex items-center gap-1 text-[var(--font-size-xs)] text-red-600 mt-1.5 font-medium" role="alert">
+                    <div id="role-error" className="flex items-center gap-1 text-xs text-red-600 mt-1.5 font-medium" role="alert">
                       <AlertCircle className="w-3.5 h-3.5 shrink-0" />
                       <span>{errors.role.message}</span>
                     </div>
@@ -481,8 +479,8 @@ export function UserForm() {
 
                 {/* Status Selector */}
                 <div>
-                  <label htmlFor="status" className="block text-[var(--font-size-xs)] font-semibold uppercase tracking-wider text-slate-700 mb-1.5">
-                    {t('form.status')} <span className="text-red-500">*</span>
+                  <label htmlFor="status" className="block text-xs font-semibold uppercase tracking-wider text-slate-700 mb-1.5">
+                    Status <span className="text-red-500">*</span>
                   </label>
                   <div className="relative rounded-xl shadow-xs">
                     <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
@@ -492,7 +490,7 @@ export function UserForm() {
                       id="status"
                       disabled={loading}
                       {...register('status')}
-                      className={`w-full pl-10 pr-8 py-2.5 text-[var(--font-size-sm)] border rounded-xl transition-all focus:outline-none focus:ring-2 cursor-pointer disabled:opacity-60 disabled:bg-slate-50 ${
+                      className={`w-full pl-10 pr-8 py-2.5 text-sm border rounded-xl transition-all focus:outline-none focus:ring-2 cursor-pointer disabled:opacity-60 disabled:bg-slate-50 ${
                         errors.status
                           ? 'border-red-500 bg-red-50/20 text-slate-900 focus:ring-red-500/20'
                           : 'border-slate-300 bg-white text-slate-900 hover:border-slate-400 focus:ring-indigo-500/20'
@@ -500,7 +498,7 @@ export function UserForm() {
                       aria-invalid={!!errors.status}
                       aria-describedby={errors.status ? 'status-error' : undefined}
                     >
-                      <option value="">{t('form.selectStatus')}</option>
+                      <option value="">Select a status</option>
                       {Object.entries(USER_STATUS).map(([key, value]) => (
                         <option key={key} value={value}>
                           {value === USER_STATUS.ACTIVE ? '🟢 Active' : '🔴 Inactive'}
@@ -509,7 +507,7 @@ export function UserForm() {
                     </select>
                   </div>
                   {errors.status && (
-                    <div id="status-error" className="flex items-center gap-1 text-[var(--font-size-xs)] text-red-600 mt-1.5 font-medium" role="alert">
+                    <div id="status-error" className="flex items-center gap-1 text-xs text-red-600 mt-1.5 font-medium" role="alert">
                       <AlertCircle className="w-3.5 h-3.5 shrink-0" />
                       <span>{errors.status.message}</span>
                     </div>
@@ -527,7 +525,7 @@ export function UserForm() {
                 disabled={loading}
                 className="w-full sm:w-auto"
               >
-                {t('buttons.cancel')}
+                Cancel
               </Button>
               <Button
                 variant="primary"
