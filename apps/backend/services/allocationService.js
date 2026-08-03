@@ -37,6 +37,12 @@ class AllocationService {
       programId: allocationData.programId,
     });
 
+    await this.validateBudgetCeiling(
+      allocationData.fiscalYearId,
+      allocationData.allocatedAmount,
+      resolved.fiscalYear
+    );
+
     const duplicate = await allocationRepository.duplicateExists({
       fiscalYearId: allocationData.fiscalYearId,
       departmentId: allocationData.departmentId,
@@ -243,6 +249,13 @@ class AllocationService {
       throw new AppError(
         `Cannot transition allocation from ${existing.status} to ${newStatus}`,
         HTTP_STATUS.BAD_REQUEST
+      );
+    }
+
+    if (newStatus === ALLOCATION_STATUS.APPROVED) {
+      await this.validateBudgetCeiling(
+        existing.fiscalYearId,
+        toNumber(existing.allocatedAmount)
       );
     }
 
@@ -490,6 +503,41 @@ class AllocationService {
     }
 
     return resolved;
+  }
+
+  /**
+   * Validate that the requested allocation amount does not exceed the fiscal year's remaining budget.
+   *
+   * @private
+   * @param {string} fiscalYearId - Fiscal year ID
+   * @param {number} requestedAmount - Amount to validate
+   * @param {Object|null} [fiscalYear=null] - Pre-fetched fiscal year (optional)
+   */
+  async validateBudgetCeiling(fiscalYearId, requestedAmount, fiscalYear = null) {
+    const fy = fiscalYear || (await fiscalYearRepository.findById(fiscalYearId));
+    if (!fy) {
+      throw new AppError('Fiscal year not found', HTTP_STATUS.NOT_FOUND);
+    }
+    if (fy.status === FISCAL_YEAR_STATUS.ARCHIVED) {
+      throw new AppError(
+        'Allocations cannot reference an archived fiscal year',
+        HTTP_STATUS.CONFLICT
+      );
+    }
+
+    const approvedAggregate = await allocationRepository.aggregateApprovedAmount({
+      fiscalYearId,
+    });
+    const totalAllocated = toNumber(approvedAggregate?._sum?.allocatedAmount);
+    const totalBudget = toNumber(fy.budgetAmount);
+    const remainingBudget = totalBudget - totalAllocated;
+
+    if (requestedAmount > remainingBudget) {
+      throw new AppError(
+        'Allocated amount exceeds fiscal year remaining budget',
+        HTTP_STATUS.BAD_REQUEST
+      );
+    }
   }
 
   /**

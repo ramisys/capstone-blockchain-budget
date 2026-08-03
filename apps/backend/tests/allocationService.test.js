@@ -70,6 +70,7 @@ const fiscalYear = {
   endDate: new Date('2026-12-31'),
   status: FISCAL_YEAR_STATUS.ACTIVE,
   isActive: true,
+  budgetAmount: new Prisma.Decimal('500000.00'),
 };
 
 const department = {
@@ -138,6 +139,9 @@ function mockAllReferences(overrides = {}) {
   fundSourceRepository.findById = async () => ('fundSource' in overrides ? overrides.fundSource : fundSource);
   budgetCategoryRepository.findById = async () => ('category' in overrides ? overrides.category : category);
   budgetProgramRepository.findById = async () => ('program' in overrides ? overrides.program : program);
+  allocationRepository.aggregateApprovedAmount = async () => ({
+    _sum: { allocatedAmount: new Prisma.Decimal('0') },
+  });
 }
 
 async function runAllocationServiceTests() {
@@ -244,6 +248,21 @@ async function runAllocationServiceTests() {
     await assert.rejects(
       () => allocationService.createAllocation(createPayload, 'user-1'),
       (err) => err instanceof AppError && err.statusCode === HTTP_STATUS.CONFLICT
+    );
+  });
+
+  await test('should reject an allocation that exceeds the fiscal year remaining budget', async () => {
+    mockAllReferences();
+    allocationRepository.aggregateApprovedAmount = async () => ({
+      _sum: { allocatedAmount: new Prisma.Decimal('400000.00') },
+    });
+
+    await assert.rejects(
+      () => allocationService.createAllocation(createPayload, 'user-1'),
+      (err) =>
+        err instanceof AppError &&
+        err.statusCode === HTTP_STATUS.BAD_REQUEST &&
+        err.message === 'Allocated amount exceeds fiscal year remaining budget'
     );
   });
 
@@ -431,6 +450,54 @@ async function runAllocationServiceTests() {
     await assert.rejects(
       () => allocationService.transitionStatus('alloc-1', ALLOCATION_STATUS.APPROVED, { id: 'user-1', role: ROLES.BUDGET_OFFICER }),
       (err) => err instanceof AppError && err.statusCode === HTTP_STATUS.BAD_REQUEST
+    );
+  });
+
+  await test('should allow a valid PendingApproval -> Approved transition within remaining budget', async () => {
+    const pendingAllocation = {
+      ...draftAllocation,
+      id: 'alloc-1',
+      status: ALLOCATION_STATUS.PENDING_APPROVAL,
+    };
+    allocationRepository.findById = async () => pendingAllocation;
+    fiscalYearRepository.findById = async () => fiscalYear;
+    allocationRepository.aggregateApprovedAmount = async () => ({
+      _sum: { allocatedAmount: new Prisma.Decimal('100000.00') },
+    });
+    allocationRepository.update = async (id, data) => ({ ...pendingAllocation, ...data });
+
+    const result = await allocationService.transitionStatus(
+      'alloc-1',
+      ALLOCATION_STATUS.APPROVED,
+      { id: 'admin-1', role: ROLES.ADMINISTRATOR }
+    );
+
+    assert.equal(result.status, ALLOCATION_STATUS.APPROVED);
+  });
+
+  await test('should reject a PendingApproval -> Approved transition exceeding remaining budget', async () => {
+    const pendingAllocation = {
+      ...draftAllocation,
+      id: 'alloc-1',
+      status: ALLOCATION_STATUS.PENDING_APPROVAL,
+    };
+    allocationRepository.findById = async () => pendingAllocation;
+    fiscalYearRepository.findById = async () => fiscalYear;
+    allocationRepository.aggregateApprovedAmount = async () => ({
+      _sum: { allocatedAmount: new Prisma.Decimal('400000.00') },
+    });
+
+    await assert.rejects(
+      () =>
+        allocationService.transitionStatus(
+          'alloc-1',
+          ALLOCATION_STATUS.APPROVED,
+          { id: 'admin-1', role: ROLES.ADMINISTRATOR }
+        ),
+      (err) =>
+        err instanceof AppError &&
+        err.statusCode === HTTP_STATUS.BAD_REQUEST &&
+        err.message === 'Allocated amount exceeds fiscal year remaining budget'
     );
   });
 
