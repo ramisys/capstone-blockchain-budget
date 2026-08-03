@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import type { AxiosResponse } from 'axios';
 import { allocationApi } from '../services/allocationService';
+import { useToast } from '../components/ui/Toast';
 import type {
   Allocation,
   AllocationFormData,
@@ -91,11 +92,19 @@ export const useRemainingBudget = (params: AllocationListParams = {}) => {
  */
 export const useCreateAllocation = () => {
   const queryClient = useQueryClient();
+  const { showToast } = useToast();
 
   return useMutation({
     mutationFn: (data: AllocationFormData) => allocationApi.createAllocation(data),
     onSuccess: () => {
       invalidateAllocationQueries(queryClient);
+    },
+    onError: (error: any) => {
+      const message =
+        error?.response?.data?.message ||
+        error?.message ||
+        'Failed to create allocation';
+      showToast(message, 'error');
     },
   });
 };
@@ -105,12 +114,20 @@ export const useCreateAllocation = () => {
  */
 export const useUpdateAllocation = () => {
   const queryClient = useQueryClient();
+  const { showToast } = useToast();
 
   return useMutation({
     mutationFn: ({ id, data }: { id: string; data: AllocationUpdateData }) =>
       allocationApi.updateAllocation(id, data),
     onSuccess: () => {
       invalidateAllocationQueries(queryClient);
+    },
+    onError: (error: any) => {
+      const message =
+        error?.response?.data?.message ||
+        error?.message ||
+        'Failed to update allocation';
+      showToast(message, 'error');
     },
   });
 };
@@ -120,11 +137,19 @@ export const useUpdateAllocation = () => {
  */
 export const useDeleteAllocation = () => {
   const queryClient = useQueryClient();
+  const { showToast } = useToast();
 
   return useMutation({
     mutationFn: (id: string) => allocationApi.deleteAllocation(id),
     onSuccess: () => {
       invalidateAllocationQueries(queryClient);
+    },
+    onError: (error: any) => {
+      const message =
+        error?.response?.data?.message ||
+        error?.message ||
+        'Failed to delete allocation';
+      showToast(message, 'error');
     },
   });
 };
