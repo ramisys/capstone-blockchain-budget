@@ -1,6 +1,8 @@
 import { authService } from '../services/authService.js';
 import { formatSuccessResponse } from '../utils/responseFormatter.js';
 import { HTTP_STATUS } from '../constants/httpStatus.js';
+import { auditLogger } from '../utils/auditLogger.js';
+import { AUDIT_ACTIONS, AUDIT_RESULTS } from '../constants/auditActions.js';
 
 class AuthController {
   /**
@@ -15,6 +17,14 @@ class AuthController {
       const { email, password } = req.body;
       const result = await authService.login(email, password);
 
+      auditLogger.logFromReq(req, {
+        action: AUDIT_ACTIONS.AUTH_LOGIN,
+        result: AUDIT_RESULTS.SUCCESS,
+        actor: result.user,
+        resource: { type: 'User', id: result.user.id, email: result.user.email },
+        details: { email: result.user.email, role: result.user.role },
+      });
+
       return res
         .status(HTTP_STATUS.OK)
         .json(
@@ -26,6 +36,13 @@ class AuthController {
           })
         );
     } catch (error) {
+      auditLogger.logFromReq(req, {
+        action: AUDIT_ACTIONS.AUTH_LOGIN,
+        result: AUDIT_RESULTS.FAILURE,
+        resource: { type: 'User', email: req.body?.email },
+        details: { email: req.body?.email },
+        error,
+      });
       next(error);
     }
   }
@@ -52,6 +69,11 @@ class AuthController {
           })
         );
     } catch (error) {
+      auditLogger.logFromReq(req, {
+        action: AUDIT_ACTIONS.AUTH_REFRESH_TOKEN,
+        result: AUDIT_RESULTS.FAILURE,
+        error,
+      });
       next(error);
     }
   }
@@ -66,6 +88,12 @@ class AuthController {
   async logout(req, res, next) {
     try {
       await authService.logout(req.user?.id, req.body?.refreshToken);
+
+      auditLogger.logFromReq(req, {
+        action: AUDIT_ACTIONS.AUTH_LOGOUT,
+        result: AUDIT_RESULTS.SUCCESS,
+        resource: req.user ? { type: 'User', id: req.user.id } : null,
+      });
 
       return res
         .status(HTTP_STATUS.OK)
@@ -100,3 +128,4 @@ class AuthController {
 }
 
 export const authController = new AuthController();
+

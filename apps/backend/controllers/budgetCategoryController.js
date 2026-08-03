@@ -1,6 +1,8 @@
 import { budgetCategoryService } from '../services/budgetCategoryService.js';
 import { formatSuccessResponse } from '../utils/responseFormatter.js';
 import { HTTP_STATUS } from '../constants/httpStatus.js';
+import { auditLogger } from '../utils/auditLogger.js';
+import { AUDIT_ACTIONS, AUDIT_RESULTS } from '../constants/auditActions.js';
 import { validateRequest } from '../validators/validateRequest.js';
 import {
   createBudgetCategorySchema,
@@ -19,12 +21,26 @@ class BudgetCategoryController {
     try {
       const budgetCategoryData = req.body;
       const budgetCategory = await budgetCategoryService.createBudgetCategory(budgetCategoryData);
+
+      auditLogger.logFromReq(req, {
+        action: AUDIT_ACTIONS.BUDGET_CATEGORY_CREATE,
+        result: AUDIT_RESULTS.SUCCESS,
+        resource: { type: 'BudgetCategory', id: budgetCategory.id, code: budgetCategory.code },
+        details: { code: budgetCategory.code, name: budgetCategory.name },
+      });
+
       return res
         .status(HTTP_STATUS.CREATED)
         .json(
           formatSuccessResponse('Budget category created successfully', { budgetCategory })
         );
     } catch (error) {
+      auditLogger.logFromReq(req, {
+        action: AUDIT_ACTIONS.BUDGET_CATEGORY_CREATE,
+        result: AUDIT_RESULTS.FAILURE,
+        details: { code: req.body?.code, name: req.body?.name },
+        error,
+      });
       next(error);
     }
   }
@@ -140,12 +156,26 @@ class BudgetCategoryController {
       const { id } = req.params;
       const updateData = req.body;
       const budgetCategory = await budgetCategoryService.updateBudgetCategory(id, updateData);
+
+      auditLogger.logFromReq(req, {
+        action: AUDIT_ACTIONS.BUDGET_CATEGORY_UPDATE,
+        result: AUDIT_RESULTS.SUCCESS,
+        resource: { type: 'BudgetCategory', id, code: budgetCategory.code },
+        details: { updatedFields: Object.keys(updateData) },
+      });
+
       return res
         .status(HTTP_STATUS.OK)
         .json(
           formatSuccessResponse('Budget category updated successfully', { budgetCategory })
         );
     } catch (error) {
+      auditLogger.logFromReq(req, {
+        action: AUDIT_ACTIONS.BUDGET_CATEGORY_UPDATE,
+        result: AUDIT_RESULTS.FAILURE,
+        resource: { type: 'BudgetCategory', id: req.params.id },
+        error,
+      });
       next(error);
     }
   }
@@ -160,10 +190,23 @@ class BudgetCategoryController {
     try {
       const { id } = req.params;
       const result = await budgetCategoryService.deleteBudgetCategory(id);
+
+      auditLogger.logFromReq(req, {
+        action: AUDIT_ACTIONS.BUDGET_CATEGORY_DELETE,
+        result: AUDIT_RESULTS.SUCCESS,
+        resource: { type: 'BudgetCategory', id },
+      });
+
       return res
         .status(HTTP_STATUS.OK)
         .json(formatSuccessResponse(result.message, {}));
     } catch (error) {
+      auditLogger.logFromReq(req, {
+        action: AUDIT_ACTIONS.BUDGET_CATEGORY_DELETE,
+        result: AUDIT_RESULTS.FAILURE,
+        resource: { type: 'BudgetCategory', id: req.params.id },
+        error,
+      });
       next(error);
     }
   }

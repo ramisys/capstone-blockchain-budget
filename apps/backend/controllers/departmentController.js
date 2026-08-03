@@ -1,6 +1,8 @@
 import { departmentService } from '../services/departmentService.js';
 import { formatSuccessResponse } from '../utils/responseFormatter.js';
 import { HTTP_STATUS } from '../constants/httpStatus.js';
+import { auditLogger } from '../utils/auditLogger.js';
+import { AUDIT_ACTIONS, AUDIT_RESULTS } from '../constants/auditActions.js';
 import { validateRequest } from '../validators/validateRequest.js';
 import {
   createDepartmentSchema,
@@ -19,12 +21,26 @@ class DepartmentController {
     try {
       const departmentData = req.body;
       const department = await departmentService.createDepartment(departmentData);
+
+      auditLogger.logFromReq(req, {
+        action: AUDIT_ACTIONS.DEPARTMENT_CREATE,
+        result: AUDIT_RESULTS.SUCCESS,
+        resource: { type: 'Department', id: department.id, code: department.code },
+        details: { code: department.code, name: department.name },
+      });
+
       return res
         .status(HTTP_STATUS.CREATED)
         .json(
           formatSuccessResponse('Department created successfully', { department })
         );
     } catch (error) {
+      auditLogger.logFromReq(req, {
+        action: AUDIT_ACTIONS.DEPARTMENT_CREATE,
+        result: AUDIT_RESULTS.FAILURE,
+        details: { code: req.body?.code, name: req.body?.name },
+        error,
+      });
       next(error);
     }
   }
@@ -143,12 +159,26 @@ class DepartmentController {
       const { id } = req.params;
       const updateData = req.body;
       const department = await departmentService.updateDepartment(id, updateData);
+
+      auditLogger.logFromReq(req, {
+        action: AUDIT_ACTIONS.DEPARTMENT_UPDATE,
+        result: AUDIT_RESULTS.SUCCESS,
+        resource: { type: 'Department', id, code: department.code },
+        details: { updatedFields: Object.keys(updateData) },
+      });
+
       return res
         .status(HTTP_STATUS.OK)
         .json(
           formatSuccessResponse('Department updated successfully', { department })
         );
     } catch (error) {
+      auditLogger.logFromReq(req, {
+        action: AUDIT_ACTIONS.DEPARTMENT_UPDATE,
+        result: AUDIT_RESULTS.FAILURE,
+        resource: { type: 'Department', id: req.params.id },
+        error,
+      });
       next(error);
     }
   }
@@ -163,10 +193,23 @@ class DepartmentController {
     try {
       const { id } = req.params;
       const result = await departmentService.deleteDepartment(id);
+
+      auditLogger.logFromReq(req, {
+        action: AUDIT_ACTIONS.DEPARTMENT_DELETE,
+        result: AUDIT_RESULTS.SUCCESS,
+        resource: { type: 'Department', id },
+      });
+
       return res
         .status(HTTP_STATUS.OK)
         .json(formatSuccessResponse(result.message, {}));
     } catch (error) {
+      auditLogger.logFromReq(req, {
+        action: AUDIT_ACTIONS.DEPARTMENT_DELETE,
+        result: AUDIT_RESULTS.FAILURE,
+        resource: { type: 'Department', id: req.params.id },
+        error,
+      });
       next(error);
     }
   }

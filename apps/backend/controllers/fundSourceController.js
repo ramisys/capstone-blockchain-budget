@@ -1,6 +1,8 @@
 import { fundSourceService } from '../services/fundSourceService.js';
 import { formatSuccessResponse } from '../utils/responseFormatter.js';
 import { HTTP_STATUS } from '../constants/httpStatus.js';
+import { auditLogger } from '../utils/auditLogger.js';
+import { AUDIT_ACTIONS, AUDIT_RESULTS } from '../constants/auditActions.js';
 import { validateRequest } from '../validators/validateRequest.js';
 import {
   createFundSourceSchema,
@@ -19,12 +21,26 @@ class FundSourceController {
     try {
       const fundSourceData = req.body;
       const fundSource = await fundSourceService.createFundSource(fundSourceData);
+
+      auditLogger.logFromReq(req, {
+        action: AUDIT_ACTIONS.FUND_SOURCE_CREATE,
+        result: AUDIT_RESULTS.SUCCESS,
+        resource: { type: 'FundSource', id: fundSource.id, code: fundSource.code },
+        details: { code: fundSource.code, name: fundSource.name },
+      });
+
       return res
         .status(HTTP_STATUS.CREATED)
         .json(
           formatSuccessResponse('Fund source created successfully', { fundSource })
         );
     } catch (error) {
+      auditLogger.logFromReq(req, {
+        action: AUDIT_ACTIONS.FUND_SOURCE_CREATE,
+        result: AUDIT_RESULTS.FAILURE,
+        details: { code: req.body?.code, name: req.body?.name },
+        error,
+      });
       next(error);
     }
   }
@@ -120,12 +136,26 @@ class FundSourceController {
       const { id } = req.params;
       const updateData = req.body;
       const fundSource = await fundSourceService.updateFundSource(id, updateData);
+
+      auditLogger.logFromReq(req, {
+        action: AUDIT_ACTIONS.FUND_SOURCE_UPDATE,
+        result: AUDIT_RESULTS.SUCCESS,
+        resource: { type: 'FundSource', id, code: fundSource.code },
+        details: { updatedFields: Object.keys(updateData) },
+      });
+
       return res
         .status(HTTP_STATUS.OK)
         .json(
           formatSuccessResponse('Fund source updated successfully', { fundSource })
         );
     } catch (error) {
+      auditLogger.logFromReq(req, {
+        action: AUDIT_ACTIONS.FUND_SOURCE_UPDATE,
+        result: AUDIT_RESULTS.FAILURE,
+        resource: { type: 'FundSource', id: req.params.id },
+        error,
+      });
       next(error);
     }
   }
@@ -140,10 +170,23 @@ class FundSourceController {
     try {
       const { id } = req.params;
       const result = await fundSourceService.deleteFundSource(id);
+
+      auditLogger.logFromReq(req, {
+        action: AUDIT_ACTIONS.FUND_SOURCE_DELETE,
+        result: AUDIT_RESULTS.SUCCESS,
+        resource: { type: 'FundSource', id },
+      });
+
       return res
         .status(HTTP_STATUS.OK)
         .json(formatSuccessResponse(result.message, {}));
     } catch (error) {
+      auditLogger.logFromReq(req, {
+        action: AUDIT_ACTIONS.FUND_SOURCE_DELETE,
+        result: AUDIT_RESULTS.FAILURE,
+        resource: { type: 'FundSource', id: req.params.id },
+        error,
+      });
       next(error);
     }
   }

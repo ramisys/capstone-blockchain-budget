@@ -1,6 +1,8 @@
 import { allocationService } from '../services/allocationService.js';
 import { formatSuccessResponse } from '../utils/responseFormatter.js';
 import { HTTP_STATUS } from '../constants/httpStatus.js';
+import { auditLogger } from '../utils/auditLogger.js';
+import { AUDIT_ACTIONS, AUDIT_RESULTS } from '../constants/auditActions.js';
 
 class AllocationController {
   /**
@@ -12,10 +14,29 @@ class AllocationController {
   async createAllocation(req, res, next) {
     try {
       const allocation = await allocationService.createAllocation(req.body, req.user.id);
+
+      auditLogger.logFromReq(req, {
+        action: AUDIT_ACTIONS.ALLOCATION_CREATE,
+        result: AUDIT_RESULTS.SUCCESS,
+        resource: { type: 'Allocation', id: allocation.id, code: allocation.allocationCode },
+        details: {
+          allocationCode: allocation.allocationCode,
+          fiscalYearId: allocation.fiscalYearId,
+          departmentId: allocation.departmentId,
+          allocatedAmount: allocation.allocatedAmount,
+        },
+      });
+
       return res
         .status(HTTP_STATUS.CREATED)
         .json(formatSuccessResponse('Allocation created successfully', { allocation }));
     } catch (error) {
+      auditLogger.logFromReq(req, {
+        action: AUDIT_ACTIONS.ALLOCATION_CREATE,
+        result: AUDIT_RESULTS.FAILURE,
+        details: { fiscalYearId: req.body?.fiscalYearId, departmentId: req.body?.departmentId },
+        error,
+      });
       next(error);
     }
   }
@@ -92,10 +113,24 @@ class AllocationController {
     try {
       const { id } = req.params;
       const allocation = await allocationService.updateAllocation(id, req.body, req.user);
+
+      auditLogger.logFromReq(req, {
+        action: AUDIT_ACTIONS.ALLOCATION_UPDATE,
+        result: AUDIT_RESULTS.SUCCESS,
+        resource: { type: 'Allocation', id, code: allocation.allocationCode },
+        details: { updatedFields: Object.keys(req.body) },
+      });
+
       return res
         .status(HTTP_STATUS.OK)
         .json(formatSuccessResponse('Allocation updated successfully', { allocation }));
     } catch (error) {
+      auditLogger.logFromReq(req, {
+        action: AUDIT_ACTIONS.ALLOCATION_UPDATE,
+        result: AUDIT_RESULTS.FAILURE,
+        resource: { type: 'Allocation', id: req.params.id },
+        error,
+      });
       next(error);
     }
   }
@@ -110,8 +145,21 @@ class AllocationController {
     try {
       const { id } = req.params;
       const result = await allocationService.deleteAllocation(id, req.user);
+
+      auditLogger.logFromReq(req, {
+        action: AUDIT_ACTIONS.ALLOCATION_DELETE,
+        result: AUDIT_RESULTS.SUCCESS,
+        resource: { type: 'Allocation', id },
+      });
+
       return res.status(HTTP_STATUS.OK).json(formatSuccessResponse(result.message, {}));
     } catch (error) {
+      auditLogger.logFromReq(req, {
+        action: AUDIT_ACTIONS.ALLOCATION_DELETE,
+        result: AUDIT_RESULTS.FAILURE,
+        resource: { type: 'Allocation', id: req.params.id },
+        error,
+      });
       next(error);
     }
   }
@@ -162,3 +210,4 @@ class AllocationController {
 }
 
 export const allocationController = new AllocationController();
+

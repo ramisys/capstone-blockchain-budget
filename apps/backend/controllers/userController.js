@@ -1,7 +1,8 @@
 import { userService } from '../services/userService.js';
 import { formatSuccessResponse } from '../utils/responseFormatter.js';
 import { HTTP_STATUS } from '../constants/httpStatus.js';
-import { validateRequest } from '../validators/validateRequest.js';
+import { auditLogger } from '../utils/auditLogger.js';
+import { AUDIT_ACTIONS, AUDIT_RESULTS } from '../constants/auditActions.js';
 import {
   userQuerySchema,
   changeRoleSchema,
@@ -75,12 +76,25 @@ class UserController {
       const userData = req.body;
       const user = await userService.createUser(userData);
 
+      auditLogger.logFromReq(req, {
+        action: AUDIT_ACTIONS.USER_CREATE,
+        result: AUDIT_RESULTS.SUCCESS,
+        resource: { type: 'User', id: user.id, email: user.email },
+        details: { email: user.email, role: user.role, fullName: user.fullName, status: user.status },
+      });
+
       return res
         .status(HTTP_STATUS.CREATED)
         .json(
           formatSuccessResponse('User created successfully', { user })
         );
     } catch (error) {
+      auditLogger.logFromReq(req, {
+        action: AUDIT_ACTIONS.USER_CREATE,
+        result: AUDIT_RESULTS.FAILURE,
+        details: { email: req.body?.email, role: req.body?.role },
+        error,
+      });
       next(error);
     }
   }
@@ -98,12 +112,25 @@ class UserController {
       const currentUserId = req.user?.id;
       const user = await userService.updateUser(id, updateData, currentUserId);
 
+      auditLogger.logFromReq(req, {
+        action: AUDIT_ACTIONS.USER_UPDATE,
+        result: AUDIT_RESULTS.SUCCESS,
+        resource: { type: 'User', id },
+        details: { updatedFields: Object.keys(updateData).filter((k) => !k.toLowerCase().includes('password')) },
+      });
+
       return res
         .status(HTTP_STATUS.OK)
         .json(
           formatSuccessResponse('User updated successfully', { user })
         );
     } catch (error) {
+      auditLogger.logFromReq(req, {
+        action: AUDIT_ACTIONS.USER_UPDATE,
+        result: AUDIT_RESULTS.FAILURE,
+        resource: { type: 'User', id: req.params.id },
+        error,
+      });
       next(error);
     }
   }
@@ -120,12 +147,24 @@ class UserController {
       const currentUserId = req.user?.id;
       await userService.deleteUser(id, currentUserId);
 
+      auditLogger.logFromReq(req, {
+        action: AUDIT_ACTIONS.USER_DELETE,
+        result: AUDIT_RESULTS.SUCCESS,
+        resource: { type: 'User', id },
+      });
+
       return res
         .status(HTTP_STATUS.OK)
         .json(
           formatSuccessResponse('User deleted successfully', {})
         );
     } catch (error) {
+      auditLogger.logFromReq(req, {
+        action: AUDIT_ACTIONS.USER_DELETE,
+        result: AUDIT_RESULTS.FAILURE,
+        resource: { type: 'User', id: req.params.id },
+        error,
+      });
       next(error);
     }
   }
@@ -143,12 +182,26 @@ class UserController {
       const currentUserId = req.user?.id;
       const user = await userService.changeUserRole(id, role, currentUserId);
 
+      auditLogger.logFromReq(req, {
+        action: AUDIT_ACTIONS.USER_ROLE_CHANGE,
+        result: AUDIT_RESULTS.SUCCESS,
+        resource: { type: 'User', id },
+        details: { newRole: role },
+      });
+
       return res
         .status(HTTP_STATUS.OK)
         .json(
           formatSuccessResponse('User role updated successfully', { user })
         );
     } catch (error) {
+      auditLogger.logFromReq(req, {
+        action: AUDIT_ACTIONS.USER_ROLE_CHANGE,
+        result: AUDIT_RESULTS.FAILURE,
+        resource: { type: 'User', id: req.params.id },
+        details: { attemptedRole: req.body?.role },
+        error,
+      });
       next(error);
     }
   }
@@ -166,12 +219,26 @@ class UserController {
       const currentUserId = req.user?.id;
       const user = await userService.changeUserStatus(id, status, currentUserId);
 
+      auditLogger.logFromReq(req, {
+        action: AUDIT_ACTIONS.USER_STATUS_CHANGE,
+        result: AUDIT_RESULTS.SUCCESS,
+        resource: { type: 'User', id },
+        details: { newStatus: status },
+      });
+
       return res
         .status(HTTP_STATUS.OK)
         .json(
           formatSuccessResponse('User status updated successfully', { user })
         );
     } catch (error) {
+      auditLogger.logFromReq(req, {
+        action: AUDIT_ACTIONS.USER_STATUS_CHANGE,
+        result: AUDIT_RESULTS.FAILURE,
+        resource: { type: 'User', id: req.params.id },
+        details: { attemptedStatus: req.body?.status },
+        error,
+      });
       next(error);
     }
   }

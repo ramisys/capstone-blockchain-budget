@@ -1,6 +1,8 @@
 import { budgetProgramService } from '../services/budgetProgramService.js';
 import { formatSuccessResponse } from '../utils/responseFormatter.js';
 import { HTTP_STATUS } from '../constants/httpStatus.js';
+import { auditLogger } from '../utils/auditLogger.js';
+import { AUDIT_ACTIONS, AUDIT_RESULTS } from '../constants/auditActions.js';
 import { validateRequest } from '../validators/validateRequest.js';
 import {
   createBudgetProgramSchema,
@@ -19,12 +21,26 @@ class BudgetProgramController {
     try {
       const budgetProgramData = req.body;
       const budgetProgram = await budgetProgramService.createBudgetProgram(budgetProgramData);
+
+      auditLogger.logFromReq(req, {
+        action: AUDIT_ACTIONS.BUDGET_PROGRAM_CREATE,
+        result: AUDIT_RESULTS.SUCCESS,
+        resource: { type: 'BudgetProgram', id: budgetProgram.id, code: budgetProgram.code },
+        details: { code: budgetProgram.code, name: budgetProgram.name, departmentId: budgetProgram.departmentId, budgetCategoryId: budgetProgram.budgetCategoryId },
+      });
+
       return res
         .status(HTTP_STATUS.CREATED)
         .json(
           formatSuccessResponse('Budget program created successfully', { budgetProgram })
         );
     } catch (error) {
+      auditLogger.logFromReq(req, {
+        action: AUDIT_ACTIONS.BUDGET_PROGRAM_CREATE,
+        result: AUDIT_RESULTS.FAILURE,
+        details: { code: req.body?.code, name: req.body?.name },
+        error,
+      });
       next(error);
     }
   }
@@ -122,12 +138,26 @@ class BudgetProgramController {
       const { id } = req.params;
       const updateData = req.body;
       const budgetProgram = await budgetProgramService.updateBudgetProgram(id, updateData);
+
+      auditLogger.logFromReq(req, {
+        action: AUDIT_ACTIONS.BUDGET_PROGRAM_UPDATE,
+        result: AUDIT_RESULTS.SUCCESS,
+        resource: { type: 'BudgetProgram', id, code: budgetProgram.code },
+        details: { updatedFields: Object.keys(updateData) },
+      });
+
       return res
         .status(HTTP_STATUS.OK)
         .json(
           formatSuccessResponse('Budget program updated successfully', { budgetProgram })
         );
     } catch (error) {
+      auditLogger.logFromReq(req, {
+        action: AUDIT_ACTIONS.BUDGET_PROGRAM_UPDATE,
+        result: AUDIT_RESULTS.FAILURE,
+        resource: { type: 'BudgetProgram', id: req.params.id },
+        error,
+      });
       next(error);
     }
   }
@@ -142,10 +172,23 @@ class BudgetProgramController {
     try {
       const { id } = req.params;
       const result = await budgetProgramService.deleteBudgetProgram(id);
+
+      auditLogger.logFromReq(req, {
+        action: AUDIT_ACTIONS.BUDGET_PROGRAM_DELETE,
+        result: AUDIT_RESULTS.SUCCESS,
+        resource: { type: 'BudgetProgram', id },
+      });
+
       return res
         .status(HTTP_STATUS.OK)
         .json(formatSuccessResponse(result.message, {}));
     } catch (error) {
+      auditLogger.logFromReq(req, {
+        action: AUDIT_ACTIONS.BUDGET_PROGRAM_DELETE,
+        result: AUDIT_RESULTS.FAILURE,
+        resource: { type: 'BudgetProgram', id: req.params.id },
+        error,
+      });
       next(error);
     }
   }

@@ -1,3 +1,5 @@
+import { auditLogger } from './auditLogger.js';
+
 /**
  * Lightweight application logger.
  *
@@ -12,6 +14,15 @@ export const logger = {
    */
   logEvent(message) {
     console.log(`[${new Date().toISOString()}] [EVENT] ${message}`);
+  },
+
+  /**
+   * Log a structured audit event.
+   *
+   * @param {Object} params - Audit parameters
+   */
+  audit(params) {
+    return auditLogger.log(params);
   },
 
   /**
@@ -33,3 +44,6 @@ export const logger = {
     console.error(`[${new Date().toISOString()}] [ERROR] ${message}`, error || '');
   },
 };
+
+export { auditLogger };
+

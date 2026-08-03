@@ -1,6 +1,8 @@
 import { fiscalYearService } from '../services/fiscalYearService.js';
 import { formatSuccessResponse } from '../utils/responseFormatter.js';
 import { HTTP_STATUS } from '../constants/httpStatus.js';
+import { auditLogger } from '../utils/auditLogger.js';
+import { AUDIT_ACTIONS, AUDIT_RESULTS } from '../constants/auditActions.js';
 import { validateRequest } from '../validators/validateRequest.js';
 import {
   createFiscalYearSchema,
@@ -19,12 +21,26 @@ class FiscalYearController {
     try {
       const fiscalYearData = req.body;
       const fiscalYear = await fiscalYearService.createFiscalYear(fiscalYearData);
+
+      auditLogger.logFromReq(req, {
+        action: AUDIT_ACTIONS.FISCAL_YEAR_CREATE,
+        result: AUDIT_RESULTS.SUCCESS,
+        resource: { type: 'FiscalYear', id: fiscalYear.id, code: fiscalYear.code },
+        details: { code: fiscalYear.code, startDate: fiscalYear.startDate, endDate: fiscalYear.endDate },
+      });
+
       return res
         .status(HTTP_STATUS.CREATED)
         .json(
           formatSuccessResponse('Fiscal year created successfully', { fiscalYear })
         );
     } catch (error) {
+      auditLogger.logFromReq(req, {
+        action: AUDIT_ACTIONS.FISCAL_YEAR_CREATE,
+        result: AUDIT_RESULTS.FAILURE,
+        details: { code: req.body?.code },
+        error,
+      });
       next(error);
     }
   }
@@ -102,12 +118,26 @@ class FiscalYearController {
       const { id } = req.params;
       const updateData = req.body;
       const fiscalYear = await fiscalYearService.updateFiscalYear(id, updateData);
+
+      auditLogger.logFromReq(req, {
+        action: AUDIT_ACTIONS.FISCAL_YEAR_UPDATE,
+        result: AUDIT_RESULTS.SUCCESS,
+        resource: { type: 'FiscalYear', id, code: fiscalYear.code },
+        details: { updatedFields: Object.keys(updateData) },
+      });
+
       return res
         .status(HTTP_STATUS.OK)
         .json(
           formatSuccessResponse('Fiscal year updated successfully', { fiscalYear })
         );
     } catch (error) {
+      auditLogger.logFromReq(req, {
+        action: AUDIT_ACTIONS.FISCAL_YEAR_UPDATE,
+        result: AUDIT_RESULTS.FAILURE,
+        resource: { type: 'FiscalYear', id: req.params.id },
+        error,
+      });
       next(error);
     }
   }
@@ -122,10 +152,23 @@ class FiscalYearController {
     try {
       const { id } = req.params;
       const result = await fiscalYearService.deleteFiscalYear(id);
+
+      auditLogger.logFromReq(req, {
+        action: AUDIT_ACTIONS.FISCAL_YEAR_DELETE,
+        result: AUDIT_RESULTS.SUCCESS,
+        resource: { type: 'FiscalYear', id },
+      });
+
       return res
         .status(HTTP_STATUS.OK)
         .json(formatSuccessResponse(result.message, {}));
     } catch (error) {
+      auditLogger.logFromReq(req, {
+        action: AUDIT_ACTIONS.FISCAL_YEAR_DELETE,
+        result: AUDIT_RESULTS.FAILURE,
+        resource: { type: 'FiscalYear', id: req.params.id },
+        error,
+      });
       next(error);
     }
   }
@@ -140,12 +183,25 @@ class FiscalYearController {
     try {
       const { id } = req.params;
       const fiscalYear = await fiscalYearService.setActiveFiscalYear(id);
+
+      auditLogger.logFromReq(req, {
+        action: AUDIT_ACTIONS.FISCAL_YEAR_ACTIVATE,
+        result: AUDIT_RESULTS.SUCCESS,
+        resource: { type: 'FiscalYear', id, code: fiscalYear.code },
+      });
+
       return res
         .status(HTTP_STATUS.OK)
         .json(
           formatSuccessResponse('Fiscal year set as active successfully', { fiscalYear })
         );
     } catch (error) {
+      auditLogger.logFromReq(req, {
+        action: AUDIT_ACTIONS.FISCAL_YEAR_ACTIVATE,
+        result: AUDIT_RESULTS.FAILURE,
+        resource: { type: 'FiscalYear', id: req.params.id },
+        error,
+      });
       next(error);
     }
   }

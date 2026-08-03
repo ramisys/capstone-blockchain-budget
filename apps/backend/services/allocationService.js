@@ -17,6 +17,8 @@ import {
 } from '../constants/allocationStatus.js';
 import { toNumber, MAX_AMOUNT } from '../utils/amountUtils.js';
 import { logger } from '../utils/logger.js';
+import { auditLogger } from '../utils/auditLogger.js';
+import { AUDIT_ACTIONS } from '../constants/auditActions.js';
 
 class AllocationService {
   /**
@@ -78,6 +80,16 @@ class AllocationService {
     );
 
     logger.logEvent(`Allocation ${allocation.allocationCode} created by user ${userId}`);
+    auditLogger.logSuccess({
+      action: AUDIT_ACTIONS.ALLOCATION_CREATE,
+      actor: userId,
+      resource: { type: 'Allocation', id: allocation.id, code: allocation.allocationCode },
+      details: {
+        allocatedAmount: allocation.allocatedAmount,
+        departmentId: allocation.departmentId,
+        fiscalYearId: allocation.fiscalYearId,
+      },
+    });
     return this.serialize(allocation);
   }
 
@@ -200,6 +212,12 @@ class AllocationService {
 
     const updated = await allocationRepository.update(id, dataToUpdate);
     logger.logEvent(`Allocation ${existing.allocationCode} updated by user ${actor.id}`);
+    auditLogger.logSuccess({
+      action: AUDIT_ACTIONS.ALLOCATION_UPDATE,
+      actor,
+      resource: { type: 'Allocation', id, code: existing.allocationCode },
+      details: { updatedFields: Object.keys(dataToUpdate) },
+    });
     return this.serialize(updated);
   }
 
@@ -224,6 +242,11 @@ class AllocationService {
 
     await allocationRepository.softDelete(id);
     logger.logEvent(`Allocation ${existing.allocationCode} deleted by user ${actor.id}`);
+    auditLogger.logSuccess({
+      action: AUDIT_ACTIONS.ALLOCATION_DELETE,
+      actor,
+      resource: { type: 'Allocation', id, code: existing.allocationCode },
+    });
     return { message: 'Allocation deleted successfully' };
   }
 
@@ -263,6 +286,12 @@ class AllocationService {
     logger.logEvent(
       `Allocation ${existing.allocationCode} status changed from ${existing.status} to ${newStatus} by user ${actor.id}`
     );
+    auditLogger.logSuccess({
+      action: AUDIT_ACTIONS.ALLOCATION_STATUS_CHANGE,
+      actor,
+      resource: { type: 'Allocation', id, code: existing.allocationCode },
+      details: { fromStatus: existing.status, toStatus: newStatus },
+    });
     return this.serialize(updated);
   }
 
