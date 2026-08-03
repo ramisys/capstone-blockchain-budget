@@ -85,18 +85,9 @@ export function AppRoutes() {
         <Route path="/budget-allocation/budget-programs" element={<BudgetProgramManagement />} />
         <Route path="/budget-allocation/allocations/dashboard" element={<AllocationDashboard />} />
         <Route path="/budget-allocation/allocations" element={<AllocationList />} />
-        <Route
-          path="/budget-allocation/allocations/new"
-          element={<Navigate to="/budget-allocation/allocations" replace />}
-        />
-        <Route
-          path="/budget-allocation/allocations/:id/edit"
-          element={<Navigate to="/budget-allocation/allocations" replace />}
-        />
-        <Route
-          path="/budget-allocation/allocations/:id"
-          element={<Navigate to="/budget-allocation/allocations" replace />}
-        />
+        <Route path="/budget-allocation/allocations/new" element={<AllocationList />} />
+        <Route path="/budget-allocation/allocations/:id/edit" element={<AllocationList />} />
+        <Route path="/budget-allocation/allocations/:id" element={<AllocationList />} />
         <Route
           path="/budget-allocation/approval-workflow"
           element={
