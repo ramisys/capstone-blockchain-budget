@@ -12,3 +12,13 @@ export const loginSchema = z.object({
     .string({ required_error: 'Password is required' })
     .min(1, 'Password is required'),
 });
+
+/**
+ * Zod schema for refreshing an access token request.
+ */
+export const refreshTokenSchema = z.object({
+  refreshToken: z
+    .string({ required_error: 'Refresh token is required' })
+    .min(1, 'Refresh token is required'),
+});
+

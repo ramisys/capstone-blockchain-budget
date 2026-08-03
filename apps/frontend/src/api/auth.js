@@ -5,8 +5,12 @@ export const authApi = {
     return apiClient.post('/auth/login', { email, password });
   },
 
-  logout() {
-    return apiClient.post('/auth/logout');
+  refresh(refreshToken) {
+    return apiClient.post('/auth/refresh', { refreshToken });
+  },
+
+  logout(refreshToken) {
+    return apiClient.post('/auth/logout', { refreshToken });
   },
 
   me(options) {

@@ -19,7 +19,8 @@ export const config = {
   databaseUrl: process.env.DATABASE_URL,
   jwt: {
     secret: jwtSecret,
-    expiresIn: process.env.JWT_EXPIRES_IN || '1d',
+    expiresIn: process.env.JWT_EXPIRES_IN || '15m',
+    refreshTokenExpiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '7d',
     issuer: process.env.JWT_ISSUER || 'budgetchain-api',
     audience: process.env.JWT_AUDIENCE || 'budgetchain-web',
   },

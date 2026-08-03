@@ -1,15 +1,21 @@
 import { Router } from 'express';
 import { authController } from '../controllers/authController.js';
 import { validateRequest } from '../validators/validateRequest.js';
-import { loginSchema } from '../validators/authValidator.js';
+import { loginSchema, refreshTokenSchema } from '../validators/authValidator.js';
 import { authenticate } from '../middleware/authMiddleware.js';
 import { authLoginLimiter } from '../middleware/rateLimiter.js';
 
 const router = Router();
 
+const optionalAuth = (req, res, next) => {
+  authenticate(req, res, () => {
+    next();
+  });
+};
+
 /**
  * @route   POST /api/auth/login
- * @desc    Authenticate user & get access token
+ * @desc    Authenticate user & get access token + refresh token
  * @access  Public (Protected by Auth Rate Limiter - Max 5 attempts / 15 mins)
  */
 router.post('/login', authLoginLimiter, validateRequest(loginSchema), (req, res, next) =>
@@ -17,11 +23,20 @@ router.post('/login', authLoginLimiter, validateRequest(loginSchema), (req, res,
 );
 
 /**
- * @route   POST /api/auth/logout
- * @desc    Stateless logout endpoint
- * @access  Private (Authenticated)
+ * @route   POST /api/auth/refresh
+ * @desc    Refresh access token using valid refresh token
+ * @access  Public
  */
-router.post('/logout', authenticate, (req, res, next) =>
+router.post('/refresh', validateRequest(refreshTokenSchema), (req, res, next) =>
+  authController.refreshToken(req, res, next)
+);
+
+/**
+ * @route   POST /api/auth/logout
+ * @desc    Logout user & revoke refresh tokens
+ * @access  Public / Private (Optional Auth)
+ */
+router.post('/logout', optionalAuth, (req, res, next) =>
   authController.logout(req, res, next)
 );
 

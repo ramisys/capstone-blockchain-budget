@@ -12,21 +12,26 @@ export function AuthProvider({ children }) {
 
   const logout = useCallback(async () => {
     try {
-      await authApi.logout();
+      const refreshToken = localStorage.getItem('refresh_token');
+      await authApi.logout(refreshToken);
     } catch {
       // Logout API may fail, still clear local state
     } finally {
       setUser(null);
       localStorage.removeItem('auth_token');
+      localStorage.removeItem('refresh_token');
       localStorage.removeItem('auth_user');
     }
   }, []);
 
   const login = useCallback(async (email, password) => {
     const response = await authApi.login(email, password);
-    const { user: userData, token } = response.data.data;
+    const { user: userData, token, refreshToken } = response.data.data;
 
     localStorage.setItem('auth_token', token);
+    if (refreshToken) {
+      localStorage.setItem('refresh_token', refreshToken);
+    }
     localStorage.setItem('auth_user', JSON.stringify(userData));
     setUser(userData);
 
@@ -72,6 +77,7 @@ export function AuthProvider({ children }) {
         }
         if (isMounted) {
           localStorage.removeItem('auth_token');
+          localStorage.removeItem('refresh_token');
           localStorage.removeItem('auth_user');
           setUser(null);
         }

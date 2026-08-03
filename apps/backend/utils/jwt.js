@@ -39,3 +39,36 @@ export const verifyToken = (token) => {
     audience: config.jwt.audience,
   });
 };
+
+/**
+ * Helper to parse time string like '7d', '1d', '15m' to milliseconds.
+ * @param {string} timeStr
+ * @returns {number} milliseconds
+ */
+export const parseDurationToMs = (timeStr) => {
+  if (typeof timeStr === 'number') return timeStr;
+  const match = /^(\d+)([smhd])$/.exec(timeStr);
+  if (!match) return 7 * 24 * 60 * 60 * 1000; // default 7 days
+  const val = parseInt(match[1], 10);
+  const unit = match[2];
+  switch (unit) {
+    case 's': return val * 1000;
+    case 'm': return val * 60 * 1000;
+    case 'h': return val * 60 * 60 * 1000;
+    case 'd': return val * 24 * 60 * 60 * 1000;
+    default: return 7 * 24 * 60 * 60 * 1000;
+  }
+};
+
+/**
+ * Generate a cryptographically secure refresh token string and expiration Date.
+ *
+ * @returns {{ token: string, expiresAt: Date }}
+ */
+export const generateRefreshToken = () => {
+  const token = randomUUID().replace(/-/g, '') + randomUUID().replace(/-/g, '');
+  const durationMs = parseDurationToMs(config.jwt.refreshTokenExpiresIn);
+  const expiresAt = new Date(Date.now() + durationMs);
+  return { token, expiresAt };
+};
+

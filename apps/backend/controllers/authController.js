@@ -21,6 +21,34 @@ class AuthController {
           formatSuccessResponse('Login successful', {
             user: result.user,
             token: result.token,
+            accessToken: result.accessToken,
+            refreshToken: result.refreshToken,
+          })
+        );
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Handle refresh access token HTTP POST request.
+   *
+   * @param {import('express').Request} req
+   * @param {import('express').Response} res
+   * @param {import('express').NextFunction} next
+   */
+  async refreshToken(req, res, next) {
+    try {
+      const { refreshToken } = req.body;
+      const result = await authService.refreshToken(refreshToken);
+
+      return res
+        .status(HTTP_STATUS.OK)
+        .json(
+          formatSuccessResponse('Token refreshed successfully', {
+            token: result.token,
+            accessToken: result.accessToken,
+            refreshToken: result.refreshToken,
           })
         );
     } catch (error) {
@@ -37,7 +65,7 @@ class AuthController {
    */
   async logout(req, res, next) {
     try {
-      await authService.logout(req.user.id);
+      await authService.logout(req.user?.id, req.body?.refreshToken);
 
       return res
         .status(HTTP_STATUS.OK)

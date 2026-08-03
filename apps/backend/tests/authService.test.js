@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { authService } from '../services/authService.js';
 import { userRepository } from '../repositories/userRepository.js';
+import { refreshTokenRepository } from '../repositories/refreshTokenRepository.js';
 import { hashPassword } from '../utils/password.js';
 import { UnauthorizedError, ForbiddenError, NotFoundError } from '../errors/apiError.js';
 import { USER_STATUS } from '../constants/status.js';
@@ -9,11 +10,19 @@ import { HTTP_STATUS } from '../constants/httpStatus.js';
 const originalMethods = {
   findByEmail: userRepository.findByEmail,
   findById: userRepository.findById,
+  createToken: refreshTokenRepository.createToken,
+  findByToken: refreshTokenRepository.findByToken,
+  revokeToken: refreshTokenRepository.revokeToken,
+  revokeAllUserTokens: refreshTokenRepository.revokeAllUserTokens,
 };
 
 function resetMocks() {
   userRepository.findByEmail = originalMethods.findByEmail;
   userRepository.findById = originalMethods.findById;
+  refreshTokenRepository.createToken = async () => ({ id: 'rt-1' });
+  refreshTokenRepository.findByToken = originalMethods.findByToken;
+  refreshTokenRepository.revokeToken = async () => ({ id: 'rt-1' });
+  refreshTokenRepository.revokeAllUserTokens = async () => ({ count: 1 });
 }
 
 async function runAuthServiceTests() {
@@ -48,14 +57,17 @@ async function runAuthServiceTests() {
   });
 
   console.log('1. login Tests:');
-  await test('should login successfully and return user without password plus a token', async () => {
+  await test('should login successfully and return user without password plus access & refresh tokens', async () => {
     userRepository.findByEmail = async () => activeUser();
 
     const result = await authService.login('admin@university.edu', 'AdminPassword123!');
 
     assert.ok(result.user);
     assert.ok(result.token);
+    assert.ok(result.accessToken);
+    assert.ok(result.refreshToken);
     assert.equal(typeof result.token, 'string');
+    assert.equal(typeof result.refreshToken, 'string');
     assert.equal(result.user.email, 'admin@university.edu');
     assert.equal(result.user.password, undefined);
   });
@@ -98,15 +110,78 @@ async function runAuthServiceTests() {
     );
   });
 
-  console.log('\n2. logout Tests:');
-  await test('should return a logout confirmation timestamp', async () => {
-    const result = await authService.logout('user-1');
+  console.log('\n2. refreshToken Tests:');
+  await test('should successfully refresh access token and rotate refresh token', async () => {
+    const user = await activeUser();
+    refreshTokenRepository.findByToken = async (token) => ({
+      id: 'rt-1',
+      token,
+      userId: user.id,
+      expiresAt: new Date(Date.now() + 60000),
+      revokedAt: null,
+      user,
+    });
+
+    const result = await authService.refreshToken('valid-refresh-token');
+    assert.ok(result.token);
+    assert.ok(result.accessToken);
+    assert.ok(result.refreshToken);
+    assert.notEqual(result.refreshToken, 'valid-refresh-token');
+  });
+
+  await test('should throw UnauthorizedError when refresh token is missing', async () => {
+    await assert.rejects(
+      () => authService.refreshToken(''),
+      (err) => err instanceof UnauthorizedError && err.message.includes('required')
+    );
+  });
+
+  await test('should throw UnauthorizedError when refresh token is revoked', async () => {
+    refreshTokenRepository.findByToken = async () => ({
+      id: 'rt-1',
+      token: 'revoked-token',
+      expiresAt: new Date(Date.now() + 60000),
+      revokedAt: new Date(),
+      user: await activeUser(),
+    });
+
+    await assert.rejects(
+      () => authService.refreshToken('revoked-token'),
+      (err) => err instanceof UnauthorizedError && err.message.includes('Invalid or expired')
+    );
+  });
+
+  await test('should throw UnauthorizedError when refresh token is expired', async () => {
+    refreshTokenRepository.findByToken = async () => ({
+      id: 'rt-1',
+      token: 'expired-token',
+      expiresAt: new Date(Date.now() - 60000),
+      revokedAt: null,
+      user: await activeUser(),
+    });
+
+    await assert.rejects(
+      () => authService.refreshToken('expired-token'),
+      (err) => err instanceof UnauthorizedError && err.message.includes('Invalid or expired')
+    );
+  });
+
+  console.log('\n3. logout Tests:');
+  await test('should revoke refresh tokens and return a logout confirmation timestamp', async () => {
+    let tokenRevoked = false;
+    let userTokensRevoked = false;
+    refreshTokenRepository.revokeToken = async () => { tokenRevoked = true; };
+    refreshTokenRepository.revokeAllUserTokens = async () => { userTokensRevoked = true; };
+
+    const result = await authService.logout('user-1', 'refresh-token-123');
 
     assert.ok(result.loggedOutAt);
     assert.ok(result.loggedOutAt instanceof Date);
+    assert.equal(tokenRevoked, true);
+    assert.equal(userTokensRevoked, true);
   });
 
-  console.log('\n3. getCurrentUserProfile Tests:');
+  console.log('\n4. getCurrentUserProfile Tests:');
   await test('should return the current user profile without the password', async () => {
     userRepository.findById = async () => activeUser();
 
@@ -152,3 +227,4 @@ runAuthServiceTests().catch((err) => {
   console.error('❌ Auth Service unit test failed:', err);
   process.exit(1);
 });
+
