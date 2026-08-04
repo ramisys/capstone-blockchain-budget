@@ -7,6 +7,9 @@ import { departmentRepository } from '../repositories/departmentRepository.js';
 import { budgetCategoryRepository } from '../repositories/budgetCategoryRepository.js';
 import { budgetProgramRepository } from '../repositories/budgetProgramRepository.js';
 import { allocationRepository } from '../repositories/allocationRepository.js';
+import { blockchainRepository } from '../repositories/blockchainRepository.js';
+import { blockchainProvider } from '../config/blockchain.js';
+import { BLOCKCHAIN_RECORD_STATUS } from '../constants/blockchainStatus.js';
 import { ROLES } from '../constants/roles.js';
 import { USER_STATUS } from '../constants/status.js';
 import { ALLOCATION_STATUS } from '../constants/allocationStatus.js';
@@ -23,6 +26,9 @@ const originalMethods = {
   findRecentlyCreated: userRepository.findRecentlyCreated,
   allocFindRecent: allocationRepository.findRecent,
   allocCountByStatusAll: allocationRepository.countByStatusAll,
+  blockchainStatusCounts: blockchainRepository.countByStatus,
+  blockchainLatest: blockchainRepository.getLatest,
+  providerGetStatus: blockchainProvider.getStatus,
 };
 
 function resetMocks() {
@@ -37,6 +43,9 @@ function resetMocks() {
   userRepository.findRecentlyCreated = originalMethods.findRecentlyCreated;
   allocationRepository.findRecent = originalMethods.allocFindRecent;
   allocationRepository.countByStatusAll = originalMethods.allocCountByStatusAll;
+  blockchainRepository.countByStatus = originalMethods.blockchainStatusCounts;
+  blockchainRepository.getLatest = originalMethods.blockchainLatest;
+  blockchainProvider.getStatus = originalMethods.providerGetStatus;
 }
 
 async function runDashboardServiceTests() {
@@ -226,15 +235,59 @@ async function runDashboardServiceTests() {
   });
 
   console.log('\n5. getBlockchainStatus Tests:');
-  await test('should return an honest not-configured status', async () => {
+  await test('should delegate to the blockchain service and merge record stats', async () => {
+    blockchainRepository.countByStatus = async () => [
+      { status: BLOCKCHAIN_RECORD_STATUS.CONFIRMED, _count: 3 },
+      { status: BLOCKCHAIN_RECORD_STATUS.PENDING, _count: 1 },
+    ];
+    blockchainRepository.getLatest = async () => ({
+      id: 'r1',
+      createdAt: new Date('2026-08-04T10:00:00.000Z'),
+    });
+    blockchainProvider.getStatus = async () => ({
+      connected: true,
+      network: 'hardhat',
+      chainId: 31337,
+      latestBlock: 120,
+      lastSync: null,
+      contractAddress: '0xabc',
+      onChainCount: 4,
+      message: 'Blockchain ledger is connected.',
+    });
+
+    const status = await dashboardService.getBlockchainStatus();
+
+    assert.equal(status.connected, true);
+    assert.equal(status.network, 'hardhat');
+    assert.equal(status.latestBlock, 120);
+    assert.equal(status.recordCount, 4);
+    assert.equal(status.confirmedCount, 3);
+    assert.equal(status.pendingCount, 1);
+    assert.equal(status.failedCount, 0);
+    assert.equal(status.lastSync, '2026-08-04T10:00:00.000Z');
+  });
+
+  await test('should report not-configured when the provider is unconfigured', async () => {
+    blockchainProvider.getStatus = async () => ({
+      connected: false,
+      network: null,
+      chainId: null,
+      latestBlock: null,
+      lastSync: null,
+      contractAddress: null,
+      message: 'Blockchain integration is not yet configured.',
+    });
+    blockchainRepository.countByStatus = async () => [];
+    blockchainRepository.getLatest = async () => null;
+
     const status = await dashboardService.getBlockchainStatus();
 
     assert.equal(status.connected, false);
-    assert.equal(status.network, null);
-    assert.equal(status.latestBlock, null);
+    assert.equal(status.recordCount, 0);
+    assert.equal(status.confirmedCount, 0);
+    assert.equal(status.pendingCount, 0);
+    assert.equal(status.failedCount, 0);
     assert.equal(status.lastSync, null);
-    assert.equal(status.smartContract, null);
-    assert.equal(status.message, 'Blockchain integration is not yet configured.');
   });
 
   console.log('\n6. formatRole / formatStatus Helpers Tests:');

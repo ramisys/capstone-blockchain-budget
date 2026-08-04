@@ -35,4 +35,13 @@ export const config = {
     sensitiveWindowMs: parseInt(process.env.SENSITIVE_RATE_LIMIT_WINDOW_MS, 10) || 60 * 60 * 1000,
     sensitiveMax: parseInt(process.env.SENSITIVE_RATE_LIMIT_MAX, 10) || 10,
   },
+  blockchain: {
+    rpcUrl: process.env.BLOCKCHAIN_RPC_URL || null,
+    network: process.env.BLOCKCHAIN_NETWORK || 'unknown',
+    chainId: process.env.BLOCKCHAIN_CHAIN_ID
+      ? parseInt(process.env.BLOCKCHAIN_CHAIN_ID, 10)
+      : null,
+    contractAddress: process.env.BLOCKCHAIN_CONTRACT_ADDRESS || null,
+    privateKey: process.env.BLOCKCHAIN_PRIVATE_KEY || null,
+  },
 };

@@ -776,3 +776,215 @@ Returns the chronological approval trail for an allocation, newest first, with a
 
 - **404 Not Found**: allocation does not exist or has been soft-deleted
 - **409 Conflict**: the specified fiscal year is archived
+
+---
+
+## Phase 4.4 - Blockchain Ledger Endpoints
+
+The blockchain ledger anchors every allocation with an immutable SHA-256 content
+hash recorded on the `BudgetLedger` EVM smart contract. Each write is mirrored
+in the `BlockchainRecord` table so the API remains fully functional even when
+the ledger node is unreachable (records stay `Pending` and can be re-anchored
+later via the retry endpoint).
+
+### Blockchain Record Object
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | String (uuid) | Record ID |
+| `allocationId` | String (uuid) | Related allocation |
+| `allocationCode` | String | Allocation code, e.g. `BA-2026-0001` |
+| `contentHash` | String | Hex-encoded SHA-256 digest of the allocation content |
+| `txHash` | String \| null | Ethereum transaction hash, null until confirmed |
+| `blockNumber` | Number \| null | Block number the record was anchored in |
+| `network` | String | Ledger network name, e.g. `hardhat` |
+| `status` | String | `Pending` \| `Confirmed` \| `Failed` |
+| `confirmedAt` | ISO date \| null | When the on-chain write was confirmed |
+| `createdBy` | String (uuid) | User who triggered the anchoring |
+
+### 13. Blockchain Ledger Status
+
+Returns provider connectivity plus record statistics for the status dashboard.
+
+- **URL**: `/blockchain/status`
+- **Method**: `GET`
+- **Auth Required**: Yes (`Bearer <token>`)
+- **Roles**: `Administrator`, `BudgetOfficer`, `Treasurer`, `Auditor`
+- **Request Body**: none
+
+#### Success Response (200 OK)
+
+```json
+{
+  "success": true,
+  "message": "Blockchain status retrieved successfully",
+  "data": {
+    "blockchainStatus": {
+      "connected": true,
+      "network": "hardhat",
+      "chainId": 31337,
+      "latestBlock": 120,
+      "lastSync": "2026-08-04T09:31:00.000Z",
+      "contractAddress": "0x5FbDB2315678afecb367f032d93F642f64180aa3",
+      "onChainCount": 4,
+      "message": "Blockchain ledger is connected.",
+      "recordCount": 4,
+      "confirmedCount": 3,
+      "pendingCount": 1,
+      "failedCount": 0
+    }
+  }
+}
+```
+
+### 14. Transaction History
+
+Paginated list of blockchain records with filtering and sorting.
+
+- **URL**: `/blockchain/transactions`
+- **Method**: `GET`
+- **Auth Required**: Yes (`Bearer <token>`)
+- **Roles**: `Administrator`, `BudgetOfficer`, `Treasurer`, `Auditor`
+
+#### Query Parameters
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `page` | Number | No | Page number, defaults to `1` |
+| `limit` | Number | No | Page size, defaults to `10`, max `100` |
+| `search` | String | No | Partial allocation-code match |
+| `status` | String | No | `Pending` \| `Confirmed` \| `Failed` |
+| `allocationId` | String | No | Filter to a single allocation |
+| `dateFrom` | String (date) | No | Include records created on/after this date |
+| `dateTo` | String (date) | No | Include records created on/before this date |
+| `sortBy` | String | No | `newest` \| `oldest` \| `status` \| `allocationCode` (default `newest`) |
+| `sortOrder` | String | No | `asc` \| `desc` (default `asc`) |
+
+#### Success Response (200 OK)
+
+```json
+{
+  "success": true,
+  "message": "Blockchain transactions retrieved successfully",
+  "data": {
+    "transactions": [
+      {
+        "id": "c1f7b8e0-0000-0000-0000-000000000012",
+        "allocationId": "c1f7b8e0-0000-0000-0000-000000000006",
+        "allocationCode": "BA-2026-0001",
+        "contentHash": "02a4cc19fdf22ddbbe1fc46da8cd2e3bfbffc687283df49f0707b61fa9cb48d2",
+        "txHash": "0x9b7f0f1d0a3e2c5b9a1f0e8d7c6b5a4f3e2d1c0b9a8f7e6d5c4b3a2f1e0d9c8",
+        "blockNumber": 96,
+        "network": "hardhat",
+        "status": "Confirmed",
+        "confirmedAt": "2026-08-04T09:31:00.000Z",
+        "createdBy": "c1f7b8e0-1234-4567-89ab-cdef01234567",
+        "createdAt": "2026-08-04T09:31:00.000Z",
+        "allocation": {
+          "id": "c1f7b8e0-0000-0000-0000-000000000006",
+          "allocationCode": "BA-2026-0001",
+          "status": "Approved",
+          "allocatedAmount": 150000,
+          "department": { "id": "dept-1", "name": "Engineering", "code": "DEPT-1" },
+          "fiscalYear": { "id": "fy-2026", "code": "FY-2026" }
+        }
+      }
+    ],
+    "pagination": { "total": 1, "page": 1, "limit": 10, "totalPages": 1 }
+  }
+}
+```
+
+### 15. Allocation Verification Detail
+
+Returns the verification record for a single allocation without re-running the
+verification computation.
+
+- **URL**: `/blockchain/allocations/:id`
+- **Method**: `GET`
+- **Auth Required**: Yes (`Bearer <token>`)
+- **Roles**: `Administrator`, `BudgetOfficer`, `Treasurer`, `Auditor`
+
+#### Success Response (200 OK)
+
+```json
+{
+  "success": true,
+  "message": "Allocation verification retrieved successfully",
+  "data": {
+    "verified": true,
+    "integrityOk": true,
+    "onChain": { "exists": true, "anchoredBy": "0x...", "anchoredAt": 1700000000, "blockNumber": 96 },
+    "record": {
+      "id": "c1f7b8e0-0000-0000-0000-000000000012",
+      "allocationCode": "BA-2026-0001",
+      "contentHash": "02a4cc19fdf22ddbbe1fc46da8cd2e3bfbffc687283df49f0707b61fa9cb48d2",
+      "txHash": "0x9b7f0f1d0a3e2c5b9a1f0e8d7c6b5a4f3e2d1c0b9a8f7e6d5c4b3a2f1e0d9c8",
+      "blockNumber": 96,
+      "network": "hardhat",
+      "status": "Confirmed",
+      "confirmedAt": "2026-08-04T09:31:00.000Z"
+    },
+    "message": "Allocation verified on the blockchain ledger."
+  }
+}
+```
+
+### 16. Verify Allocation
+
+Recomputes the allocation content hash and checks it both against the stored
+record and (when reachable) the on-chain ledger. Exposes a `message` field
+explaining the outcome, including tampering detection.
+
+- **URL**: `/blockchain/allocations/:id/verify`
+- **Method**: `POST`
+- **Auth Required**: Yes (`Bearer <token>`)
+- **Roles**: `Administrator`, `BudgetOfficer`, `Treasurer`, `Auditor`
+- **Request Body**: none
+
+#### Success Response (200 OK)
+
+Response shape matches the Allocation Verification Detail endpoint (Section 15).
+
+#### Error Responses
+
+- **404 Not Found**: allocation does not exist or has been soft-deleted
+
+### 17. Retry Blockchain Record
+
+Re-anchors a `Pending` or `Failed` record for an allocation on the ledger.
+Returns the existing record unchanged if it is already `Confirmed`. If no
+record exists yet, one is created first.
+
+- **URL**: `/blockchain/allocations/:id/retry`
+- **Method**: `POST`
+- **Auth Required**: Yes (`Bearer <token>`)
+- **Roles**: `Administrator`, `BudgetOfficer`, `Treasurer`
+- **Request Body**: none
+
+#### Success Response (200 OK)
+
+```json
+{
+  "success": true,
+  "message": "Blockchain record anchored successfully",
+  "data": {
+    "record": {
+      "id": "c1f7b8e0-0000-0000-0000-000000000012",
+      "allocationCode": "BA-2026-0001",
+      "contentHash": "02a4cc19fdf22ddbbe1fc46da8cd2e3bfbffc687283df49f0707b61fa9cb48d2",
+      "txHash": "0x9b7f0f1d0a3e2c5b9a1f0e8d7c6b5a4f3e2d1c0b9a8f7e6d5c4b3a2f1e0d9c8",
+      "blockNumber": 101,
+      "network": "hardhat",
+      "status": "Confirmed",
+      "confirmedAt": "2026-08-04T10:05:00.000Z"
+    }
+  }
+}
+```
+
+#### Error Responses
+
+- **404 Not Found**: allocation does not exist or has been soft-deleted
+- **503 Service Unavailable**: ledger not configured or the on-chain write failed
+

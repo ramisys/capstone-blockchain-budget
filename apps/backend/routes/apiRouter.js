@@ -8,6 +8,7 @@ import departmentRoutes from './departmentRoutes.js';
 import budgetCategoryRoutes from './budgetCategoryRoutes.js';
 import budgetProgramRoutes from './budgetProgramRoutes.js';
 import allocationRoutes from './allocationRoutes.js';
+import blockchainRoutes from './blockchainRoutes.js';
 
 const apiRouter = Router();
 
@@ -37,5 +38,8 @@ apiRouter.use('/budget-programs', budgetProgramRoutes);
 
 // Mount budget allocation routes
 apiRouter.use('/allocations', allocationRoutes);
+
+// Mount blockchain ledger routes
+apiRouter.use('/blockchain', blockchainRoutes);
 
 export default apiRouter;

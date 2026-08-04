@@ -1,5 +1,6 @@
 import { allocationRepository, DUPLICATE_ALLOCATION_MESSAGE } from '../repositories/allocationRepository.js';
 import { allocationApprovalRepository } from '../repositories/allocationApprovalRepository.js';
+import { blockchainService } from './blockchainService.js';
 import { fiscalYearRepository } from '../repositories/fiscalYearRepository.js';
 import { departmentRepository } from '../repositories/departmentRepository.js';
 import { fundSourceRepository } from '../repositories/fundSourceRepository.js';
@@ -99,6 +100,8 @@ class AllocationService {
         fiscalYearId: allocation.fiscalYearId,
       },
     });
+
+    await blockchainService.recordAllocation(allocation, userId);
     return this.serialize(allocation);
   }
 
@@ -496,6 +499,10 @@ class AllocationService {
       comment: comment || null,
       actorId: actor.id,
     });
+
+    if (newStatus === ALLOCATION_STATUS.APPROVED) {
+      await blockchainService.recordAllocation(updated, actor.id);
+    }
 
     logger.logEvent(
       `Allocation ${existing.allocationCode} status changed from ${existing.status} to ${newStatus} by user ${actor.id}`

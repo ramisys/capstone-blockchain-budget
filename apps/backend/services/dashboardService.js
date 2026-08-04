@@ -5,6 +5,7 @@ import { departmentRepository } from '../repositories/departmentRepository.js';
 import { budgetCategoryRepository } from '../repositories/budgetCategoryRepository.js';
 import { budgetProgramRepository } from '../repositories/budgetProgramRepository.js';
 import { allocationRepository } from '../repositories/allocationRepository.js';
+import { blockchainService } from './blockchainService.js';
 import { ROLES } from '../constants/roles.js';
 import { USER_STATUS } from '../constants/status.js';
 import { ALLOCATION_STATUS } from '../constants/allocationStatus.js';
@@ -158,14 +159,7 @@ class DashboardService {
    * @returns {Promise<Object>} Blockchain status
    */
   async getBlockchainStatus() {
-    return {
-      connected: false,
-      network: null,
-      latestBlock: null,
-      lastSync: null,
-      smartContract: null,
-      message: 'Blockchain integration is not yet configured.',
-    };
+    return blockchainService.getBlockchainStatus();
   }
 
   /**

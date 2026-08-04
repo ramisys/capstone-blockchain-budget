@@ -3,6 +3,8 @@ import { Prisma } from '@prisma/client';
 import { allocationService } from '../services/allocationService.js';
 import { allocationRepository } from '../repositories/allocationRepository.js';
 import { allocationApprovalRepository } from '../repositories/allocationApprovalRepository.js';
+import { blockchainRepository } from '../repositories/blockchainRepository.js';
+import { blockchainService } from '../services/blockchainService.js';
 import { fiscalYearRepository } from '../repositories/fiscalYearRepository.js';
 import { departmentRepository } from '../repositories/departmentRepository.js';
 import { fundSourceRepository } from '../repositories/fundSourceRepository.js';
@@ -37,6 +39,13 @@ const repositoryMethods = {
     create: allocationApprovalRepository.create,
     findManyByAllocationId: allocationApprovalRepository.findManyByAllocationId,
   },
+  blockchainRepository: {
+    findByContentHash: blockchainRepository.findByContentHash,
+    create: blockchainRepository.create,
+  },
+  blockchainService: {
+    recordAllocation: blockchainService.recordAllocation,
+  },
   fiscalYearRepository: { findById: fiscalYearRepository.findById },
   departmentRepository: { findById: departmentRepository.findById },
   fundSourceRepository: { findById: fundSourceRepository.findById },
@@ -55,18 +64,37 @@ function resetMocks() {
             ? allocationRepository
             : ownerName === 'allocationApprovalRepository'
               ? allocationApprovalRepository
-              : ownerName === 'fiscalYearRepository'
-              ? fiscalYearRepository
-              : ownerName === 'departmentRepository'
-                ? departmentRepository
-                : ownerName === 'fundSourceRepository'
-                  ? fundSourceRepository
-                  : ownerName === 'budgetCategoryRepository'
-                    ? budgetCategoryRepository
-                    : budgetProgramRepository;
+              : ownerName === 'blockchainRepository'
+                ? blockchainRepository
+                : ownerName === 'blockchainService'
+                  ? blockchainService
+                  : ownerName === 'fiscalYearRepository'
+                    ? fiscalYearRepository
+                    : ownerName === 'departmentRepository'
+                      ? departmentRepository
+                      : ownerName === 'fundSourceRepository'
+                        ? fundSourceRepository
+                        : ownerName === 'budgetCategoryRepository'
+                          ? budgetCategoryRepository
+                          : budgetProgramRepository;
       owner[method] = original;
     }
   }
+}
+
+/**
+ * Default blockchain mocks so the recordAllocation hook inside the allocation
+ * lifecycle never touches a real database in unit tests. Individual tests can
+ * override these or spy on blockchainService.recordAllocation.
+ */
+function mockDefaultBlockchain() {
+  blockchainRepository.findByContentHash = async () => null;
+  blockchainRepository.create = async (data) => ({ ...data, id: 'record-mock' });
+  blockchainService.recordAllocation = async (allocation) => ({
+    id: 'record-mock',
+    allocationId: allocation.id,
+    status: 'Pending',
+  });
 }
 
 const fiscalYear = {
@@ -159,6 +187,7 @@ async function runAllocationServiceTests() {
   const test = async (name, testFn) => {
     totalTests++;
     resetMocks();
+    mockDefaultBlockchain();
     try {
       await testFn();
       console.log(`   - ${name}: ✅ PASSED`);
@@ -192,6 +221,28 @@ async function runAllocationServiceTests() {
     assert.equal(capturedArgs.data.status, ALLOCATION_STATUS.DRAFT);
     assert.equal(capturedArgs.data.createdBy, 'user-1');
     assert.equal(result.allocatedAmount, 150000);
+  });
+
+  await test('should anchor the created allocation on the blockchain ledger', async () => {
+    mockAllReferences();
+    allocationRepository.duplicateExists = async () => false;
+    allocationRepository.createWithSequentialCode = async (prefix, fiscalYearId, data) => ({
+      ...draftAllocation,
+      ...data,
+      allocatedAmount: new Prisma.Decimal(String(data.allocatedAmount)),
+    });
+    let recorded = null;
+    blockchainService.recordAllocation = async (allocation, userId) => {
+      recorded = { allocation, userId };
+      return { id: 'record-mock', allocationId: allocation.id };
+    };
+
+    const result = await allocationService.createAllocation(createPayload, 'user-1');
+
+    assert.ok(recorded, 'recordAllocation should have been invoked');
+    assert.equal(recorded.allocation.id, result.id);
+    assert.equal(recorded.allocation.allocationCode, 'BA-2026-001');
+    assert.equal(recorded.userId, 'user-1');
   });
 
   await test('should throw a not found error when the fiscal year does not exist', async () => {
@@ -770,6 +821,28 @@ async function runAllocationServiceTests() {
     assert.ok(capturedUpdate.reviewedAt);
     assert.equal(createdApproval.action, 'Approved');
     assert.equal(createdApproval.actorId, 'treasurer-1');
+  });
+
+  await test('should anchor an approved allocation on the blockchain ledger', async () => {
+    allocationRepository.findById = async () => pendingAllocation;
+    fiscalYearRepository.findById = async () => fiscalYear;
+    allocationRepository.aggregateApprovedAmount = async () => ({
+      _sum: { allocatedAmount: new Prisma.Decimal('100000.00') },
+    });
+    allocationRepository.update = async (id, data) => ({ ...pendingAllocation, ...data });
+    allocationApprovalRepository.create = async (data) => ({ id: 'approval-1', ...data });
+    let recorded = null;
+    blockchainService.recordAllocation = async (allocation, userId) => {
+      recorded = { allocation, userId };
+      return { id: 'record-mock', allocationId: allocation.id };
+    };
+
+    const result = await allocationService.approveAllocation('alloc-1', treasurerActor);
+
+    assert.ok(recorded, 'recordAllocation should have been invoked on approval');
+    assert.equal(recorded.allocation.id, result.id);
+    assert.equal(recorded.allocation.status, ALLOCATION_STATUS.APPROVED);
+    assert.equal(recorded.userId, 'treasurer-1');
   });
 
   await test('should reject self-approval of an allocation', async () => {
