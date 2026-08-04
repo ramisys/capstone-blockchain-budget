@@ -95,7 +95,7 @@ class BlockchainService {
   async verifyAllocation(allocationId, actor) {
     const actorId = typeof actor === 'string' ? actor : actor?.id;
     const allocation = await allocationRepository.findById(allocationId);
-    if (!allocation) {
+    if (!allocation || allocation.deletedAt) {
       throw new AppError('Allocation not found', HTTP_STATUS.NOT_FOUND);
     }
 
@@ -213,7 +213,7 @@ class BlockchainService {
    */
   async retryRecord(allocationId, actor) {
     const allocation = await allocationRepository.findById(allocationId);
-    if (!allocation) {
+    if (!allocation || allocation.deletedAt) {
       throw new AppError('Allocation not found', HTTP_STATUS.NOT_FOUND);
     }
 

@@ -212,6 +212,18 @@ async function runBlockchainServiceTests() {
     );
   });
 
+  await test('should throw 404 when the allocation is soft-deleted', async () => {
+    allocationRepository.findById = async () => ({
+      ...SAMPLE_ALLOCATION,
+      deletedAt: new Date('2026-02-01T00:00:00.000Z'),
+    });
+
+    await assert.rejects(
+      () => blockchainService.verifyAllocation('alloc-1', 'user-1'),
+      (err) => err.statusCode === 404
+    );
+  });
+
   await test('should report unverified when no record exists', async () => {
     allocationRepository.findById = async () => SAMPLE_ALLOCATION;
     blockchainRepository.findByAllocationId = async () => null;
@@ -304,6 +316,18 @@ async function runBlockchainServiceTests() {
 
     await assert.rejects(
       () => blockchainService.retryRecord('missing', { id: 'user-1', role: 'Administrator' }),
+      (err) => err.statusCode === 404
+    );
+  });
+
+  await test('should throw 404 when the allocation is soft-deleted', async () => {
+    allocationRepository.findById = async () => ({
+      ...SAMPLE_ALLOCATION,
+      deletedAt: new Date('2026-02-01T00:00:00.000Z'),
+    });
+
+    await assert.rejects(
+      () => blockchainService.retryRecord('alloc-1', { id: 'user-1', role: 'Administrator' }),
       (err) => err.statusCode === 404
     );
   });
