@@ -61,6 +61,7 @@ export interface BlockchainVerification {
   verified: boolean;
   integrityOk: boolean | null;
   onChain: BlockchainOnChainRecord | null;
+  inconclusive?: boolean;
   record: BlockchainRecord | null;
   message: string;
 }

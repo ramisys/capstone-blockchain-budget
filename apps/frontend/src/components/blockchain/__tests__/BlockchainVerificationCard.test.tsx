@@ -127,6 +127,31 @@ describe('BlockchainVerificationContent', () => {
       screen.getByText(/No blockchain record exists for this allocation yet/)
     ).toBeInTheDocument();
   });
+
+  it('shows an inconclusive state when the on-chain node is unreachable', () => {
+    render(
+      <BlockchainVerificationContent
+        verification={{
+          verified: false,
+          integrityOk: true,
+          onChain: null,
+          inconclusive: true,
+          record: mockRecord,
+          message:
+            'On-chain verification is inconclusive — the blockchain node is unreachable, so the anchor could not be confirmed.',
+        }}
+        isLoading={false}
+        isError={false}
+        isVerifying={false}
+        isRetrying={false}
+        canRetry={false}
+        onVerify={() => undefined}
+        onRetry={() => undefined}
+      />
+    );
+
+    expect(screen.getByText('Verification inconclusive')).toBeInTheDocument();
+  });
 });
 
 describe('BlockchainVerificationCard', () => {

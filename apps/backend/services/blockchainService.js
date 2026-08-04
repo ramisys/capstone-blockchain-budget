@@ -135,16 +135,27 @@ class BlockchainService {
       details: { verified, integrityOk, onChainExists: Boolean(onChain?.exists) },
     });
 
+    const inconclusive = !verified && integrityOk && onChain === null;
+
+    let message;
+    if (verified) {
+      message = 'Allocation verified on the blockchain ledger.';
+    } else if (!integrityOk) {
+      message = 'Allocation does not match its anchored record — possible tampering.';
+    } else if (onChain === null) {
+      message =
+        'On-chain verification is inconclusive — the blockchain node is unreachable, so the anchor could not be confirmed.';
+    } else {
+      message = 'On-chain record not found; the allocation has not been anchored on this node.';
+    }
+
     return {
       verified,
       integrityOk,
       onChain,
+      inconclusive,
       record: this.serialize(record),
-      message: verified
-        ? 'Allocation verified on the blockchain ledger.'
-        : integrityOk
-          ? 'On-chain record not found; the allocation has not been anchored on this node.'
-          : 'Allocation does not match its anchored record — possible tampering.',
+      message,
     };
   }
 

@@ -303,6 +303,44 @@ async function runBlockchainServiceTests() {
     assert.equal(result.record.blockNumber, 42);
   });
 
+  await test('should report inconclusive when the node is unreachable', async () => {
+    allocationRepository.findById = async () => SAMPLE_ALLOCATION;
+    blockchainRepository.findByAllocationId = async () => record();
+    blockchainProvider.isConfigured = () => true;
+    blockchainProvider.verify = async () => {
+      throw new Error('node down');
+    };
+
+    const result = await blockchainService.verifyAllocation('alloc-1', 'user-1');
+
+    assert.equal(result.integrityOk, true);
+    assert.equal(result.onChain, null);
+    assert.equal(result.verified, false);
+    assert.equal(result.inconclusive, true);
+    assert.ok(result.message.includes('inconclusive'));
+    assert.ok(!result.message.includes('not been anchored'));
+  });
+
+  await test('should report not anchored when the hash is absent on-chain', async () => {
+    allocationRepository.findById = async () => SAMPLE_ALLOCATION;
+    blockchainRepository.findByAllocationId = async () => record();
+    blockchainProvider.isConfigured = () => true;
+    blockchainProvider.verify = async () => ({
+      exists: false,
+      anchoredBy: '',
+      anchoredAt: 0,
+      blockNumber: 0,
+    });
+
+    const result = await blockchainService.verifyAllocation('alloc-1', 'user-1');
+
+    assert.equal(result.integrityOk, true);
+    assert.equal(result.onChain.exists, false);
+    assert.equal(result.verified, false);
+    assert.equal(result.inconclusive, false);
+    assert.ok(result.message.includes('not been anchored'));
+  });
+
   console.log('\n3. getTransactionHistory Tests:');
   await test('should return transactions with pagination', async () => {
     blockchainRepository.findMany = async () => [record(), record({ id: 'record-2' })];

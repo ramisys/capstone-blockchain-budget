@@ -77,6 +77,12 @@ export const BlockchainVerificationContent: React.FC<VerificationContentProps> =
     record?.status === BLOCKCHAIN_RECORD_STATUS.PENDING ||
     record?.status === BLOCKCHAIN_RECORD_STATUS.FAILED;
 
+  const heading = verification.verified
+    ? 'Verified on the ledger'
+    : verification.inconclusive
+      ? 'Verification inconclusive'
+      : 'Not verified';
+
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -86,9 +92,7 @@ export const BlockchainVerificationContent: React.FC<VerificationContentProps> =
           ) : (
             <Lock className="w-5 h-5 text-slate-400" />
           )}
-          <span className="text-sm font-bold text-slate-900">
-            {verification.verified ? 'Verified on the ledger' : 'Not verified'}
-          </span>
+          <span className="text-sm font-bold text-slate-900">{heading}</span>
           {record && <BlockchainStatusBadge status={record.status} />}
         </div>
         <div className="flex items-center gap-2">
