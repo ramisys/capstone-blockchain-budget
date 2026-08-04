@@ -24,6 +24,7 @@ export interface BlockchainRecord {
   allocationCode: string;
   contentHash: string;
   txHash: string | null;
+  txExplorerUrl?: string | null;
   blockNumber: number | null;
   network: string;
   status: BlockchainRecordStatus;
@@ -42,6 +43,8 @@ export interface BlockchainStatus {
   latestBlock: number | null;
   lastSync: string | null;
   contractAddress: string | null;
+  explorerUrl?: string | null;
+  contractExplorerUrl?: string | null;
   onChainCount: number | null;
   message: string;
   recordCount: number;

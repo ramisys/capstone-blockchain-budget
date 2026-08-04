@@ -19,6 +19,9 @@ contract BudgetLedger {
         uint256 blockNumber;
     }
 
+    /// Contract owner (backend deployer / anchoring key).
+    address private _owner;
+
     /// Mapping from content hash to its anchored record.
     mapping(bytes32 => Record) private _records;
 
@@ -30,13 +33,29 @@ contract BudgetLedger {
 
     error HashAlreadyRecorded(bytes32 contentHash);
     error HashNotRecorded(bytes32 contentHash);
+    error NotOwner();
+
+    constructor() {
+        _owner = msg.sender;
+    }
 
     /**
-     * @notice Anchor a content hash on the ledger. Reverts if the hash was already recorded.
+     * @notice Return the owner address authorized to anchor records.
+     */
+    function owner() external view returns (address) {
+        return _owner;
+    }
+
+    /**
+     * @notice Anchor a content hash on the ledger. Reverts if called by non-owner or if already recorded.
      * @param contentHash 32-byte hash (e.g. SHA-256) of the budget allocation record
      * @return recordIndex The total number of records after anchoring
      */
     function record(bytes32 contentHash) external returns (uint256 recordIndex) {
+        if (msg.sender != _owner) {
+            revert NotOwner();
+        }
+
         if (_records[contentHash].anchoredAt != 0) {
             revert HashAlreadyRecorded(contentHash);
         }

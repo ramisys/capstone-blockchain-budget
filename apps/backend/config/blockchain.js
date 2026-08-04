@@ -80,6 +80,30 @@ class BlockchainProvider {
   }
 
   /**
+   * Return a block explorer URL for a given transaction hash, or null if unconfigured.
+   *
+   * @param {string|null} txHash
+   * @returns {string|null}
+   */
+  getExplorerTxUrl(txHash) {
+    if (!txHash || !config.blockchain.explorerUrl) return null;
+    const base = config.blockchain.explorerUrl.replace(/\/+$/, '');
+    return `${base}/tx/${txHash}`;
+  }
+
+  /**
+   * Return a block explorer URL for a contract or account address, or null if unconfigured.
+   *
+   * @param {string|null} address
+   * @returns {string|null}
+   */
+  getExplorerAddressUrl(address) {
+    if (!address || !config.blockchain.explorerUrl) return null;
+    const base = config.blockchain.explorerUrl.replace(/\/+$/, '');
+    return `${base}/address/${address}`;
+  }
+
+  /**
    * Lazily initialize the ethers provider, wallet, and contract.
    *
    * @private
@@ -94,7 +118,15 @@ class BlockchainProvider {
       throw new Error('BLOCKCHAIN_RPC_URL is not configured');
     }
 
-    const provider = new ethers.JsonRpcProvider(config.blockchain.rpcUrl);
+    const fetchReq = new ethers.FetchRequest(config.blockchain.rpcUrl);
+    if (config.blockchain.rpcTimeoutMs) {
+      fetchReq.timeout = config.blockchain.rpcTimeoutMs;
+    }
+
+    const provider = new ethers.JsonRpcProvider(
+      fetchReq,
+      config.blockchain.chainId ? Number(config.blockchain.chainId) : undefined
+    );
     const contractAddress = this.getContractAddress();
     if (!contractAddress) {
       throw new Error('BudgetLedger contract address is not configured');
@@ -187,6 +219,8 @@ class BlockchainProvider {
         latestBlock: null,
         lastSync: null,
         contractAddress: null,
+        explorerUrl: config.blockchain.explorerUrl,
+        contractExplorerUrl: null,
         message: 'Blockchain integration is not yet configured.',
       };
     }
@@ -196,6 +230,7 @@ class BlockchainProvider {
       const network = await provider.getNetwork();
       const latestBlock = await provider.getBlockNumber();
       const onChainCount = await this.getRecordCount().catch(() => null);
+      const contractAddress = this.getContractAddress();
 
       return {
         connected: true,
@@ -203,18 +238,23 @@ class BlockchainProvider {
         chainId: Number(network.chainId),
         latestBlock,
         lastSync: this._lastSync ? this._lastSync.toISOString() : null,
-        contractAddress: this.getContractAddress(),
+        contractAddress,
+        explorerUrl: config.blockchain.explorerUrl,
+        contractExplorerUrl: this.getExplorerAddressUrl(contractAddress),
         onChainCount,
         message: 'Blockchain ledger is connected.',
       };
     } catch (error) {
+      const contractAddress = this.getContractAddress();
       return {
         connected: false,
         network: config.blockchain.network || NETWORK_LABEL || null,
         chainId: config.blockchain.chainId,
         latestBlock: null,
         lastSync: this._lastSync ? this._lastSync.toISOString() : null,
-        contractAddress: this.getContractAddress(),
+        contractAddress,
+        explorerUrl: config.blockchain.explorerUrl,
+        contractExplorerUrl: this.getExplorerAddressUrl(contractAddress),
         message: `Blockchain node is unreachable: ${error?.message || String(error)}`,
       };
     }

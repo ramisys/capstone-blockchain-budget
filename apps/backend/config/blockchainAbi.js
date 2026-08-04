@@ -39,6 +39,13 @@ export const BUDGET_LEDGER_ABI = [
   },
   {
     type: 'function',
+    name: 'owner',
+    stateMutability: 'view',
+    inputs: [],
+    outputs: [{ name: '', type: 'address' }],
+  },
+  {
+    type: 'function',
     name: 'recordCount',
     stateMutability: 'view',
     inputs: [],
@@ -63,5 +70,10 @@ export const BUDGET_LEDGER_ABI = [
     type: 'error',
     name: 'HashNotRecorded',
     inputs: [{ name: 'contentHash', type: 'bytes32' }],
+  },
+  {
+    type: 'error',
+    name: 'NotOwner',
+    inputs: [],
   },
 ];

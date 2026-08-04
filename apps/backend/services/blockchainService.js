@@ -375,6 +375,7 @@ class BlockchainService {
     return {
       ...record,
       blockNumber: record.blockNumber !== null ? Number(record.blockNumber) : null,
+      txExplorerUrl: blockchainProvider.getExplorerTxUrl(record.txHash),
       allocation: record.allocation
         ? {
             ...record.allocation,

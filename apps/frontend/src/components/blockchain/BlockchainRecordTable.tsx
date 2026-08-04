@@ -14,7 +14,7 @@ import Pagination from '../ui/Pagination';
 import { BlockchainStatusBadge } from './BlockchainStatusBadge';
 import { BLOCKCHAIN_RECORD_STATUS } from '../../constants/blockchainStatus';
 import { formatDateTime } from '../../utils/format';
-import { Link2, MoreVertical, RefreshCw, ShieldCheck } from 'lucide-react';
+import { ExternalLink, Link2, MoreVertical, RefreshCw, ShieldCheck } from 'lucide-react';
 import type { BlockchainRecord } from '../../types/blockchain';
 import type { PaginationInfo } from '../../types/allocation';
 
@@ -88,7 +88,20 @@ const BlockchainRecordTable: React.FC<BlockchainRecordTableProps> = ({
                     <TableCell className="px-6 py-4 text-sm">
                       <span className="inline-flex items-center gap-1.5 font-mono text-xs text-emerald-600">
                         <Link2 className="w-3.5 h-3.5 shrink-0" />
-                        {shortHash(record.txHash)}
+                        {record.txExplorerUrl ? (
+                          <a
+                            href={record.txExplorerUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 hover:underline hover:text-emerald-700 font-semibold"
+                            title="View transaction in block explorer"
+                          >
+                            {shortHash(record.txHash)}
+                            <ExternalLink className="w-3 h-3 shrink-0" />
+                          </a>
+                        ) : (
+                          shortHash(record.txHash)
+                        )}
                       </span>
                     </TableCell>
                     <TableCell className="px-6 py-4 text-sm text-slate-600 whitespace-nowrap">

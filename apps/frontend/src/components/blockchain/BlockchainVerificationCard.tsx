@@ -12,7 +12,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { ROLES } from '../../constants/roles';
 import { BLOCKCHAIN_RECORD_STATUS } from '../../constants/blockchainStatus';
 import { formatDateTime } from '../../utils/format';
-import { Box, CheckCircle2, Link2, Lock, RefreshCw, ShieldAlert, ShieldCheck } from 'lucide-react';
+import { Box, CheckCircle2, ExternalLink, Link2, Lock, RefreshCw, ShieldAlert, ShieldCheck } from 'lucide-react';
 import type { BlockchainVerification } from '../../types/blockchain';
 
 const RETRY_ROLES = [ROLES.ADMINISTRATOR, ROLES.TREASURER, ROLES.BUDGET_OFFICER];
@@ -123,9 +123,21 @@ export const BlockchainVerificationContent: React.FC<VerificationContentProps> =
             <span className="font-mono text-xs text-slate-500">{record.contentHash}</span>
           ))}
           {detailItem('Transaction Hash', record.txHash ? (
-            <span className="font-mono text-xs text-emerald-600 flex items-center gap-1.5">
+            <span className="font-mono text-xs text-emerald-600 flex items-center gap-1.5 flex-wrap">
               <Link2 className="w-3.5 h-3.5 shrink-0" />
               {record.txHash}
+              {record.txExplorerUrl && (
+                <a
+                  href={record.txExplorerUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-xs font-semibold text-indigo-600 hover:text-indigo-800 hover:underline ml-1"
+                  title="View transaction in block explorer"
+                >
+                  View on Explorer
+                  <ExternalLink className="w-3 h-3 shrink-0" />
+                </a>
+              )}
             </span>
           ) : (
             <span className="text-slate-400">Not confirmed yet</span>

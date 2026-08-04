@@ -3,12 +3,25 @@ const { expect } = require('chai');
 describe('BudgetLedger', function () {
   let ledger;
   let owner;
+  let otherAccount;
 
   beforeEach(async function () {
-    [owner] = await ethers.getSigners();
+    [owner, otherAccount] = await ethers.getSigners();
     const BudgetLedger = await ethers.getContractFactory('BudgetLedger');
     ledger = await BudgetLedger.deploy();
     await ledger.waitForDeployment();
+  });
+
+  it('should set deployer as contract owner', async function () {
+    expect(await ledger.owner()).to.equal(owner.address);
+  });
+
+  it('should revert NotOwner when called by non-owner account', async function () {
+    const hash = ethers.keccak256(ethers.toUtf8Bytes('ALC-2026-UNAUTHORIZED'));
+    await expect(ledger.connect(otherAccount).record(hash)).to.be.revertedWithCustomError(
+      ledger,
+      'NotOwner'
+    );
   });
 
   it('should anchor a hash and emit Recorded', async function () {

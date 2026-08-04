@@ -23,7 +23,7 @@ import { Dialog, DialogContent, DialogTitle, DialogDescription } from '../../com
 import { ROLES } from '../../constants/roles';
 import { BLOCKCHAIN_RECORD_STATUS_LIST, BLOCKCHAIN_RECORD_STATUS_LABELS } from '../../constants/blockchainStatus';
 import { formatNumber, formatDateTime } from '../../utils/format';
-import { Box, Link2, Loader2, ShieldCheck, Wifi, WifiOff, Layers, Clock, XCircle } from 'lucide-react';
+import { Box, ExternalLink, Link2, Loader2, ShieldCheck, Wifi, WifiOff, Layers, Clock, XCircle } from 'lucide-react';
 import type { BlockchainRecord } from '../../types/blockchain';
 
 const RETRY_ROLES = [ROLES.ADMINISTRATOR, ROLES.TREASURER, ROLES.BUDGET_OFFICER];
@@ -170,7 +170,20 @@ export function BlockchainLedger() {
             <div className="flex flex-col gap-1">
               <dt className="text-xs font-semibold uppercase tracking-wider text-slate-400">Contract Address</dt>
               <dd className="font-mono text-xs text-slate-700 break-all">
-                {statusData?.contractAddress || '—'}
+                {statusData?.contractExplorerUrl ? (
+                  <a
+                    href={statusData.contractExplorerUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 text-indigo-600 hover:text-indigo-800 hover:underline font-semibold"
+                    title="View contract on block explorer"
+                  >
+                    {statusData.contractAddress}
+                    <ExternalLink className="w-3 h-3 shrink-0" />
+                  </a>
+                ) : (
+                  statusData?.contractAddress || '—'
+                )}
               </dd>
             </div>
             <div className="flex flex-col gap-1">

@@ -230,10 +230,11 @@ async function runBlockchainProviderTests() {
     assert.ok(status.message.includes('not yet configured'));
   });
 
-  await test('should report a connected status with live network data', async () => {
+  await test('should report a connected status with live network data and explorer links', async () => {
     config.blockchain.rpcUrl = 'http://127.0.0.1:8545';
     config.blockchain.contractAddress = TEST_ADDRESS;
     config.blockchain.network = 'hardhat';
+    config.blockchain.explorerUrl = 'https://sepolia.etherscan.io';
     blockchainProvider._provider = {
       getNetwork: async () => ({ name: 'hardhat', chainId: 31337n }),
       getBlockNumber: async () => 42,
@@ -248,6 +249,25 @@ async function runBlockchainProviderTests() {
     assert.equal(status.latestBlock, 42);
     assert.equal(status.onChainCount, 3);
     assert.equal(status.contractAddress, TEST_ADDRESS);
+    assert.equal(status.explorerUrl, 'https://sepolia.etherscan.io');
+    assert.equal(status.contractExplorerUrl, `https://sepolia.etherscan.io/address/${TEST_ADDRESS}`);
+  });
+
+  await test('should format transaction and address explorer URLs correctly', async () => {
+    config.blockchain.explorerUrl = 'https://sepolia.etherscan.io/';
+
+    assert.equal(
+      blockchainProvider.getExplorerTxUrl('0x1234'),
+      'https://sepolia.etherscan.io/tx/0x1234'
+    );
+    assert.equal(
+      blockchainProvider.getExplorerAddressUrl(TEST_ADDRESS),
+      `https://sepolia.etherscan.io/address/${TEST_ADDRESS}`
+    );
+
+    config.blockchain.explorerUrl = null;
+    assert.equal(blockchainProvider.getExplorerTxUrl('0x1234'), null);
+    assert.equal(blockchainProvider.getExplorerAddressUrl(TEST_ADDRESS), null);
   });
 
   await test('should fail fast with a graceful disconnected status when the node is unreachable', async () => {

@@ -13,6 +13,44 @@ if (!jwtSecret || jwtSecret.length < 32) {
   );
 }
 
+/**
+ * Validate blockchain configuration parameters at startup when set.
+ */
+function validateBlockchainEnv() {
+  const rpcUrl = process.env.BLOCKCHAIN_RPC_URL;
+  if (rpcUrl) {
+    try {
+      const parsed = new URL(rpcUrl);
+      if (!['http:', 'https:', 'ws:', 'wss:'].includes(parsed.protocol)) {
+        throw new Error(`Invalid protocol '${parsed.protocol}'`);
+      }
+    } catch (err) {
+      throw new Error(`BLOCKCHAIN_RPC_URL must be a valid URL (${err.message}).`);
+    }
+  }
+
+  const contractAddress = process.env.BLOCKCHAIN_CONTRACT_ADDRESS;
+  if (contractAddress && !/^0x[0-9a-fA-F]{40}$/.test(contractAddress)) {
+    throw new Error('BLOCKCHAIN_CONTRACT_ADDRESS must be a valid 20-byte hex Ethereum address (0x...).');
+  }
+
+  const privateKey = process.env.BLOCKCHAIN_PRIVATE_KEY;
+  if (privateKey && !/^0x[0-9a-fA-F]{64}$|^[0-9a-fA-F]{64}$/.test(privateKey)) {
+    throw new Error('BLOCKCHAIN_PRIVATE_KEY must be a valid 32-byte hex private key (64 hex characters).');
+  }
+
+  const explorerUrl = process.env.BLOCKCHAIN_EXPLORER_URL;
+  if (explorerUrl) {
+    try {
+      new URL(explorerUrl);
+    } catch {
+      throw new Error('BLOCKCHAIN_EXPLORER_URL must be a valid URL.');
+    }
+  }
+}
+
+validateBlockchainEnv();
+
 export const config = {
   port: process.env.PORT || 5000,
   nodeEnv: process.env.NODE_ENV || 'development',
@@ -43,5 +81,7 @@ export const config = {
       : null,
     contractAddress: process.env.BLOCKCHAIN_CONTRACT_ADDRESS || null,
     privateKey: process.env.BLOCKCHAIN_PRIVATE_KEY || null,
+    rpcTimeoutMs: parseInt(process.env.BLOCKCHAIN_RPC_TIMEOUT_MS, 10) || 5000,
+    explorerUrl: process.env.BLOCKCHAIN_EXPLORER_URL || null,
   },
 };

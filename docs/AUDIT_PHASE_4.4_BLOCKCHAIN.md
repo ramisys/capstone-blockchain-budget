@@ -130,7 +130,7 @@ Verified by executing all suites: backend (sequential list incl. `blockchainServ
 2. Make `recordAllocation`'s content-hash early-return status-aware (delegate to retry when the existing record is Pending/Failed).
 3. Add the missing tests: contract tamper/un-anchored verification, exact event args, route RBAC, provider unit tests, `BlockchainLedger` page integration test.
 4. ✅ **[COMPLETED]** Scheduled job to auto-retry `Pending` records when the provider is configured (`services/blockchainScheduler.js`).
-5. Optional hardening: owner-guard `record()`, explicit RPC timeout, validate blockchain env at startup, explore block-explorer links.
+5. ✅ **[COMPLETED]** Optional hardening: owner-guard `record()`, explicit RPC timeout, validate blockchain env at startup, explore block-explorer links.
 
 ## 15. Final Verdict
 
