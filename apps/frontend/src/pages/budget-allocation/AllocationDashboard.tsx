@@ -136,6 +136,7 @@ export function AllocationDashboard() {
                 icon={Clock}
                 iconClassName="bg-orange-50 text-orange-600"
                 subtitle="In review queue"
+                onClick={() => navigate('/budget-allocation/allocations?status=PendingApproval')}
               />
               <StatisticsCard
                 title="Approved"

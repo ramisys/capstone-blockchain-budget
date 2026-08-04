@@ -31,6 +31,25 @@ export interface AllocationCreator {
   role: string;
 }
 
+export type AllocationApprovalAction = 'Submitted' | 'Approved' | 'Rejected' | 'Returned';
+
+export interface ApprovalActor {
+  id: string;
+  fullName: string;
+  email: string;
+  role: string;
+}
+
+export interface ApprovalRecord {
+  id: string;
+  allocationId: string;
+  action: AllocationApprovalAction;
+  comment: string | null;
+  actorId: string;
+  createdAt: string;
+  actor: ApprovalActor;
+}
+
 export interface Allocation {
   id: string;
   allocationCode: string;
@@ -46,6 +65,10 @@ export interface Allocation {
   createdAt: string;
   updatedAt: string;
   deletedAt?: string | null;
+  submittedAt?: string | null;
+  reviewedBy?: string | null;
+  reviewedAt?: string | null;
+  rejectionReason?: string | null;
   fiscalYear: AllocationReference;
   department: AllocationReference;
   fundSource: AllocationReference;

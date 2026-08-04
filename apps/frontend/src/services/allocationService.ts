@@ -7,6 +7,7 @@ import type {
   AllocationStatistics,
   AllocationUpdateData,
   AllocationsResponse,
+  ApprovalRecord,
   BudgetSummary,
 } from '../types/allocation';
 
@@ -48,5 +49,30 @@ export const allocationApi = {
   // Get total budget, allocated, and remaining budget summary
   getRemainingBudget(params: Partial<AllocationListParams>): Promise<AxiosResponse<ApiEnvelope<{ budget: BudgetSummary }>>> {
     return apiClient.get('/allocations/remaining-budget', { params });
+  },
+
+  // Submit a Draft allocation for approval
+  submitForApproval(id: string): Promise<AxiosResponse<ApiEnvelope<{ allocation: Allocation }>>> {
+    return apiClient.post(`/allocations/${id}/submit`);
+  },
+
+  // Approve a PendingApproval allocation
+  approveAllocation(id: string): Promise<AxiosResponse<ApiEnvelope<{ allocation: Allocation }>>> {
+    return apiClient.post(`/allocations/${id}/approve`);
+  },
+
+  // Reject a PendingApproval allocation with a reason
+  rejectAllocation(id: string, reason: string): Promise<AxiosResponse<ApiEnvelope<{ allocation: Allocation }>>> {
+    return apiClient.post(`/allocations/${id}/reject`, { reason });
+  },
+
+  // Return an allocation to Draft for revision
+  returnAllocation(id: string, comment?: string): Promise<AxiosResponse<ApiEnvelope<{ allocation: Allocation }>>> {
+    return apiClient.post(`/allocations/${id}/return`, { comment });
+  },
+
+  // Get the recorded approval history for an allocation
+  getApprovalHistory(id: string): Promise<AxiosResponse<ApiEnvelope<{ approvals: ApprovalRecord[] }>>> {
+    return apiClient.get(`/allocations/${id}/approvals`);
   },
 };

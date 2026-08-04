@@ -15,8 +15,9 @@ import { AllocationDetailsDialog } from '../../components/dialogs/AllocationDeta
 import { Button } from '../../components/ui/Button';
 import { useToast } from '../../components/ui/Toast';
 import { ROLES } from '../../constants/roles';
+import { ALLOCATION_STATUS, ALLOCATION_STATUS_LIST } from '../../constants/allocationStatus';
 import { Plus, AlertCircle, Loader2 } from 'lucide-react';
-import type { Allocation } from '../../types/allocation';
+import type { Allocation, AllocationStatus } from '../../types/allocation';
 
 interface LocationState {
   allocation?: Allocation;
@@ -31,6 +32,14 @@ interface LocationState {
 
 const canCreateAllocation = (role: string) =>
   role === ROLES.ADMINISTRATOR || role === ROLES.BUDGET_OFFICER;
+
+const STATUS_QUICK_FILTERS: Array<{ label: string; value?: AllocationStatus }> = [
+  { label: 'All' },
+  { label: 'Draft', value: ALLOCATION_STATUS.DRAFT },
+  { label: 'Pending Approval', value: ALLOCATION_STATUS.PENDING_APPROVAL },
+  { label: 'Approved', value: ALLOCATION_STATUS.APPROVED },
+  { label: 'Rejected', value: ALLOCATION_STATUS.REJECTED },
+];
 
 export function AllocationList() {
   const { user } = useAuth();
@@ -102,6 +111,19 @@ export function AllocationList() {
     setPage(1);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filtersKey]);
+
+  // Initialize the status filter from a URL param (e.g., dashboard quick links).
+  useEffect(() => {
+    const urlStatus = searchParams.get('status');
+    if (
+      urlStatus &&
+      (ALLOCATION_STATUS_LIST as string[]).includes(urlStatus) &&
+      filters.status !== (urlStatus as AllocationStatus)
+    ) {
+      setFilter('status', urlStatus);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const {
     data,
@@ -401,6 +423,36 @@ export function AllocationList() {
           loading={optionsLoading}
         />
 
+        {/* Status quick filters */}
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-xs font-semibold uppercase tracking-wider text-slate-400 mr-1">
+            Status:
+          </span>
+          {STATUS_QUICK_FILTERS.map((option) => {
+            const isActive = (filters.status ?? null) === (option.value ?? null);
+            return (
+              <button
+                key={option.label}
+                type="button"
+                onClick={() => {
+                  if (option.value === undefined) {
+                    setFilter('status', undefined);
+                  } else {
+                    setFilter('status', isActive ? undefined : option.value);
+                  }
+                }}
+                className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 ${
+                  isActive
+                    ? 'bg-indigo-600 text-white shadow-sm'
+                    : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50 hover:text-slate-900'
+                }`}
+              >
+                {option.label}
+              </button>
+            );
+          })}
+        </div>
+
         {/* Table */}
         <AllocationTable
           allocations={allocations}
@@ -425,6 +477,7 @@ export function AllocationList() {
           onClose={handleCloseView}
           allocation={viewTarget}
           role={role}
+          currentUserId={user?.id}
           onEdit={handleEditFromDetails}
           onArchive={handleArchiveFromDetails}
         />

@@ -9,6 +9,7 @@ import type {
   AllocationStatistics,
   AllocationUpdateData,
   AllocationsResponse,
+  ApprovalRecord,
   BudgetSummary,
 } from '../types/allocation';
 
@@ -17,6 +18,7 @@ const QUERY_KEYS = {
   allocation: 'allocation',
   statistics: 'allocationStatistics',
   remainingBudget: 'remainingBudget',
+  approvalHistory: 'allocationApprovalHistory',
 };
 
 function invalidateAllocationQueries(queryClient: ReturnType<typeof useQueryClient>) {
@@ -24,6 +26,7 @@ function invalidateAllocationQueries(queryClient: ReturnType<typeof useQueryClie
   queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.allocation] });
   queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.statistics] });
   queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.remainingBudget] });
+  queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.approvalHistory] });
 }
 
 /**
@@ -84,6 +87,18 @@ export const useRemainingBudget = (params: AllocationListParams = {}) => {
     queryKey: [QUERY_KEYS.remainingBudget, params],
     queryFn: () => allocationApi.getRemainingBudget(params),
     select: (response) => response.data?.data?.budget,
+  });
+};
+
+/**
+ * Fetch the recorded approval history for an allocation, newest first.
+ */
+export const useAllocationApprovalHistory = (id: string | undefined) => {
+  return useQuery<AxiosResponse, Error, ApprovalRecord[]>({
+    queryKey: [QUERY_KEYS.approvalHistory, id],
+    queryFn: () => allocationApi.getApprovalHistory(id!),
+    enabled: !!id,
+    select: (response) => response.data?.data?.approvals,
   });
 };
 
@@ -149,6 +164,100 @@ export const useDeleteAllocation = () => {
         error?.response?.data?.message ||
         error?.message ||
         'Failed to delete allocation';
+      showToast(message, 'error');
+    },
+  });
+};
+
+/**
+ * Submit a Draft allocation for approval (Draft -> PendingApproval).
+ */
+export const useSubmitAllocation = () => {
+  const queryClient = useQueryClient();
+  const { showToast } = useToast();
+
+  return useMutation({
+    mutationFn: (id: string) => allocationApi.submitForApproval(id),
+    onSuccess: () => {
+      invalidateAllocationQueries(queryClient);
+      showToast('Allocation submitted for approval', 'success');
+    },
+    onError: (error: any) => {
+      const message =
+        error?.response?.data?.message ||
+        error?.message ||
+        'Failed to submit allocation for approval';
+      showToast(message, 'error');
+    },
+  });
+};
+
+/**
+ * Approve a PendingApproval allocation.
+ */
+export const useApproveAllocation = () => {
+  const queryClient = useQueryClient();
+  const { showToast } = useToast();
+
+  return useMutation({
+    mutationFn: (id: string) => allocationApi.approveAllocation(id),
+    onSuccess: () => {
+      invalidateAllocationQueries(queryClient);
+      showToast('Allocation approved successfully', 'success');
+    },
+    onError: (error: any) => {
+      const message =
+        error?.response?.data?.message ||
+        error?.message ||
+        'Failed to approve allocation';
+      showToast(message, 'error');
+    },
+  });
+};
+
+/**
+ * Reject a PendingApproval allocation with a reason.
+ */
+export const useRejectAllocation = () => {
+  const queryClient = useQueryClient();
+  const { showToast } = useToast();
+
+  return useMutation({
+    mutationFn: ({ id, reason }: { id: string; reason: string }) =>
+      allocationApi.rejectAllocation(id, reason),
+    onSuccess: () => {
+      invalidateAllocationQueries(queryClient);
+      showToast('Allocation rejected', 'success');
+    },
+    onError: (error: any) => {
+      const message =
+        error?.response?.data?.message ||
+        error?.message ||
+        'Failed to reject allocation';
+      showToast(message, 'error');
+    },
+  });
+};
+
+/**
+ * Return an allocation to Draft for revision (PendingApproval or Rejected).
+ */
+export const useReturnAllocation = () => {
+  const queryClient = useQueryClient();
+  const { showToast } = useToast();
+
+  return useMutation({
+    mutationFn: ({ id, comment }: { id: string; comment?: string }) =>
+      allocationApi.returnAllocation(id, comment),
+    onSuccess: () => {
+      invalidateAllocationQueries(queryClient);
+      showToast('Allocation returned to draft', 'success');
+    },
+    onError: (error: any) => {
+      const message =
+        error?.response?.data?.message ||
+        error?.message ||
+        'Failed to return allocation to draft';
       showToast(message, 'error');
     },
   });
