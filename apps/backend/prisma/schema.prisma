@@ -40,6 +40,12 @@ enum AllocationApprovalAction {
   Returned
 }
 
+enum BlockchainRecordStatus {
+  Pending
+  Confirmed
+  Failed
+}
+
 model FiscalYear {
   id           String           @id @default(uuid())
   code         String           @unique
@@ -159,6 +165,7 @@ model BudgetAllocation {
   reviewer   User?          @relation("AllocationReviewer", fields: [reviewedBy], references: [id])
 
   approvals AllocationApproval[]
+  records   BlockchainRecord[]
 
   @@index([allocationCode])
   @@index([fiscalYearId])
@@ -191,6 +198,28 @@ model AllocationApproval {
   @@map("allocation_approvals")
 }
 
+model BlockchainRecord {
+  id             String                 @id @default(uuid())
+  allocationId   String
+  allocationCode String
+  contentHash    String                 @unique
+  txHash         String?                @unique
+  blockNumber    BigInt?
+  network        String
+  status         BlockchainRecordStatus @default(Pending)
+  confirmedAt    DateTime?
+  createdBy      String
+  createdAt      DateTime               @default(now())
+  updatedAt      DateTime               @updatedAt
+
+  allocation BudgetAllocation @relation(fields: [allocationId], references: [id])
+
+  @@index([allocationId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("blockchain_records")
+}
+
 model User {
   id        String   @id @default(uuid())
   fullName  String
@@ -201,8 +230,8 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  createdAllocations  BudgetAllocation[]  @relation("AllocationCreator")
-  reviewedAllocations BudgetAllocation[]  @relation("AllocationReviewer")
+  createdAllocations  BudgetAllocation[]   @relation("AllocationCreator")
+  reviewedAllocations BudgetAllocation[]   @relation("AllocationReviewer")
   approvalRecords     AllocationApproval[]
   refreshTokens       RefreshToken[]
 
@@ -224,4 +253,3 @@ model RefreshToken {
   @@index([expiresAt])
   @@map("refresh_tokens")
 }
-
