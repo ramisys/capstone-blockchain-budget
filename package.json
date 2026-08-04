@@ -15,6 +15,9 @@
     "test:backend": "npm run test --workspace=apps/backend",
     "test:frontend": "npm run test --workspace=apps/frontend",
     "test": "npm run test:backend && npm run test:frontend",
-    "build:frontend": "npm run build --workspace=apps/frontend"
+    "build:frontend": "npm run build --workspace=apps/frontend",
+    "blockchain:compile": "npm run compile --workspace=apps/contracts",
+    "blockchain:node": "npm run node --workspace=apps/contracts",
+    "blockchain:deploy": "npm run deploy --workspace=apps/contracts"
   }
 }

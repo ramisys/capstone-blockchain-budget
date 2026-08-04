@@ -1,0 +1,9 @@
+# Hardhat build artifacts
+artifacts/
+cache/
+
+# Local deployment outputs
+deployments/
+
+# Hardhat logs
+*.log
