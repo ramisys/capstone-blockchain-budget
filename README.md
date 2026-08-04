@@ -164,7 +164,7 @@ npm run blockchain:deploy
 npx --workspace=apps/contracts hardhat run scripts/smoke.js --network localhost
 ```
 
-The backend reads the deployed address from `deployments/contracts.json` automatically. Allocation records are SHA-256 hashed and anchored to the ledger on create and approve; if the node is unreachable, the record is marked `Pending`/`Failed` and can be retried later.
+The backend reads the deployed address from `deployments/contracts.json` automatically. Allocation records are SHA-256 hashed and anchored to the ledger on approval; draft records are never written on-chain. If the node is unreachable, the record is marked `Pending`/`Failed` and can be retried later.
 
 ## Available Scripts (root)
 
@@ -342,7 +342,7 @@ Phase 4.4 blockchain integration is complete. The team is now working on Phase 6
 
 Completed in Phase 4.4 (available now):
 - **Blockchain ledger integration**
-  - SHA-256 content hashing of allocation records on create/approve
+  - SHA-256 content hashing of allocation records on approval
   - EVM smart contract (`BudgetLedger`) anchors with status monitoring
   - Verification & integrity checks (off-chain hash vs. on-chain anchor)
   - Blockchain Ledger page (status summary, transaction history, search/filter/sort/pagination)
@@ -384,7 +384,7 @@ Completed in Phase 4.4 (available now):
 
 ### ✅ Phase 4.4 – Blockchain Integration (Completed)
 - `BudgetLedger` EVM smart contract (Hardhat, Solidity, ethers v6)
-- SHA-256 content hashing for allocation records (anchored on create/approve)
+- SHA-256 content hashing for allocation records (anchored on approval)
 - Backend ledger service with fail-soft anchoring (Pending/Confirmed/Failed)
 - Blockchain repository (`BlockchainRecord` model + migration)
 - Ledger status, transaction history, allocation verification, and retry endpoints

@@ -101,7 +101,6 @@ class AllocationService {
       },
     });
 
-    await blockchainService.recordAllocation(allocation, userId);
     return this.serialize(allocation);
   }
 

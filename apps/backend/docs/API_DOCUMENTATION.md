@@ -781,8 +781,9 @@ Returns the chronological approval trail for an allocation, newest first, with a
 
 ## Phase 4.4 - Blockchain Ledger Endpoints
 
-The blockchain ledger anchors every allocation with an immutable SHA-256 content
-hash recorded on the `BudgetLedger` EVM smart contract. Each write is mirrored
+The blockchain ledger anchors every approved allocation with an immutable SHA-256 content
+hash recorded on the `BudgetLedger` EVM smart contract. Draft records are never written
+on-chain. Each write is mirrored
 in the `BlockchainRecord` table so the API remains fully functional even when
 the ledger node is unreachable (records stay `Pending` and can be re-anchored
 later via the retry endpoint).

@@ -223,7 +223,7 @@ async function runAllocationServiceTests() {
     assert.equal(result.allocatedAmount, 150000);
   });
 
-  await test('should anchor the created allocation on the blockchain ledger', async () => {
+  await test('should not anchor a draft allocation on the blockchain ledger', async () => {
     mockAllReferences();
     allocationRepository.duplicateExists = async () => false;
     allocationRepository.createWithSequentialCode = async (prefix, fiscalYearId, data) => ({
@@ -239,10 +239,8 @@ async function runAllocationServiceTests() {
 
     const result = await allocationService.createAllocation(createPayload, 'user-1');
 
-    assert.ok(recorded, 'recordAllocation should have been invoked');
-    assert.equal(recorded.allocation.id, result.id);
-    assert.equal(recorded.allocation.allocationCode, 'BA-2026-001');
-    assert.equal(recorded.userId, 'user-1');
+    assert.equal(result.status, ALLOCATION_STATUS.DRAFT);
+    assert.equal(recorded, null, 'recordAllocation should NOT be invoked for draft allocations');
   });
 
   await test('should throw a not found error when the fiscal year does not exist', async () => {
