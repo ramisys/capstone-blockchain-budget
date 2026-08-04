@@ -173,6 +173,21 @@ async function runBlockchainServiceTests() {
     assert.equal(created.txHash, null);
   });
 
+  await test('should fail soft and return null when the database mirror cannot be persisted', async () => {
+    blockchainProvider.isConfigured = () => true;
+    blockchainProvider.hasSigner = () => true;
+    blockchainProvider.verify = async () => ({ exists: false, anchoredBy: '', anchoredAt: 0, blockNumber: 0 });
+    blockchainProvider.record = async () => ({ txHash: '0xtx9', blockNumber: 100 });
+    blockchainRepository.findByContentHash = async () => null;
+    blockchainRepository.createCurrent = async () => {
+      throw new Error('db unavailable');
+    };
+
+    const result = await blockchainService.recordAllocation(SAMPLE_ALLOCATION, 'user-1');
+
+    assert.equal(result, null, 'recordAllocation should resolve null instead of throwing');
+  });
+
   await test('should mark Confirmed from on-chain verification when the hash is already anchored', async () => {
     blockchainProvider.isConfigured = () => true;
     blockchainProvider.hasSigner = () => true;
@@ -481,6 +496,23 @@ async function runBlockchainServiceTests() {
     blockchainProvider.verify = async () => ({ exists: false, anchoredBy: '', anchoredAt: 0, blockNumber: 0 });
     blockchainProvider.record = async () => {
       throw new Error('revert');
+    };
+
+    await assert.rejects(
+      () => blockchainService.retryRecord('alloc-1', { id: 'user-2', role: 'Administrator' }),
+      (err) => err.statusCode === 503
+    );
+  });
+
+  await test('should throw 503 when no record exists and the mirror write fails', async () => {
+    allocationRepository.findById = async () => SAMPLE_ALLOCATION;
+    blockchainRepository.findByAllocationId = async () => null;
+    blockchainRepository.findByContentHash = async () => null;
+    blockchainProvider.isConfigured = () => true;
+    blockchainProvider.verify = async () => ({ exists: false, anchoredBy: '', anchoredAt: 0, blockNumber: 0 });
+    blockchainProvider.record = async () => ({ txHash: '0xretry', blockNumber: 77 });
+    blockchainRepository.createCurrent = async () => {
+      throw new Error('db unavailable');
     };
 
     await assert.rejects(

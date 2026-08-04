@@ -22,11 +22,13 @@ class BlockchainService {
    * Fail-soft by design: when the ledger is unconfigured or the node is
    * unreachable, a `Pending`/`Failed` record is persisted and the allocation
    * lifecycle still succeeds. Such records can be re-anchored later via
-   * `retryRecord`.
+   * `retryRecord`. If even the database mirror cannot be written, `null` is
+   * returned (the failure is logged) so the already-committed allocation
+   * create/approve still succeeds; the anchor can be recovered via `retryRecord`.
    *
    * @param {Object} allocation - Budget allocation (Prisma shape)
    * @param {string|Object} actor - User ID or user object performing the action
-   * @returns {Promise<Object>} Blockchain record
+   * @returns {Promise<Object|null>} Blockchain record, or `null` if the DB mirror could not be persisted
    */
   async recordAllocation(allocation, actor) {
     const actorId = typeof actor === 'string' ? actor : actor?.id;
@@ -63,26 +65,43 @@ class BlockchainService {
       }
     }
 
-    const record = await blockchainRepository.createCurrent({
-      allocationId: allocation.id,
-      allocationCode: allocation.allocationCode,
-      contentHash,
-      txHash,
-      blockNumber,
-      network: config.blockchain.network,
-      status,
-      confirmedAt,
-      createdBy: actorId,
-    });
+    try {
+      const record = await blockchainRepository.createCurrent({
+        allocationId: allocation.id,
+        allocationCode: allocation.allocationCode,
+        contentHash,
+        txHash,
+        blockNumber,
+        network: config.blockchain.network,
+        status,
+        confirmedAt,
+        createdBy: actorId,
+      });
 
-    auditLogger.logSuccess({
-      action: AUDIT_ACTIONS.BLOCKCHAIN_RECORD,
-      actor: actorId,
-      resource: { type: 'Allocation', id: allocation.id, code: allocation.allocationCode },
-      details: { status, contentHash, txHash: txHash ?? null },
-    });
+      auditLogger.logSuccess({
+        action: AUDIT_ACTIONS.BLOCKCHAIN_RECORD,
+        actor: actorId,
+        resource: { type: 'Allocation', id: allocation.id, code: allocation.allocationCode },
+        details: { status, contentHash, txHash: txHash ?? null },
+      });
 
-    return this.serialize(record);
+      return this.serialize(record);
+    } catch (error) {
+      // Fail-soft mirror: the allocation lifecycle has already committed by the
+      // time the anchor is persisted here, so a failed DB write must not turn a
+      // successful create/approve into an errored request. The failure is
+      // logged for audit and the record can be recovered later via retryRecord.
+      logger.logEvent(
+        `Blockchain record could not be persisted for ${allocation.allocationCode}: ${error?.message || error}`
+      );
+      auditLogger.logFailure({
+        action: AUDIT_ACTIONS.BLOCKCHAIN_RECORD,
+        actor: actorId,
+        resource: { type: 'Allocation', id: allocation.id, code: allocation.allocationCode },
+        details: { reason: error?.message || String(error) },
+      });
+      return null;
+    }
   }
 
   /**
@@ -234,7 +253,14 @@ class BlockchainService {
 
     const existing = await blockchainRepository.findByAllocationId(allocationId);
     if (!existing) {
-      return this.recordAllocation(allocation, actor);
+      const created = await this.recordAllocation(allocation, actor);
+      if (!created) {
+        throw new AppError(
+          'Failed to persist blockchain record on the ledger',
+          HTTP_STATUS.SERVICE_UNAVAILABLE
+        );
+      }
+      return created;
     }
 
     if (existing.status === BLOCKCHAIN_RECORD_STATUS.CONFIRMED && existing.txHash) {

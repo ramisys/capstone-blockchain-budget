@@ -5,6 +5,7 @@ import { allocationRepository } from '../repositories/allocationRepository.js';
 import { allocationApprovalRepository } from '../repositories/allocationApprovalRepository.js';
 import { blockchainRepository } from '../repositories/blockchainRepository.js';
 import { blockchainService } from '../services/blockchainService.js';
+import { blockchainProvider } from '../config/blockchain.js';
 import { fiscalYearRepository } from '../repositories/fiscalYearRepository.js';
 import { departmentRepository } from '../repositories/departmentRepository.js';
 import { fundSourceRepository } from '../repositories/fundSourceRepository.js';
@@ -46,6 +47,9 @@ const repositoryMethods = {
   blockchainService: {
     recordAllocation: blockchainService.recordAllocation,
   },
+  blockchainProvider: {
+    isConfigured: blockchainProvider.isConfigured,
+  },
   fiscalYearRepository: { findById: fiscalYearRepository.findById },
   departmentRepository: { findById: departmentRepository.findById },
   fundSourceRepository: { findById: fundSourceRepository.findById },
@@ -66,9 +70,11 @@ function resetMocks() {
               ? allocationApprovalRepository
               : ownerName === 'blockchainRepository'
                 ? blockchainRepository
-                : ownerName === 'blockchainService'
-                  ? blockchainService
-                  : ownerName === 'fiscalYearRepository'
+                    : ownerName === 'blockchainService'
+                      ? blockchainService
+                      : ownerName === 'blockchainProvider'
+                        ? blockchainProvider
+                        : ownerName === 'fiscalYearRepository'
                     ? fiscalYearRepository
                     : ownerName === 'departmentRepository'
                       ? departmentRepository
@@ -841,6 +847,26 @@ async function runAllocationServiceTests() {
     assert.equal(recorded.allocation.id, result.id);
     assert.equal(recorded.allocation.status, ALLOCATION_STATUS.APPROVED);
     assert.equal(recorded.userId, 'treasurer-1');
+  });
+
+  await test('should still approve when the blockchain mirror write fails', async () => {
+    allocationRepository.findById = async () => pendingAllocation;
+    fiscalYearRepository.findById = async () => fiscalYear;
+    allocationRepository.aggregateApprovedAmount = async () => ({
+      _sum: { allocatedAmount: new Prisma.Decimal('100000.00') },
+    });
+    allocationRepository.update = async (id, data) => ({ ...pendingAllocation, ...data });
+    allocationApprovalRepository.create = async (data) => ({ id: 'approval-1', ...data });
+    blockchainService.recordAllocation = repositoryMethods.blockchainService.recordAllocation;
+    blockchainProvider.isConfigured = () => false;
+    blockchainRepository.createCurrent = async () => {
+      throw new Error('db unavailable');
+    };
+
+    const result = await allocationService.approveAllocation('alloc-1', treasurerActor);
+
+    assert.equal(result.status, ALLOCATION_STATUS.APPROVED);
+    assert.equal(result.id, 'alloc-1');
   });
 
   await test('should reject self-approval of an allocation', async () => {
