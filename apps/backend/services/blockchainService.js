@@ -40,11 +40,11 @@ class BlockchainService {
 
     if (blockchainProvider.isConfigured()) {
       try {
-        const confirmation = await blockchainProvider.record(`0x${contentHash}`);
-        txHash = confirmation.txHash;
-        blockNumber = confirmation.blockNumber;
+        const outcome = await this.anchorUnlessExists(contentHash);
+        txHash = outcome.txHash;
+        blockNumber = outcome.blockNumber;
         status = BLOCKCHAIN_RECORD_STATUS.CONFIRMED;
-        confirmedAt = new Date();
+        confirmedAt = outcome.confirmedAt;
       } catch (error) {
         status = BLOCKCHAIN_RECORD_STATUS.FAILED;
         logger.logEvent(
@@ -231,12 +231,12 @@ class BlockchainService {
     }
 
     try {
-      const confirmation = await blockchainProvider.record(`0x${existing.contentHash}`);
+      const outcome = await this.anchorUnlessExists(existing.contentHash);
       const updated = await blockchainRepository.update(existing.id, {
-        txHash: confirmation.txHash,
-        blockNumber: confirmation.blockNumber,
+        txHash: outcome.txHash,
+        blockNumber: outcome.blockNumber,
         status: BLOCKCHAIN_RECORD_STATUS.CONFIRMED,
-        confirmedAt: new Date(),
+        confirmedAt: outcome.confirmedAt,
         network: config.blockchain.network,
       });
 
@@ -244,7 +244,11 @@ class BlockchainService {
         action: AUDIT_ACTIONS.BLOCKCHAIN_RETRY,
         actor,
         resource: { type: 'Allocation', id: allocation.id, code: allocation.allocationCode },
-        details: { txHash: confirmation.txHash, blockNumber: confirmation.blockNumber },
+        details: {
+          txHash: outcome.txHash ?? null,
+          blockNumber: outcome.blockNumber,
+          recoveredOnChain: outcome.recovered,
+        },
       });
 
       return this.serialize(updated);
@@ -260,6 +264,46 @@ class BlockchainService {
         HTTP_STATUS.SERVICE_UNAVAILABLE
       );
     }
+  }
+
+  /**
+   * Anchor a content hash unless it is already on the ledger.
+   *
+   * When a previous write succeeded but the database mirror was never
+   * persisted (crash / DB failure), re-submitting would make the contract
+   * revert with `HashAlreadyRecorded`. Recover the anchoring data from the
+   * ledger instead, marking the record Confirmed from on-chain data.
+   *
+   * @private
+   * @param {string} contentHash - SHA-256 content hash (no 0x prefix)
+   * @returns {Promise<{txHash: string|null, blockNumber: number|null, confirmedAt: Date, recovered: boolean}>}
+   */
+  async anchorUnlessExists(contentHash) {
+    const hexHash = `0x${contentHash}`;
+
+    let verification = null;
+    try {
+      verification = await blockchainProvider.verify(hexHash);
+    } catch {
+      verification = null;
+    }
+
+    if (verification?.exists) {
+      return {
+        txHash: null,
+        blockNumber: verification.blockNumber,
+        confirmedAt: new Date(verification.anchoredAt * 1000),
+        recovered: true,
+      };
+    }
+
+    const confirmation = await blockchainProvider.record(hexHash);
+    return {
+      txHash: confirmation.txHash,
+      blockNumber: confirmation.blockNumber,
+      confirmedAt: new Date(),
+      recovered: false,
+    };
   }
 
   /**

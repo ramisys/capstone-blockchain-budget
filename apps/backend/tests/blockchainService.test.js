@@ -170,6 +170,38 @@ async function runBlockchainServiceTests() {
     assert.equal(created.txHash, null);
   });
 
+  await test('should mark Confirmed from on-chain verification when the hash is already anchored', async () => {
+    blockchainProvider.isConfigured = () => true;
+    blockchainProvider.hasSigner = () => true;
+    blockchainProvider.verify = async () => ({
+      exists: true,
+      anchoredBy: '0xowner',
+      anchoredAt: 1700000000,
+      blockNumber: 88,
+    });
+    let recordCalled = false;
+    blockchainProvider.record = async () => {
+      recordCalled = true;
+      return { txHash: '0xtx', blockNumber: 1 };
+    };
+    blockchainRepository.findByContentHash = async () => null;
+    let created;
+    blockchainRepository.create = async (data) => {
+      created = data;
+      return record({ ...data, id: 'record-recovered' });
+    };
+
+    const result = await blockchainService.recordAllocation(SAMPLE_ALLOCATION, 'user-1');
+
+    assert.equal(recordCalled, false);
+    assert.equal(created.status, BLOCKCHAIN_RECORD_STATUS.CONFIRMED);
+    assert.equal(created.blockNumber, 88);
+    assert.equal(created.txHash, null);
+    assert.equal(created.confirmedAt.toISOString(), new Date(1700000000 * 1000).toISOString());
+    assert.equal(result.status, BLOCKCHAIN_RECORD_STATUS.CONFIRMED);
+    assert.equal(result.blockNumber, 88);
+  });
+
   console.log('\n2. verifyAllocation Tests:');
   await test('should throw 404 when the allocation does not exist', async () => {
     allocationRepository.findById = async () => null;
@@ -309,6 +341,38 @@ async function runBlockchainServiceTests() {
     assert.equal(updatedData.txHash, '0xretry');
     assert.equal(updatedData.blockNumber, 77);
     assert.equal(result.status, BLOCKCHAIN_RECORD_STATUS.CONFIRMED);
+  });
+
+  await test('should recover an on-chain hash without re-submitting when verify finds it', async () => {
+    allocationRepository.findById = async () => SAMPLE_ALLOCATION;
+    blockchainRepository.findByAllocationId = async () => record({ status: BLOCKCHAIN_RECORD_STATUS.FAILED, txHash: null, blockNumber: null });
+    blockchainProvider.isConfigured = () => true;
+    blockchainProvider.verify = async () => ({
+      exists: true,
+      anchoredBy: '0xowner',
+      anchoredAt: 1700000000,
+      blockNumber: 88,
+    });
+    let recordCalled = false;
+    blockchainProvider.record = async () => {
+      recordCalled = true;
+      return { txHash: '0xtx', blockNumber: 1 };
+    };
+    let updatedData;
+    blockchainRepository.update = async (id, data) => {
+      updatedData = data;
+      return record({ ...data, id });
+    };
+
+    const result = await blockchainService.retryRecord('alloc-1', { id: 'user-2', role: 'Administrator' });
+
+    assert.equal(recordCalled, false);
+    assert.equal(updatedData.status, BLOCKCHAIN_RECORD_STATUS.CONFIRMED);
+    assert.equal(updatedData.blockNumber, 88);
+    assert.equal(updatedData.txHash, null);
+    assert.equal(updatedData.confirmedAt.toISOString(), new Date(1700000000 * 1000).toISOString());
+    assert.equal(result.status, BLOCKCHAIN_RECORD_STATUS.CONFIRMED);
+    assert.equal(result.blockNumber, 88);
   });
 
   await test('should throw 503 when re-anchoring fails', async () => {
