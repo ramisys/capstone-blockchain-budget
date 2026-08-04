@@ -112,6 +112,115 @@ async function runBlockchainServiceTests() {
     assert.equal(result.status, BLOCKCHAIN_RECORD_STATUS.CONFIRMED);
   });
 
+  await test('should delegate to retry when the content hash matches a Pending record', async () => {
+    const pending = record({
+      id: 'record-pending',
+      status: BLOCKCHAIN_RECORD_STATUS.PENDING,
+      txHash: null,
+      blockNumber: null,
+    });
+    blockchainRepository.findByContentHash = async () => pending;
+    blockchainRepository.findByAllocationId = async () => pending;
+    allocationRepository.findById = async () => SAMPLE_ALLOCATION;
+    blockchainProvider.isConfigured = () => true;
+    blockchainProvider.hasSigner = () => true;
+    blockchainProvider.verify = async () => ({ exists: false, anchoredBy: '', anchoredAt: 0, blockNumber: 0 });
+    blockchainProvider.record = async () => ({ txHash: '0xretry', blockNumber: 77 });
+    let updatedData;
+    blockchainRepository.update = async (id, data) => {
+      updatedData = data;
+      return record({ ...data, id });
+    };
+
+    const result = await blockchainService.recordAllocation(SAMPLE_ALLOCATION, 'user-1');
+
+    assert.equal(updatedData.status, BLOCKCHAIN_RECORD_STATUS.CONFIRMED);
+    assert.equal(updatedData.txHash, '0xretry');
+    assert.equal(updatedData.blockNumber, 77);
+    assert.equal(result.status, BLOCKCHAIN_RECORD_STATUS.CONFIRMED);
+  });
+
+  await test('should delegate to retry when the content hash matches a Failed record and recover on-chain', async () => {
+    const failed = record({
+      id: 'record-failed',
+      status: BLOCKCHAIN_RECORD_STATUS.FAILED,
+      txHash: null,
+      blockNumber: null,
+    });
+    blockchainRepository.findByContentHash = async () => failed;
+    blockchainRepository.findByAllocationId = async () => failed;
+    allocationRepository.findById = async () => SAMPLE_ALLOCATION;
+    blockchainProvider.isConfigured = () => true;
+    blockchainProvider.verify = async () => ({
+      exists: true,
+      anchoredBy: '0xowner',
+      anchoredAt: 1700000000,
+      blockNumber: 88,
+    });
+    let recordCalled = false;
+    blockchainProvider.record = async () => {
+      recordCalled = true;
+      return { txHash: '0xtx', blockNumber: 1 };
+    };
+    let updatedData;
+    blockchainRepository.update = async (id, data) => {
+      updatedData = data;
+      return record({ ...data, id });
+    };
+
+    const result = await blockchainService.recordAllocation(SAMPLE_ALLOCATION, 'user-1');
+
+    assert.equal(recordCalled, false);
+    assert.equal(updatedData.status, BLOCKCHAIN_RECORD_STATUS.CONFIRMED);
+    assert.equal(updatedData.blockNumber, 88);
+    assert.equal(updatedData.txHash, null);
+    assert.equal(result.status, BLOCKCHAIN_RECORD_STATUS.CONFIRMED);
+    assert.equal(result.blockNumber, 88);
+  });
+
+  await test('should fail soft and reuse the stale record when re-anchoring a Pending record fails', async () => {
+    const stale = record({
+      id: 'record-stale',
+      status: BLOCKCHAIN_RECORD_STATUS.PENDING,
+      txHash: null,
+      blockNumber: null,
+    });
+    blockchainRepository.findByContentHash = async () => stale;
+    blockchainRepository.findByAllocationId = async () => stale;
+    allocationRepository.findById = async () => SAMPLE_ALLOCATION;
+    blockchainProvider.isConfigured = () => true;
+    blockchainProvider.hasSigner = () => true;
+    blockchainProvider.verify = async () => ({ exists: false, anchoredBy: '', anchoredAt: 0, blockNumber: 0 });
+    blockchainProvider.record = async () => {
+      throw new Error('node unreachable');
+    };
+
+    const result = await blockchainService.recordAllocation(SAMPLE_ALLOCATION, 'user-1');
+
+    assert.equal(result.id, 'record-stale');
+    assert.equal(result.status, BLOCKCHAIN_RECORD_STATUS.PENDING);
+    assert.equal(result.txHash, null);
+  });
+
+  await test('should fail soft and reuse the stale record when re-anchoring is not configured', async () => {
+    const stale = record({
+      id: 'record-stale',
+      status: BLOCKCHAIN_RECORD_STATUS.PENDING,
+      txHash: null,
+      blockNumber: null,
+    });
+    blockchainRepository.findByContentHash = async () => stale;
+    blockchainRepository.findByAllocationId = async () => stale;
+    allocationRepository.findById = async () => SAMPLE_ALLOCATION;
+    blockchainProvider.isConfigured = () => false;
+
+    const result = await blockchainService.recordAllocation(SAMPLE_ALLOCATION, 'user-1');
+
+    assert.equal(result.id, 'record-stale');
+    assert.equal(result.status, BLOCKCHAIN_RECORD_STATUS.PENDING);
+    assert.equal(result.txHash, null);
+  });
+
   await test('should record on-chain and persist a Confirmed record', async () => {
     blockchainProvider.isConfigured = () => true;
     blockchainProvider.hasSigner = () => true;

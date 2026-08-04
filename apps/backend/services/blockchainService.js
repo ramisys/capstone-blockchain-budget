@@ -19,6 +19,10 @@ class BlockchainService {
    * history and status counts), so repeated approvals after a return-to-draft
    * never accumulate stale duplicate records.
    *
+   * Dedupes by content hash: a `Confirmed` record for identical content is
+   * reused as-is, while a `Pending`/`Failed` record delegates to `retryRecord`
+   * so the anchor is re-attempted instead of silently reusing the stale record.
+   *
    * Fail-soft by design: when the ledger is unconfigured or the node is
    * unreachable, a `Pending`/`Failed` record is persisted and the allocation
    * lifecycle still succeeds. Such records can be re-anchored later via
@@ -36,7 +40,18 @@ class BlockchainService {
     const contentHash = computeAllocationContentHash(allocation);
     const existing = await blockchainRepository.findByContentHash(contentHash);
     if (existing) {
-      return this.serialize(existing);
+      if (existing.status === BLOCKCHAIN_RECORD_STATUS.CONFIRMED) {
+        return this.serialize(existing);
+      }
+
+      try {
+        return await this.retryRecord(existing.allocationId, actor);
+      } catch (error) {
+        logger.logEvent(
+          `Blockchain re-anchor failed for ${allocation.allocationCode}: ${error?.message || error}`
+        );
+        return this.serialize(existing);
+      }
     }
 
     let txHash = null;
