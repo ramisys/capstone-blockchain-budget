@@ -9,7 +9,7 @@ capstone/
 ├── apps/
 │   ├── backend/      # Express.js REST API server & Prisma ORM
 │   ├── frontend/     # React 19 + Vite frontend application
-│   └── contracts/    # Blockchain smart contracts (placeholder)
+│   └── contracts/    # Hardhat smart contracts (BudgetLedger EVM ledger)
 ├── packages/
 │   └── shared/       # Shared utilities and constants
 ├── docs/             # Project documentation
@@ -25,6 +25,9 @@ capstone/
 - **React Router DOM** — Client-side routing
 - **Axios** — HTTP client with JWT interceptors
 - **Bootstrap 5** — CSS framework (custom-styled with navy/gold theme)
+- **Tailwind CSS** — Utility-first styling for newer components
+- **TanStack Query** — Server-state management (data fetching, caching, mutations)
+- **Radix UI** — Accessible primitives (Dialog, Select, DropdownMenu)
 - **React Hook Form** — Form state management
 - **Zod** — Schema validation
 - **Context API** — Authentication state
@@ -47,7 +50,9 @@ capstone/
 - Shared utilities and constants
 
 ### Smart Contracts
-- Placeholder for blockchain integration (future phases)
+- **Hardhat** — EVM development environment
+- **Solidity** — Smart contract language (`BudgetLedger.sol`)
+- **ethers v6** — Blockchain interaction library (deploy + smoke scripts)
 
 ## Getting Started
 
@@ -55,6 +60,7 @@ capstone/
 - Node.js 18+
 - MySQL database running
 - npm workspaces enabled
+- Optional: local EVM node (Hardhat) for blockchain anchoring features
 
 ### Installation
 
@@ -76,7 +82,16 @@ DATABASE_URL=mysql://user:password@localhost:3306/budgetchain
 JWT_SECRET=your-strong-secret-here
 JWT_EXPIRES_IN=1d
 CORS_ORIGIN=http://localhost:3000
+
+# Blockchain / EVM (optional — app runs without a node)
+BLOCKCHAIN_RPC_URL=http://127.0.0.1:8545
+BLOCKCHAIN_NETWORK=hardhat-local
+BLOCKCHAIN_CHAIN_ID=31337
+# BLOCKCHAIN_CONTRACT_ADDRESS=0x...  (defaults to deployments/contracts.json)
+# BLOCKCHAIN_PRIVATE_KEY=0x...
 ```
+
+Blockchain settings can be left unset — the app reports `NotConfigured` and stays fully usable. See `apps/backend/.env.example` for the complete list.
 
 ### Database Setup
 
@@ -92,10 +107,14 @@ npx prisma migrate dev
 npm run seed
 ```
 
-Default seed credentials:
-- Email: `admin@university.edu`
-- Password: `AdminPassword123!`
-- Role: `Administrator`
+Default seed credentials (see `apps/backend/prisma/seed.js`):
+
+| Role | Email | Password |
+|------|-------|----------|
+| Administrator | `admin@university.edu` | `AdminPassword123!` |
+| Budget Officer | `budgetofficer@university.edu` | `BudgetOfficer123!` |
+| Treasurer | `treasurer@university.edu` | `Treasurer123!` |
+| Auditor | `auditor@university.edu` | `Auditor123!` |
 
 ## Running the Application
 
@@ -129,6 +148,24 @@ npm run dev
 npm run build:frontend
 ```
 
+### Blockchain (Phase 4.4)
+
+Start a local EVM node and deploy `BudgetLedger`, then verify with the smoke test:
+
+```bash
+# Terminal 1 — start the local Hardhat node (port 8545)
+npm run blockchain:node
+
+# Terminal 2 — compile and deploy, writes apps/contracts/deployments/contracts.json
+npm run blockchain:compile
+npm run blockchain:deploy
+
+# Terminal 3 — run the contract-layer smoke test (optional)
+npx --workspace=apps/contracts hardhat run scripts/smoke.js --network localhost
+```
+
+The backend reads the deployed address from `deployments/contracts.json` automatically. Allocation records are SHA-256 hashed and anchored to the ledger on create and approve; if the node is unreachable, the record is marked `Pending`/`Failed` and can be retried later.
+
 ## Available Scripts (root)
 
 | Script | Description |
@@ -138,7 +175,12 @@ npm run build:frontend
 | `npm run backend` | Start backend production server |
 | `npm run frontend` | Start frontend dev server |
 | `npm run test:backend` | Run backend test suite |
+| `npm run test:frontend` | Run frontend test suite |
+| `npm run test` | Run backend then frontend tests |
 | `npm run build:frontend` | Build frontend for production |
+| `npm run blockchain:compile` | Compile smart contracts (Hardhat) |
+| `npm run blockchain:node` | Start local EVM node (Hardhat, :8545) |
+| `npm run blockchain:deploy` | Deploy `BudgetLedger` to the local node |
 
 ## API Endpoints
 
@@ -215,6 +257,13 @@ npm run build:frontend
 - `POST /:id/return` — Return an allocation to Draft for revision (Admin, Treasurer, BudgetOfficer)
 - `GET /:id/approvals` — Get approval history for an allocation (Admin, Treasurer, BudgetOfficer, Auditor)
 
+### Blockchain Ledger (`/api/blockchain`) — Private (Admin, Treasurer, BudgetOfficer, Auditor)
+- `GET /status` — Ledger status, contract address, on-chain count, sync info
+- `GET /transactions` — Paginated transaction history (search, status filter, sort)
+- `GET /allocations/:id` — Verification details for a single allocation
+- `POST /allocations/:id/verify` — Re-verify an allocation against the on-chain anchor
+- `POST /allocations/:id/retry` — Re-anchor a `Pending`/`Failed` record (Admin, Treasurer, BudgetOfficer)
+
 ## Database Schema
 
 ### Core Models
@@ -226,6 +275,7 @@ npm run build:frontend
 - **BudgetProgram** — Programs linking departments & categories (id, code, name, description, departmentId, budgetCategoryId, status)
 - **BudgetAllocation** — Budget allocations (id, allocationCode, fiscalYearId, departmentId, fundSourceId, categoryId, programId, allocatedAmount, description, status, createdBy, submittedAt, reviewedBy, reviewedAt, rejectionReason)
 - **AllocationApproval** — Approval workflow history (id, allocationId, action, comment, actorId, createdAt)
+- **BlockchainRecord** — On-chain ledger anchors (id, allocationId, contentHash, status, txHash, blockNumber, chainId, network, recordType, createdAt, anchoredAt)
 
 ### Enums
 - **Role**: Administrator, Treasurer, BudgetOfficer, Auditor
@@ -233,6 +283,7 @@ npm run build:frontend
 - **FiscalYearStatus**: Active, Inactive, Archived
 - **AllocationStatus**: Draft, PendingApproval, Approved, Rejected, Archived
 - **AllocationApprovalAction**: Submitted, Approved, Rejected, Returned
+- **BlockchainRecordStatus**: Pending, Confirmed, Failed
 
 ## Frontend Pages
 
@@ -254,6 +305,9 @@ npm run build:frontend
 - **FundSources** — CRUD for fund sources
 - **BudgetCategories** — CRUD for budget categories
 - **BudgetPrograms** — CRUD for budget programs
+
+### Blockchain
+- **BlockchainLedger** — Ledger status summary, transaction history with search/filter/sort/pagination, per-record verification dialog, verify/retry actions
 
 ### System
 - **Forbidden** — 403 page
@@ -277,17 +331,16 @@ npm run build:frontend
 | Phase 11 | ⏳ Planned | Documentation & Training |
 | Phase 12 | ⏳ Planned | Finalization & Defense Preparation |
 
-## Current Focus (Phase 4.4 / 6)
+## Current Focus (Phase 6)
 
-The team is currently implementing:
-- Budget allocation CRUD operations
-- Allocation approval workflow (Draft → PendingApproval → Approved/Rejected → Draft for revision)
-  - Submission, approval, rejection (with mandatory reason), and return-to-draft endpoints
-  - Role-based review (Admin/Treasurer) with self-approval prevention
-  - Approval history trail per allocation
-- Master data management (Fiscal Years, Departments, Fund Sources, Categories, Programs)
-- Multi-year budget planning support
-- Budget utilization tracking and statistics
+Phase 4.4 blockchain integration is complete. The team is now working on Phase 6 — **Audit Logs & Blockchain Integration**:
+
+- Immutable audit trail for all financial transactions
+- Smart contract integration for budget execution (beyond anchoring)
+- Access logs and user activity tracking
+- Compliance reporting tools
+
+Completed in Phase 4.4 (available now):
 - **Blockchain ledger integration**
   - SHA-256 content hashing of allocation records on create/approve
   - EVM smart contract (`BudgetLedger`) anchors with status monitoring
