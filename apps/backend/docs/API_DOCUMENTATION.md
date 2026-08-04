@@ -223,6 +223,22 @@ mounted under the `/api` base URL and require authentication.
 | `createdAt` | DateTime | Creation timestamp |
 | `updatedAt` | DateTime | Last update timestamp |
 | `deletedAt` | DateTime (nullable) | Soft-delete timestamp (null for live allocations) |
+| `submittedAt` | DateTime (nullable) | Timestamp the allocation was last submitted for approval |
+| `reviewedBy` | String (UUID, nullable) | ID of the user who last reviewed (approved/rejected) the allocation |
+| `reviewedAt` | DateTime (nullable) | Timestamp of the last review decision |
+| `rejectionReason` | String (nullable) | Reason recorded when the allocation was rejected (max 500 chars) |
+
+## Approval Record Object
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | String (UUID) | Approval record ID |
+| `allocationId` | String (UUID) | Allocation the decision belongs to |
+| `action` | String | `Submitted` \| `Approved` \| `Rejected` \| `Returned` |
+| `comment` | String (nullable) | Decision comment (e.g., rejection reason) |
+| `actorId` | String (UUID) | ID of the user who performed the action |
+| `createdAt` | DateTime | Decision timestamp |
+| `actor` | Object | `{ id, fullName, email, role }` of the acting user |
 
 ## Role-Based Access Control
 
@@ -235,9 +251,16 @@ mounted under the `/api` base URL and require authentication.
 | POST `/allocations` | ✓ | ✓ | ✗ | ✗ |
 | PUT `/allocations/:id` | ✓ | ✓ | ✗ | ✗ |
 | DELETE `/allocations/:id` | ✓ | ✓* | ✗ | ✗ |
+| POST `/allocations/:id/submit` | ✓ | ✓ | ✗ | ✗ |
+| POST `/allocations/:id/approve` | ✓ | ✗ | ✓ | ✗ |
+| POST `/allocations/:id/reject` | ✓ | ✗ | ✓ | ✗ |
+| POST `/allocations/:id/return` | ✓ | ✓† | ✓ | ✗ |
+| GET `/allocations/:id/approvals` | ✓ | ✓ | ✓ | ✓ |
 
 \* Budget Officers can only delete `Draft` allocations; Administrators may delete any
 non-`Archived` allocation.
+† Budget Officers can only return allocations they created. Administrators and Treasurers
+may return any `PendingApproval` allocation, or any `Rejected` allocation.
 
 ## Status Rules
 
@@ -249,6 +272,18 @@ non-`Archived` allocation.
   statistics, and remaining-budget computations.
 - Rejected, Archived, and soft-deleted allocations do not block a new allocation with
   the same fiscal year, department, program, fund source, and category combination.
+
+## Approval Workflow Rules
+
+- Status flow: `Draft` → `PendingApproval` → `Approved` | `Rejected`. A `PendingApproval`
+  or `Rejected` allocation can be returned to `Draft` for revision and resubmitted.
+- Only `Administrator` and `Treasurer` can approve or reject; users cannot review
+  (approve/reject/return) allocations they created (403 otherwise).
+- Rejections require a non-empty `reason` (trimmed, max 500 chars).
+- Approving re-validates the fiscal year's remaining budget; approving an allocation that
+  exceeds the ceiling fails with 400.
+- Every submit/approve/reject/return decision is recorded in the `allocation_approvals`
+  history table and returned by `GET /allocations/:id/approvals`, newest first.
 
 ---
 
@@ -506,11 +541,12 @@ Returns dashboard statistics. Excludes soft-deleted allocations.
 ```
 
 Notes:
-- `totalAllocatedAmount` sums `Draft`, `PendingApproval`, and `Approved` allocations.
+- `totalAllocatedAmount` sums only `Approved` (budget-committing) allocations.
 - `remainingBudget` = sum of the referenced fiscal years' `budgetAmount` ceilings minus
   `totalAllocatedAmount`. When no `fiscalYearId` is supplied, it is scoped to the fiscal
   years referenced by existing allocations.
-- `Archived` and `Rejected` allocations are excluded from all amounts.
+- `Archived`, `Rejected`, `Draft`, and `PendingApproval` allocations are excluded from all
+  amounts.
 
 ---
 
@@ -554,4 +590,189 @@ Archived, and soft-deleted allocations are excluded from the allocated sum.
 #### Error Responses
 
 - **404 Not Found**: the specified fiscal year does not exist
+
+---
+
+### 8. Submit Allocation for Approval
+
+Moves a `Draft` allocation to `PendingApproval` and records a `Submitted` history entry.
+
+- **URL**: `/allocations/:id/submit`
+- **Method**: `POST`
+- **Auth Required**: Yes (`Bearer <token>`)
+- **Roles**: `Administrator`, `BudgetOfficer`
+- **Request Body**: none
+
+#### Success Response (200 OK)
+
+```json
+{
+  "success": true,
+  "message": "Allocation submitted for approval",
+  "data": { "allocation": { "id": "c1f7b8e0-...", "status": "PendingApproval", "submittedAt": "2026-08-02T09:00:00.000Z", "...": "..." } }
+}
+```
+
+#### Error Responses
+
+- **404 Not Found**: allocation does not exist or has been soft-deleted
+- **400 Bad Request**: allocation is not in `Draft` status
+
+---
+
+### 9. Approve Allocation
+
+Approves a `PendingApproval` allocation. The fiscal year's remaining budget is re-validated
+before the allocation commits budget.
+
+- **URL**: `/allocations/:id/approve`
+- **Method**: `POST`
+- **Auth Required**: Yes (`Bearer <token>`)
+- **Roles**: `Administrator`, `Treasurer`
+- **Request Body**: none
+
+#### Success Response (200 OK)
+
+```json
+{
+  "success": true,
+  "message": "Allocation approved successfully",
+  "data": { "allocation": { "id": "c1f7b8e0-...", "status": "Approved", "reviewedBy": "c1f7b8e0-1234-4567-89ab-cdef01234567", "reviewedAt": "2026-08-03T10:00:00.000Z", "...": "..." } }
+}
+```
+
+#### Error Responses
+
+- **404 Not Found**: allocation does not exist or has been soft-deleted
+- **403 Forbidden**: the user is not an approver, or is the creator of the allocation
+- **400 Bad Request**: allocation is not in `PendingApproval` status, or approving would
+  exceed the fiscal year's remaining budget
+
+---
+
+### 10. Reject Allocation
+
+Rejects a `PendingApproval` allocation. A reason is mandatory so the submitter can revise
+and resubmit.
+
+- **URL**: `/allocations/:id/reject`
+- **Method**: `POST`
+- **Auth Required**: Yes (`Bearer <token>`)
+- **Roles**: `Administrator`, `Treasurer`
+
+#### Request Body
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `reason` | String | Yes | Reason for rejection (trimmed, max 500 chars) |
+
+```json
+{
+  "reason": "Amount exceeds the departmental ceiling"
+}
+```
+
+#### Success Response (200 OK)
+
+```json
+{
+  "success": true,
+  "message": "Allocation rejected successfully",
+  "data": { "allocation": { "id": "c1f7b8e0-...", "status": "Rejected", "rejectionReason": "Amount exceeds the departmental ceiling", "reviewedBy": "c1f7b8e0-1234-4567-89ab-cdef01234567", "reviewedAt": "2026-08-03T10:30:00.000Z", "...": "..." } }
+}
+```
+
+#### Error Responses
+
+- **400 Bad Request**: missing/blank `reason`, or allocation is not in `PendingApproval` status
+- **403 Forbidden**: the user is not an approver, or is the creator of the allocation
+- **404 Not Found**: allocation does not exist or has been soft-deleted
+
+---
+
+### 11. Return Allocation to Draft
+
+Returns an allocation to `Draft` for revision. A `PendingApproval` allocation can be returned
+by an approver; a `Rejected` allocation can be returned by its creator or an approver.
+
+- **URL**: `/allocations/:id/return`
+- **Method**: `POST`
+- **Auth Required**: Yes (`Bearer <token>`)
+- **Roles**: `Administrator`, `Treasurer`, `BudgetOfficer`
+
+#### Request Body
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `comment` | String | No | Optional note explaining the return (max 500 chars) |
+
+```json
+{
+  "comment": "Please revise the allocation amount"
+}
+```
+
+#### Success Response (200 OK)
+
+```json
+{
+  "success": true,
+  "message": "Allocation returned to draft",
+  "data": { "allocation": { "id": "c1f7b8e0-...", "status": "Draft", "...": "..." } }
+}
+```
+
+#### Error Responses
+
+- **400 Bad Request**: allocation is not in `PendingApproval` or `Rejected` status
+- **403 Forbidden**: a Budget Officer attempting to return an allocation they did not create,
+  or an approver returning their own `PendingApproval` allocation
+- **404 Not Found**: allocation does not exist or has been soft-deleted
+
+---
+
+### 12. Get Approval History
+
+Returns the chronological approval trail for an allocation, newest first, with actor details.
+
+- **URL**: `/allocations/:id/approvals`
+- **Method**: `GET`
+- **Auth Required**: Yes (`Bearer <token>`)
+- **Roles**: `Administrator`, `BudgetOfficer`, `Treasurer`, `Auditor`
+- **Request Body**: none
+
+#### Success Response (200 OK)
+
+```json
+{
+  "success": true,
+  "message": "Approval history retrieved successfully",
+  "data": {
+    "approvals": [
+      {
+        "id": "c1f7b8e0-0000-0000-0000-000000000010",
+        "allocationId": "c1f7b8e0-0000-0000-0000-000000000006",
+        "action": "Rejected",
+        "comment": "Amount exceeds the departmental ceiling",
+        "actorId": "c1f7b8e0-1234-4567-89ab-cdef01234567",
+        "createdAt": "2026-08-03T10:30:00.000Z",
+        "actor": { "id": "c1f7b8e0-1234-4567-89ab-cdef01234567", "fullName": "System Administrator", "email": "admin@university.edu", "role": "Administrator" }
+      },
+      {
+        "id": "c1f7b8e0-0000-0000-0000-000000000011",
+        "allocationId": "c1f7b8e0-0000-0000-0000-000000000006",
+        "action": "Submitted",
+        "comment": null,
+        "actorId": "c1f7b8e0-1234-4567-89ab-000000000001",
+        "createdAt": "2026-08-02T09:00:00.000Z",
+        "actor": { "id": "c1f7b8e0-1234-4567-89ab-000000000001", "fullName": "Budget Officer", "email": "budgetofficer@university.edu", "role": "BudgetOfficer" }
+      }
+    ]
+  }
+}
+```
+
+#### Error Responses
+
+- **404 Not Found**: allocation does not exist or has been soft-deleted
 - **409 Conflict**: the specified fiscal year is archived

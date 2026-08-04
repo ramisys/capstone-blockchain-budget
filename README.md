@@ -208,6 +208,13 @@ npm run build:frontend
 - `PUT /:id` — Update draft budget allocation (Admin, BudgetOfficer)
 - `DELETE /:id` — Soft-delete budget allocation (Admin, BudgetOfficer)
 
+### Budget Allocation Approval (`/api/allocations`) — Private (roles vary)
+- `POST /:id/submit` — Submit a Draft allocation for approval (Admin, BudgetOfficer)
+- `POST /:id/approve` — Approve a PendingApproval allocation (Admin, Treasurer)
+- `POST /:id/reject` — Reject a PendingApproval allocation with a reason (Admin, Treasurer)
+- `POST /:id/return` — Return an allocation to Draft for revision (Admin, Treasurer, BudgetOfficer)
+- `GET /:id/approvals` — Get approval history for an allocation (Admin, Treasurer, BudgetOfficer, Auditor)
+
 ## Database Schema
 
 ### Core Models
@@ -217,13 +224,15 @@ npm run build:frontend
 - **Department** — Organizational units (id, code, name, officeHead, contactNumber, email, officeAddress, status)
 - **BudgetCategory** — Expense categories (id, code, name, description, status)
 - **BudgetProgram** — Programs linking departments & categories (id, code, name, description, departmentId, budgetCategoryId, status)
-- **BudgetAllocation** — Budget allocations (id, allocationCode, fiscalYearId, departmentId, fundSourceId, categoryId, programId, allocatedAmount, description, status, createdBy)
+- **BudgetAllocation** — Budget allocations (id, allocationCode, fiscalYearId, departmentId, fundSourceId, categoryId, programId, allocatedAmount, description, status, createdBy, submittedAt, reviewedBy, reviewedAt, rejectionReason)
+- **AllocationApproval** — Approval workflow history (id, allocationId, action, comment, actorId, createdAt)
 
 ### Enums
 - **Role**: Administrator, Treasurer, BudgetOfficer, Auditor
 - **Status**: Active, Inactive
 - **FiscalYearStatus**: Active, Inactive, Archived
 - **AllocationStatus**: Draft, PendingApproval, Approved, Rejected, Archived
+- **AllocationApprovalAction**: Submitted, Approved, Rejected, Returned
 
 ## Frontend Pages
 
@@ -271,7 +280,10 @@ npm run build:frontend
 
 The team is currently implementing:
 - Budget allocation CRUD operations
-- Allocation approval workflow (Draft → PendingApproval → Approved/Rejected)
+- Allocation approval workflow (Draft → PendingApproval → Approved/Rejected → Draft for revision)
+  - Submission, approval, rejection (with mandatory reason), and return-to-draft endpoints
+  - Role-based review (Admin/Treasurer) with self-approval prevention
+  - Approval history trail per allocation
 - Master data management (Fiscal Years, Departments, Fund Sources, Categories, Programs)
 - Multi-year budget planning support
 - Budget utilization tracking and statistics
