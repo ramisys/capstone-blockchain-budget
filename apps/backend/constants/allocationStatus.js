@@ -44,3 +44,18 @@ export const ALLOWED_STATUS_TRANSITIONS = {
   [ALLOCATION_STATUS.REJECTED]: [ALLOCATION_STATUS.DRAFT],
   [ALLOCATION_STATUS.ARCHIVED]: [],
 };
+
+/**
+ * Approval-record actions recorded in the `allocation_approvals` history table.
+ * These mirror the `AllocationApprovalAction` Prisma enum.
+ */
+export const ALLOCATION_APPROVAL_ACTIONS = {
+  SUBMITTED: 'Submitted',
+  APPROVED: 'Approved',
+  REJECTED: 'Rejected',
+  RETURNED: 'Returned',
+};
+
+export const ALLOCATION_APPROVAL_ACTIONS_LIST = Object.values(
+  ALLOCATION_APPROVAL_ACTIONS
+);

@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { Prisma } from '@prisma/client';
 import { allocationService } from '../services/allocationService.js';
 import { allocationRepository } from '../repositories/allocationRepository.js';
+import { allocationApprovalRepository } from '../repositories/allocationApprovalRepository.js';
 import { fiscalYearRepository } from '../repositories/fiscalYearRepository.js';
 import { departmentRepository } from '../repositories/departmentRepository.js';
 import { fundSourceRepository } from '../repositories/fundSourceRepository.js';
@@ -32,6 +33,10 @@ const repositoryMethods = {
     update: allocationRepository.update,
     softDelete: allocationRepository.softDelete,
   },
+  allocationApprovalRepository: {
+    create: allocationApprovalRepository.create,
+    findManyByAllocationId: allocationApprovalRepository.findManyByAllocationId,
+  },
   fiscalYearRepository: { findById: fiscalYearRepository.findById },
   departmentRepository: { findById: departmentRepository.findById },
   fundSourceRepository: { findById: fundSourceRepository.findById },
@@ -48,7 +53,9 @@ function resetMocks() {
           ? prisma
           : ownerName === 'allocationRepository'
             ? allocationRepository
-            : ownerName === 'fiscalYearRepository'
+            : ownerName === 'allocationApprovalRepository'
+              ? allocationApprovalRepository
+              : ownerName === 'fiscalYearRepository'
               ? fiscalYearRepository
               : ownerName === 'departmentRepository'
                 ? departmentRepository
@@ -670,6 +677,227 @@ async function runAllocationServiceTests() {
     );
 
     assert.equal(result.allocationCode, 'BA-2026-002');
+  });
+
+  console.log('\n10. Approval Workflow Tests:');
+
+  const pendingAllocation = {
+    ...draftAllocation,
+    id: 'alloc-1',
+    status: ALLOCATION_STATUS.PENDING_APPROVAL,
+  };
+
+  const adminActor = { id: 'admin-1', role: ROLES.ADMINISTRATOR, fullName: 'Admin' };
+  const treasurerActor = { id: 'treasurer-1', role: ROLES.TREASURER, fullName: 'Treasurer' };
+  const officerActor = { id: 'officer-1', role: ROLES.BUDGET_OFFICER, fullName: 'Officer' };
+
+  await test('should submit a Draft allocation for approval and record a Submitted entry', async () => {
+    allocationRepository.findById = async () => draftAllocation;
+    let createdApproval = null;
+    allocationApprovalRepository.create = async (data) => {
+      createdApproval = data;
+      return { id: 'approval-1', ...data };
+    };
+    let capturedUpdate = null;
+    allocationRepository.update = async (id, data) => {
+      capturedUpdate = data;
+      return { ...draftAllocation, ...data };
+    };
+
+    const result = await allocationService.submitForApproval('alloc-1', officerActor);
+
+    assert.equal(result.status, ALLOCATION_STATUS.PENDING_APPROVAL);
+    assert.ok(capturedUpdate.submittedAt);
+    assert.equal(capturedUpdate.rejectionReason, null);
+    assert.equal(createdApproval.action, 'Submitted');
+    assert.equal(createdApproval.actorId, 'officer-1');
+    assert.equal(createdApproval.allocationId, 'alloc-1');
+  });
+
+  await test('should reject submitting an allocation that is not Draft', async () => {
+    allocationRepository.findById = async () => approvedAllocation;
+
+    await assert.rejects(
+      () => allocationService.submitForApproval('alloc-2', officerActor),
+      (err) => err instanceof AppError && err.statusCode === HTTP_STATUS.BAD_REQUEST
+    );
+  });
+
+  await test('should approve a PendingApproval allocation within budget and record reviewed fields', async () => {
+    allocationRepository.findById = async () => pendingAllocation;
+    fiscalYearRepository.findById = async () => fiscalYear;
+    allocationRepository.aggregateApprovedAmount = async () => ({
+      _sum: { allocatedAmount: new Prisma.Decimal('100000.00') },
+    });
+    let capturedUpdate = null;
+    allocationRepository.update = async (id, data) => {
+      capturedUpdate = data;
+      return { ...pendingAllocation, ...data };
+    };
+    let createdApproval = null;
+    allocationApprovalRepository.create = async (data) => {
+      createdApproval = data;
+      return { id: 'approval-1', ...data };
+    };
+
+    const result = await allocationService.approveAllocation('alloc-1', treasurerActor);
+
+    assert.equal(result.status, ALLOCATION_STATUS.APPROVED);
+    assert.equal(capturedUpdate.reviewedBy, 'treasurer-1');
+    assert.ok(capturedUpdate.reviewedAt);
+    assert.equal(createdApproval.action, 'Approved');
+    assert.equal(createdApproval.actorId, 'treasurer-1');
+  });
+
+  await test('should reject self-approval of an allocation', async () => {
+    allocationRepository.findById = async () => pendingAllocation;
+
+    await assert.rejects(
+      () =>
+        allocationService.approveAllocation('alloc-1', {
+          id: draftAllocation.createdBy,
+          role: ROLES.ADMINISTRATOR,
+        }),
+      (err) => err instanceof ForbiddenError && err.statusCode === HTTP_STATUS.FORBIDDEN
+    );
+  });
+
+  await test('should reject approval by a non-approver role', async () => {
+    allocationRepository.findById = async () => pendingAllocation;
+
+    await assert.rejects(
+      () => allocationService.approveAllocation('alloc-1', officerActor),
+      (err) => err instanceof ForbiddenError && err.statusCode === HTTP_STATUS.FORBIDDEN
+    );
+  });
+
+  await test('should reject approval that exceeds the fiscal year remaining budget', async () => {
+    allocationRepository.findById = async () => pendingAllocation;
+    fiscalYearRepository.findById = async () => fiscalYear;
+    allocationRepository.aggregateApprovedAmount = async () => ({
+      _sum: { allocatedAmount: new Prisma.Decimal('400000.00') },
+    });
+
+    await assert.rejects(
+      () => allocationService.approveAllocation('alloc-1', treasurerActor),
+      (err) =>
+        err instanceof AppError &&
+        err.statusCode === HTTP_STATUS.BAD_REQUEST &&
+        err.message === 'Allocated amount exceeds fiscal year remaining budget'
+    );
+  });
+
+  await test('should reject approving an allocation that is not pending', async () => {
+    allocationRepository.findById = async () => draftAllocation;
+
+    await assert.rejects(
+      () => allocationService.approveAllocation('alloc-1', adminActor),
+      (err) => err instanceof AppError && err.statusCode === HTTP_STATUS.BAD_REQUEST
+    );
+  });
+
+  await test('should reject a PendingApproval allocation with a reason', async () => {
+    allocationRepository.findById = async () => pendingAllocation;
+    fiscalYearRepository.findById = async () => fiscalYear;
+    allocationRepository.aggregateApprovedAmount = async () => ({
+      _sum: { allocatedAmount: new Prisma.Decimal('0') },
+    });
+    let capturedUpdate = null;
+    allocationRepository.update = async (id, data) => {
+      capturedUpdate = data;
+      return { ...pendingAllocation, ...data };
+    };
+    let createdApproval = null;
+    allocationApprovalRepository.create = async (data) => {
+      createdApproval = data;
+      return { id: 'approval-1', ...data };
+    };
+
+    const result = await allocationService.rejectAllocation(
+      'alloc-1',
+      adminActor,
+      'Insufficient justification provided'
+    );
+
+    assert.equal(result.status, ALLOCATION_STATUS.REJECTED);
+    assert.equal(capturedUpdate.rejectionReason, 'Insufficient justification provided');
+    assert.equal(capturedUpdate.reviewedBy, 'admin-1');
+    assert.equal(createdApproval.action, 'Rejected');
+    assert.equal(createdApproval.comment, 'Insufficient justification provided');
+  });
+
+  await test('should require a reason when rejecting', async () => {
+    allocationRepository.findById = async () => pendingAllocation;
+
+    await assert.rejects(
+      () => allocationService.rejectAllocation('alloc-1', adminActor, ''),
+      (err) => err instanceof ValidationError && err.statusCode === HTTP_STATUS.BAD_REQUEST
+    );
+  });
+
+  await test('should return a PendingApproval allocation to Draft when an approver sends it back', async () => {
+    allocationRepository.findById = async () => pendingAllocation;
+    allocationRepository.update = async (id, data) => ({ ...pendingAllocation, ...data });
+    let createdApproval = null;
+    allocationApprovalRepository.create = async (data) => {
+      createdApproval = data;
+      return { id: 'approval-1', ...data };
+    };
+
+    const result = await allocationService.returnToDraft('alloc-1', adminActor, 'Please revise');
+
+    assert.equal(result.status, ALLOCATION_STATUS.DRAFT);
+    assert.equal(createdApproval.action, 'Returned');
+    assert.equal(createdApproval.comment, 'Please revise');
+  });
+
+  await test('should let the creator return a Rejected allocation to Draft for revision', async () => {
+    const rejectedAllocation = { ...pendingAllocation, status: ALLOCATION_STATUS.REJECTED };
+    allocationRepository.findById = async () => rejectedAllocation;
+    allocationRepository.update = async (id, data) => ({ ...rejectedAllocation, ...data });
+    let createdApproval = null;
+    allocationApprovalRepository.create = async (data) => {
+      createdApproval = data;
+      return { id: 'approval-1', ...data };
+    };
+
+    const creatorActor = { id: draftAllocation.createdBy, role: ROLES.BUDGET_OFFICER };
+    const result = await allocationService.returnToDraft('alloc-1', creatorActor);
+
+    assert.equal(result.status, ALLOCATION_STATUS.DRAFT);
+    assert.equal(createdApproval.action, 'Returned');
+  });
+
+  await test('should reject a Rejected allocation returned by a non-creator Budget Officer', async () => {
+    const rejectedAllocation = { ...pendingAllocation, status: ALLOCATION_STATUS.REJECTED };
+    allocationRepository.findById = async () => rejectedAllocation;
+
+    await assert.rejects(
+      () => allocationService.returnToDraft('alloc-1', officerActor),
+      (err) => err instanceof ForbiddenError && err.statusCode === HTTP_STATUS.FORBIDDEN
+    );
+  });
+
+  await test('should return the recorded approval history for an allocation', async () => {
+    allocationRepository.findById = async () => pendingAllocation;
+    allocationApprovalRepository.findManyByAllocationId = async () => [
+      { id: 'approval-2', action: 'Approved', actor: { id: 'admin-1', fullName: 'Admin' } },
+      { id: 'approval-1', action: 'Submitted', actor: { id: 'officer-1', fullName: 'Officer' } },
+    ];
+
+    const history = await allocationService.getApprovalHistory('alloc-1');
+
+    assert.equal(history.length, 2);
+    assert.equal(history[0].action, 'Approved');
+  });
+
+  await test('should reject approval history for a deleted allocation', async () => {
+    allocationRepository.findById = async () => deletedAllocation;
+
+    await assert.rejects(
+      () => allocationService.getApprovalHistory('alloc-3'),
+      (err) => err instanceof AppError && err.statusCode === HTTP_STATUS.NOT_FOUND
+    );
   });
 
   console.log(`\n✨ Allocation Service Unit Tests Completed: ${passedTests}/${totalTests} Passed!\n`);

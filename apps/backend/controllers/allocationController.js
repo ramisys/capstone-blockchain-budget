@@ -207,6 +207,154 @@ class AllocationController {
       next(error);
     }
   }
+
+  /**
+   * Submit a Draft allocation for approval
+   * @param {import('express').Request} req
+   * @param {import('express').Response} res
+   * @param {import('express').NextFunction} next
+   */
+  async submitForApproval(req, res, next) {
+    try {
+      const { id } = req.params;
+      const allocation = await allocationService.submitForApproval(id, req.user);
+
+      auditLogger.logFromReq(req, {
+        action: AUDIT_ACTIONS.ALLOCATION_SUBMIT,
+        result: AUDIT_RESULTS.SUCCESS,
+        resource: { type: 'Allocation', id, code: allocation.allocationCode },
+      });
+
+      return res
+        .status(HTTP_STATUS.OK)
+        .json(
+          formatSuccessResponse('Allocation submitted for approval', { allocation })
+        );
+    } catch (error) {
+      auditLogger.logFromReq(req, {
+        action: AUDIT_ACTIONS.ALLOCATION_SUBMIT,
+        result: AUDIT_RESULTS.FAILURE,
+        resource: { type: 'Allocation', id: req.params.id },
+        error,
+      });
+      next(error);
+    }
+  }
+
+  /**
+   * Approve a PendingApproval allocation
+   * @param {import('express').Request} req
+   * @param {import('express').Response} res
+   * @param {import('express').NextFunction} next
+   */
+  async approveAllocation(req, res, next) {
+    try {
+      const { id } = req.params;
+      const allocation = await allocationService.approveAllocation(id, req.user);
+
+      auditLogger.logFromReq(req, {
+        action: AUDIT_ACTIONS.ALLOCATION_APPROVE,
+        result: AUDIT_RESULTS.SUCCESS,
+        resource: { type: 'Allocation', id, code: allocation.allocationCode },
+      });
+
+      return res
+        .status(HTTP_STATUS.OK)
+        .json(formatSuccessResponse('Allocation approved successfully', { allocation }));
+    } catch (error) {
+      auditLogger.logFromReq(req, {
+        action: AUDIT_ACTIONS.ALLOCATION_APPROVE,
+        result: AUDIT_RESULTS.FAILURE,
+        resource: { type: 'Allocation', id: req.params.id },
+        error,
+      });
+      next(error);
+    }
+  }
+
+  /**
+   * Reject a PendingApproval allocation
+   * @param {import('express').Request} req
+   * @param {import('express').Response} res
+   * @param {import('express').NextFunction} next
+   */
+  async rejectAllocation(req, res, next) {
+    try {
+      const { id } = req.params;
+      const allocation = await allocationService.rejectAllocation(id, req.user, req.body.reason);
+
+      auditLogger.logFromReq(req, {
+        action: AUDIT_ACTIONS.ALLOCATION_REJECT,
+        result: AUDIT_RESULTS.SUCCESS,
+        resource: { type: 'Allocation', id, code: allocation.allocationCode },
+      });
+
+      return res
+        .status(HTTP_STATUS.OK)
+        .json(formatSuccessResponse('Allocation rejected successfully', { allocation }));
+    } catch (error) {
+      auditLogger.logFromReq(req, {
+        action: AUDIT_ACTIONS.ALLOCATION_REJECT,
+        result: AUDIT_RESULTS.FAILURE,
+        resource: { type: 'Allocation', id: req.params.id },
+        error,
+      });
+      next(error);
+    }
+  }
+
+  /**
+   * Return an allocation to Draft for revision
+   * @param {import('express').Request} req
+   * @param {import('express').Response} res
+   * @param {import('express').NextFunction} next
+   */
+  async returnAllocation(req, res, next) {
+    try {
+      const { id } = req.params;
+      const allocation = await allocationService.returnToDraft(id, req.user, req.body?.comment);
+
+      auditLogger.logFromReq(req, {
+        action: AUDIT_ACTIONS.ALLOCATION_RETURN,
+        result: AUDIT_RESULTS.SUCCESS,
+        resource: { type: 'Allocation', id, code: allocation.allocationCode },
+      });
+
+      return res
+        .status(HTTP_STATUS.OK)
+        .json(
+          formatSuccessResponse('Allocation returned to draft', { allocation })
+        );
+    } catch (error) {
+      auditLogger.logFromReq(req, {
+        action: AUDIT_ACTIONS.ALLOCATION_RETURN,
+        result: AUDIT_RESULTS.FAILURE,
+        resource: { type: 'Allocation', id: req.params.id },
+        error,
+      });
+      next(error);
+    }
+  }
+
+  /**
+   * Get the approval history for an allocation
+   * @param {import('express').Request} req
+   * @param {import('express').Response} res
+   * @param {import('express').NextFunction} next
+   */
+  async getApprovalHistory(req, res, next) {
+    try {
+      const { id } = req.params;
+      const approvals = await allocationService.getApprovalHistory(id);
+      return res
+        .status(HTTP_STATUS.OK)
+        .json(
+          formatSuccessResponse('Approval history retrieved successfully', { approvals })
+        );
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 export const allocationController = new AllocationController();

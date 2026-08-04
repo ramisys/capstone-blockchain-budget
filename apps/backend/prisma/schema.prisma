@@ -33,6 +33,13 @@ enum AllocationStatus {
   Archived
 }
 
+enum AllocationApprovalAction {
+  Submitted
+  Approved
+  Rejected
+  Returned
+}
+
 model FiscalYear {
   id           String           @id @default(uuid())
   code         String           @unique
@@ -134,6 +141,10 @@ model BudgetAllocation {
   allocatedAmount Decimal          @db.Decimal(14, 2)
   description     String?          @db.VarChar(500)
   status          AllocationStatus @default(Draft)
+  submittedAt     DateTime?
+  reviewedAt      DateTime?
+  reviewedBy      String?
+  rejectionReason String?          @db.VarChar(500)
   createdBy       String
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
@@ -144,7 +155,10 @@ model BudgetAllocation {
   fundSource FundSource     @relation(fields: [fundSourceId], references: [id])
   category   BudgetCategory @relation(fields: [categoryId], references: [id])
   program    BudgetProgram  @relation(fields: [programId], references: [id])
-  creator    User           @relation(fields: [createdBy], references: [id])
+  creator    User           @relation("AllocationCreator", fields: [createdBy], references: [id])
+  reviewer   User?          @relation("AllocationReviewer", fields: [reviewedBy], references: [id])
+
+  approvals AllocationApproval[]
 
   @@index([allocationCode])
   @@index([fiscalYearId])
@@ -153,10 +167,28 @@ model BudgetAllocation {
   @@index([categoryId])
   @@index([programId])
   @@index([createdBy])
+  @@index([reviewedBy])
   @@index([status])
   @@index([createdAt])
   @@index([deletedAt])
   @@map("budget_allocations")
+}
+
+model AllocationApproval {
+  id           String                   @id @default(uuid())
+  allocationId String
+  action       AllocationApprovalAction
+  comment      String?                  @db.VarChar(500)
+  actorId      String
+  createdAt    DateTime                 @default(now())
+
+  allocation BudgetAllocation @relation(fields: [allocationId], references: [id], onDelete: Cascade)
+  actor      User             @relation(fields: [actorId], references: [id])
+
+  @@index([allocationId])
+  @@index([actorId])
+  @@index([createdAt])
+  @@map("allocation_approvals")
 }
 
 model User {
@@ -169,8 +201,10 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  allocations BudgetAllocation[]
-  refreshTokens RefreshToken[]
+  createdAllocations  BudgetAllocation[]  @relation("AllocationCreator")
+  reviewedAllocations BudgetAllocation[]  @relation("AllocationReviewer")
+  approvalRecords     AllocationApproval[]
+  refreshTokens       RefreshToken[]
 
   @@map("users")
 }

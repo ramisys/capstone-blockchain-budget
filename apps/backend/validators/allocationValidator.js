@@ -163,3 +163,26 @@ export const allocationIdParamSchema = z.object({
       'Invalid allocation ID'
     ),
 });
+
+/**
+ * Zod schema for rejecting an allocation. A reason is mandatory so the
+ * submitter can revise and resubmit.
+ */
+export const rejectAllocationSchema = z.object({
+  reason: z
+    .string({ required_error: 'Rejection reason is required' })
+    .trim()
+    .min(1, 'Rejection reason is required')
+    .max(500, 'Rejection reason must not exceed 500 characters'),
+});
+
+/**
+ * Zod schema for returning an allocation to draft. The comment is optional.
+ */
+export const returnAllocationSchema = z.object({
+  comment: z
+    .string()
+    .trim()
+    .max(500, 'Comment must not exceed 500 characters')
+    .optional(),
+});

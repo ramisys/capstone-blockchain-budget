@@ -1,4 +1,5 @@
 import { allocationRepository, DUPLICATE_ALLOCATION_MESSAGE } from '../repositories/allocationRepository.js';
+import { allocationApprovalRepository } from '../repositories/allocationApprovalRepository.js';
 import { fiscalYearRepository } from '../repositories/fiscalYearRepository.js';
 import { departmentRepository } from '../repositories/departmentRepository.js';
 import { fundSourceRepository } from '../repositories/fundSourceRepository.js';
@@ -13,12 +14,20 @@ import { ROLES } from '../constants/roles.js';
 import {
   ALLOCATION_STATUS,
   ALLOCATION_CODE_PREFIX,
+  ALLOCATION_APPROVAL_ACTIONS,
   ALLOWED_STATUS_TRANSITIONS,
 } from '../constants/allocationStatus.js';
 import { toNumber, MAX_AMOUNT } from '../utils/amountUtils.js';
 import { logger } from '../utils/logger.js';
 import { auditLogger } from '../utils/auditLogger.js';
 import { AUDIT_ACTIONS } from '../constants/auditActions.js';
+
+/**
+ * Roles allowed to review (approve/reject/return) allocations. Admins and
+ * Treasurers provide the financial oversight layer; Budget Officers create and
+ * submit allocations but never decide on their own requests.
+ */
+const APPROVAL_ROLES = [ROLES.ADMINISTRATOR, ROLES.TREASURER];
 
 class AllocationService {
   /**
@@ -291,6 +300,215 @@ class AllocationService {
       actor,
       resource: { type: 'Allocation', id, code: existing.allocationCode },
       details: { fromStatus: existing.status, toStatus: newStatus },
+    });
+    return this.serialize(updated);
+  }
+
+  /**
+   * Submit a Draft allocation for approval (Draft -> PendingApproval).
+   *
+   * @param {string} id - Allocation ID
+   * @param {Object} actor - Authenticated user submitting the allocation
+   * @returns {Promise<Object>} Updated allocation
+   */
+  async submitForApproval(id, actor) {
+    return this.performTransition(id, ALLOCATION_STATUS.PENDING_APPROVAL, actor, {
+      approvalAction: ALLOCATION_APPROVAL_ACTIONS.SUBMITTED,
+      auditAction: AUDIT_ACTIONS.ALLOCATION_SUBMIT,
+    });
+  }
+
+  /**
+   * Approve a PendingApproval allocation. Only Administrators and Treasurers
+   * may approve, and users cannot approve their own submissions. The budget
+   * ceiling is re-validated before the allocation commits budget.
+   *
+   * @param {string} id - Allocation ID
+   * @param {Object} actor - Authenticated user approving the allocation
+   * @returns {Promise<Object>} Updated allocation
+   */
+  async approveAllocation(id, actor) {
+    const existing = await this.getExistingAllocation(id);
+    this.assertApprover(existing, actor);
+    return this.performTransition(id, ALLOCATION_STATUS.APPROVED, actor, {
+      approvalAction: ALLOCATION_APPROVAL_ACTIONS.APPROVED,
+      auditAction: AUDIT_ACTIONS.ALLOCATION_APPROVE,
+      setReviewFields: true,
+    });
+  }
+
+  /**
+   * Reject a PendingApproval allocation. A reason is required so the submitter
+   * can revise and resubmit. Only Administrators and Treasurers may reject,
+   * and users cannot reject their own submissions.
+   *
+   * @param {string} id - Allocation ID
+   * @param {Object} actor - Authenticated user rejecting the allocation
+   * @param {string} reason - Rejection reason
+   * @returns {Promise<Object>} Updated allocation
+   */
+  async rejectAllocation(id, actor, reason) {
+    if (!reason || !reason.trim()) {
+      throw new ValidationError('A rejection reason is required');
+    }
+    const existing = await this.getExistingAllocation(id);
+    this.assertApprover(existing, actor);
+    return this.performTransition(id, ALLOCATION_STATUS.REJECTED, actor, {
+      approvalAction: ALLOCATION_APPROVAL_ACTIONS.REJECTED,
+      auditAction: AUDIT_ACTIONS.ALLOCATION_REJECT,
+      comment: reason.trim(),
+      setReviewFields: true,
+      rejectionReason: reason.trim(),
+    });
+  }
+
+  /**
+   * Return an allocation to Draft for revision.
+   *
+   * - PendingApproval allocations are returned by an approver.
+   * - Rejected allocations are returned by their creator or an approver so the
+   *   submitter can edit and resubmit.
+   *
+   * @param {string} id - Allocation ID
+   * @param {Object} actor - Authenticated user returning the allocation
+   * @param {string|null} [comment=null] - Optional note explaining the return
+   * @returns {Promise<Object>} Updated allocation
+   */
+  async returnToDraft(id, actor, comment = null) {
+    const existing = await this.getExistingAllocation(id);
+
+    if (existing.status === ALLOCATION_STATUS.REJECTED) {
+      if (!APPROVAL_ROLES.includes(actor.role) && existing.createdBy !== actor.id) {
+        throw new ForbiddenError('Only the creator or an approver can return a rejected allocation to draft');
+      }
+    } else {
+      this.assertApprover(existing, actor);
+    }
+
+    return this.performTransition(id, ALLOCATION_STATUS.DRAFT, actor, {
+      approvalAction: ALLOCATION_APPROVAL_ACTIONS.RETURNED,
+      auditAction: AUDIT_ACTIONS.ALLOCATION_RETURN,
+      comment: comment || null,
+    });
+  }
+
+  /**
+   * Get the recorded approval history for an allocation, newest first.
+   *
+   * @param {string} id - Allocation ID
+   * @returns {Promise<Array>} Approval history records with actor details
+   */
+  async getApprovalHistory(id) {
+    await this.getExistingAllocation(id);
+    return allocationApprovalRepository.findManyByAllocationId(id);
+  }
+
+  /**
+   * Fetch a live (non-deleted) allocation or throw a 404.
+   *
+   * @private
+   * @param {string} id - Allocation ID
+   * @returns {Promise<Object>} Allocation
+   */
+  async getExistingAllocation(id) {
+    const existing = await allocationRepository.findById(id);
+    if (!existing || existing.deletedAt) {
+      throw new AppError('Allocation not found', HTTP_STATUS.NOT_FOUND);
+    }
+    return existing;
+  }
+
+  /**
+   * Enforce approver authorization: role must be in APPROVAL_ROLES and the
+   * actor must not be the allocation's creator.
+   *
+   * @private
+   * @param {Object} existing - Existing allocation
+   * @param {Object} actor - Authenticated user performing the action
+   */
+  assertApprover(existing, actor) {
+    if (!APPROVAL_ROLES.includes(actor.role)) {
+      throw new ForbiddenError('Only Administrators and Treasurers can review allocations');
+    }
+    if (existing.createdBy === actor.id) {
+      throw new ForbiddenError('Users cannot review their own allocations');
+    }
+  }
+
+  /**
+   * Shared workflow transition: validates the state transition, applies the
+   * status plus any workflow bookkeeping fields, records an approval entry in
+   * the history table, and emits audit + event logs.
+   *
+   * @private
+   * @param {string} id - Allocation ID
+   * @param {string} newStatus - Target allocation status
+   * @param {Object} actor - Authenticated user performing the transition
+   * @param {Object} options - Workflow options
+   * @param {string} options.approvalAction - History action to record
+   * @param {string} options.auditAction - Audit action name
+   * @param {string|null} [options.comment=null] - Decision comment
+   * @param {boolean} [options.setReviewFields=false] - Stamp reviewedBy/reviewedAt
+   * @param {string|null} [options.rejectionReason=null] - Reason persisted on the allocation
+   * @returns {Promise<Object>} Updated allocation
+   */
+  async performTransition(id, newStatus, actor, {
+    approvalAction,
+    auditAction,
+    comment = null,
+    setReviewFields = false,
+    rejectionReason = null,
+  }) {
+    const existing = await this.getExistingAllocation(id);
+
+    const allowedTransitions = ALLOWED_STATUS_TRANSITIONS[existing.status] || [];
+    if (!allowedTransitions.includes(newStatus)) {
+      throw new AppError(
+        `Cannot transition allocation from ${existing.status} to ${newStatus}`,
+        HTTP_STATUS.BAD_REQUEST
+      );
+    }
+
+    if (newStatus === ALLOCATION_STATUS.APPROVED) {
+      await this.validateBudgetCeiling(
+        existing.fiscalYearId,
+        toNumber(existing.allocatedAmount)
+      );
+    }
+
+    const dataToUpdate = { status: newStatus };
+    if (setReviewFields) {
+      dataToUpdate.reviewedBy = actor.id;
+      dataToUpdate.reviewedAt = new Date();
+    }
+    if (rejectionReason !== null) {
+      dataToUpdate.rejectionReason = rejectionReason;
+    }
+    if (newStatus === ALLOCATION_STATUS.PENDING_APPROVAL) {
+      dataToUpdate.submittedAt = new Date();
+      dataToUpdate.rejectionReason = null;
+    }
+
+    const updated = await allocationRepository.update(id, dataToUpdate);
+    await allocationApprovalRepository.create({
+      allocationId: id,
+      action: approvalAction,
+      comment: comment || null,
+      actorId: actor.id,
+    });
+
+    logger.logEvent(
+      `Allocation ${existing.allocationCode} status changed from ${existing.status} to ${newStatus} by user ${actor.id}`
+    );
+    auditLogger.logSuccess({
+      action: auditAction,
+      actor,
+      resource: { type: 'Allocation', id, code: existing.allocationCode },
+      details: {
+        fromStatus: existing.status,
+        toStatus: newStatus,
+        ...(comment && { comment }),
+      },
     });
     return this.serialize(updated);
   }
