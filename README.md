@@ -275,7 +275,7 @@ The backend reads the deployed address from `deployments/contracts.json` automat
 - **BudgetProgram** — Programs linking departments & categories (id, code, name, description, departmentId, budgetCategoryId, status)
 - **BudgetAllocation** — Budget allocations (id, allocationCode, fiscalYearId, departmentId, fundSourceId, categoryId, programId, allocatedAmount, description, status, createdBy, submittedAt, reviewedBy, reviewedAt, rejectionReason)
 - **AllocationApproval** — Approval workflow history (id, allocationId, action, comment, actorId, createdAt)
-- **BlockchainRecord** — On-chain ledger anchors (id, allocationId, contentHash, status, txHash, blockNumber, chainId, network, recordType, createdAt, anchoredAt)
+- **BlockchainRecord** — On-chain ledger anchors (id, allocationId, allocationCode, contentHash, txHash, blockNumber, network, status, confirmedAt, supersededAt, createdBy, createdAt, updatedAt)
 
 ### Enums
 - **Role**: Administrator, Treasurer, BudgetOfficer, Auditor

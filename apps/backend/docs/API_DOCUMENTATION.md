@@ -898,8 +898,10 @@ Paginated list of blockchain records with filtering and sorting.
 
 ### 15. Allocation Verification Detail
 
-Returns the verification record for a single allocation without re-running the
-verification computation.
+Recomputes the allocation content hash and checks it both against the stored
+record and (when reachable) the on-chain ledger. Behavior is identical to the
+Verify Allocation endpoint (Section 16) — the verification computation is always
+re-run.
 
 - **URL**: `/blockchain/allocations/:id`
 - **Method**: `GET`
