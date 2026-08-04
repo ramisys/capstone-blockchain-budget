@@ -3087,13 +3087,13 @@ Update this section as development progresses.
 
 | Phase     | Status                                      |
 | --------- | ------------------------------------------- |
-| Phase 1   | ☐ Not Started / ◐ In Progress / ☑ Completed |
-| Phase 2   | ☐ Not Started / ◐ In Progress / ☑ Completed |
-| Phase 3   | ☐ Not Started / ◐ In Progress / ☑ Completed |
-| Phase 4.1 | ☐ Not Started / ◐ In Progress / ☑ Completed |
-| Phase 4.2 | ☐ Not Started / ◐ In Progress / ☑ Completed |
-| Phase 4.3 | ☐ Not Started / ◐ In Progress / ☑ Completed |
-| Phase 4.4 | ☐ Not Started / ◐ In Progress / ☑ Completed |
+| Phase 1   | ☑ Completed                                 |
+| Phase 2   | ☑ Completed                                 |
+| Phase 3   | ☑ Completed                                 |
+| Phase 4.1 | ☑ Completed                                 |
+| Phase 4.2 | ☑ Completed                                 |
+| Phase 4.3 | ☑ Completed                                 |
+| Phase 4.4 | ☑ Completed                                 |
 | Phase 4.5 | ☐ Not Started / ◐ In Progress / ☑ Completed |
 | Phase 4.6 | ☐ Not Started / ◐ In Progress / ☑ Completed |
 | Phase 4.7 | ☐ Not Started / ◐ In Progress / ☑ Completed |

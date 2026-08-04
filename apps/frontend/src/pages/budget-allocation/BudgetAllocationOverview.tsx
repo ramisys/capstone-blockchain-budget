@@ -321,16 +321,21 @@ export function BudgetAllocationOverview() {
               </div>
 
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div className="flex items-center gap-3">
-                  <Clock className="w-5 h-5 text-slate-400 shrink-0" />
+                <Link
+                  to="/budget-allocation/blockchain"
+                  className="flex items-center gap-3 group"
+                >
+                  <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0" />
                   <div>
-                    <span className="text-sm font-semibold text-slate-900">Blockchain Audit Ledger</span>
+                    <span className="text-sm font-semibold text-slate-900 group-hover:text-indigo-700 transition-colors">
+                      Blockchain Audit Ledger
+                    </span>
                     <p className="text-xs text-slate-500">Immutable transaction logs and budget cryptographic verification</p>
                   </div>
-                </div>
-                <span className="inline-flex items-center px-3 py-1 text-xs font-semibold bg-slate-100 text-slate-600 rounded-full border border-slate-200/80 w-fit">
-                  Planned Phase
-                </span>
+                </Link>
+                <Badge variant="default" className="px-3 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200/80 font-medium w-fit">
+                  Completed
+                </Badge>
               </div>
             </div>
           </Card>

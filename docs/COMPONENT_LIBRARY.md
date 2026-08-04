@@ -3049,6 +3049,8 @@ Statuses
 
 # Blockchain Components
 
+> **Implemented (Phase 4.4):** `BlockchainStatusBadge`, `BlockchainVerificationCard` (+ `BlockchainVerificationContent`), and `BlockchainRecordTable` live in `apps/frontend/src/components/blockchain/`. State/query glue: `src/hooks/useBlockchain.ts`, `src/services/blockchainService.ts`, `src/constants/blockchainStatus.ts`, `src/types/blockchain.ts`. The Blockchain Ledger page is `src/pages/blockchain/BlockchainLedger.tsx`.
+
 ---
 
 ## BlockchainVerificationBadge

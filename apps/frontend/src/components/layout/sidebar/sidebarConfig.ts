@@ -13,6 +13,7 @@ import {
   Receipt,
   Users,
   UserCircle,
+  Link2,
 } from 'lucide-react';
 
 export const navigationConfig = [
@@ -82,6 +83,11 @@ export const navigationConfig = [
             path: '/budget-allocation/allocations',
             legacyPaths: ['/budget-allocations'],
             icon: Wallet,
+          },
+          {
+            label: 'Blockchain Ledger',
+            path: '/budget-allocation/blockchain',
+            icon: Link2,
           },
           {
             label: 'Approval Workflow',

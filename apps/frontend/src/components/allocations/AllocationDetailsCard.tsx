@@ -2,8 +2,9 @@ import React from 'react';
 import { Card } from '../ui/Card';
 import { Skeleton } from '../ui/Skeleton';
 import { AllocationStatusBadge } from './StatusBadge';
+import { BlockchainVerificationCard } from '../blockchain/BlockchainVerificationCard';
 import { formatCurrency, formatDateTime } from '../../utils/format';
-import { FileText, Landmark, ShieldCheck, Box, Lock } from 'lucide-react';
+import { FileText, Landmark, ShieldCheck } from 'lucide-react';
 import type { Allocation } from '../../types/allocation';
 
 const SectionHeader: React.FC<{ icon: React.ReactNode; title: string; subtitle?: string }> = ({
@@ -38,7 +39,7 @@ interface AllocationDetailsCardProps {
   loading?: boolean;
 }/**
  * Detailed view of a single allocation, organized into General, Budget, and
- * Audit information sections plus a blockchain placeholder card.
+ * Audit information sections plus an on-chain verification card.
  */
 const AllocationDetailsCard: React.FC<AllocationDetailsCardProps> = ({ allocation, loading = false }) => {
   if (loading || !allocation) {
@@ -168,28 +169,11 @@ const AllocationDetailsCard: React.FC<AllocationDetailsCardProps> = ({ allocatio
         </dl>
       </Card>
 
-      {/* BLOCKCHAIN PLACEHOLDER */}
-      <Card className="p-6 sm:p-7 border-dashed border-slate-300 bg-slate-50/50">
-        <div className="flex items-start gap-4">
-          <div className="w-11 h-11 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-400 shrink-0">
-            <Box className="w-5 h-5" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h4 className="text-sm font-bold text-slate-800">Blockchain Verification</h4>
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-semibold rounded-full bg-slate-200 text-slate-600">
-                <Lock className="w-3 h-3" />
-                Phase 4.4
-              </span>
-            </div>
-            <p className="text-sm text-slate-500 mt-1 max-w-xl">
-              Immutable on-chain verification for this allocation will be available in a future phase.
-              Audit trails and transaction records will be anchored to the blockchain for tamper-proof
-              accountability.
-            </p>
-          </div>
-        </div>
-      </Card>
+      {/* BLOCKCHAIN VERIFICATION */}
+      <BlockchainVerificationCard
+        allocationId={allocation.id}
+        allocationCode={allocation.allocationCode}
+      />
     </div>
   );
 };

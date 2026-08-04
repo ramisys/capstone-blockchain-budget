@@ -266,9 +266,10 @@ npm run build:frontend
 | Phase 1 | ✅ Completed | Authentication & Authorization (JWT, RBAC, protected routes) |
 | Phase 2 | ✅ Completed | User Management (CRUD, role assignment, status management) |
 | Phase 3 | ✅ Completed | Dashboard & Analytics (KPI cards, charts, activities, notifications) |
-| Phase 4 | 🟢 In Progress | Budget Allocation Management (CRUD, approval workflow, categories) |
+| Phase 4 | ✅ Completed | Budget Allocation Management (CRUD, approval workflow, master data) |
+| Phase 4.4 | ✅ Completed | Blockchain Integration (ledger anchors, verification, transaction history) |
 | Phase 5 | ⏳ Planned | Expense Monitoring & Tracking |
-| Phase 6 | ⏳ Planned | Audit Logs & Blockchain Integration |
+| Phase 6 | 🟢 In Progress | Audit Logs & Blockchain Integration |
 | Phase 7 | ⏳ Planned | Reports & Analytics Dashboard |
 | Phase 8 | ⏳ Planned | System Optimization & Performance |
 | Phase 9 | ⏳ Planned | Security Enhancements |
@@ -276,7 +277,7 @@ npm run build:frontend
 | Phase 11 | ⏳ Planned | Documentation & Training |
 | Phase 12 | ⏳ Planned | Finalization & Defense Preparation |
 
-## Current Focus (Phase 4)
+## Current Focus (Phase 4.4 / 6)
 
 The team is currently implementing:
 - Budget allocation CRUD operations
@@ -287,6 +288,12 @@ The team is currently implementing:
 - Master data management (Fiscal Years, Departments, Fund Sources, Categories, Programs)
 - Multi-year budget planning support
 - Budget utilization tracking and statistics
+- **Blockchain ledger integration**
+  - SHA-256 content hashing of allocation records on create/approve
+  - EVM smart contract (`BudgetLedger`) anchors with status monitoring
+  - Verification & integrity checks (off-chain hash vs. on-chain anchor)
+  - Blockchain Ledger page (status summary, transaction history, search/filter/sort/pagination)
+  - Verify / Retry actions with role-based access (Auditor = read-only)
 
 ## Development Roadmap
 
@@ -314,13 +321,22 @@ The team is currently implementing:
 - Backend API integration
 - Responsive design
 
-### 🟢 Phase 4 – Budget Allocation Management (In Progress)
+### ✅ Phase 4 – Budget Allocation Management (Completed)
 - Budget allocation CRUD operations
 - Allocation approval workflow
 - Master data CRUD (Fiscal Years, Departments, Fund Sources, Categories, Programs)
 - Multi-year budget planning
 - Budget utilization tracking
 - Statistics dashboard with filters
+
+### ✅ Phase 4.4 – Blockchain Integration (Completed)
+- `BudgetLedger` EVM smart contract (Hardhat, Solidity, ethers v6)
+- SHA-256 content hashing for allocation records (anchored on create/approve)
+- Backend ledger service with fail-soft anchoring (Pending/Confirmed/Failed)
+- Blockchain repository (`BlockchainRecord` model + migration)
+- Ledger status, transaction history, allocation verification, and retry endpoints
+- Frontend Blockchain Ledger page + per-allocation verification card
+- Role-based access: Auditor read-only; Admin/Treasurer/BudgetOfficer may retry
 
 ### ⏳ Phase 5 – Expense Monitoring & Tracking
 - Expense submission and approval workflow
@@ -331,9 +347,9 @@ The team is currently implementing:
 - Budget utilization tracking
 - Expense history and reporting
 
-### ⏳ Phase 6 – Audit Logs & Blockchain Integration
+### 🟢 Phase 6 – Audit Logs & Blockchain Integration (In Progress)
 - Immutable audit trail for all financial transactions
-- Blockchain-based transaction verification
+- ✅ Blockchain-based transaction verification (Phase 4.4)
 - Smart contract integration for budget execution
 - Access logs and user activity tracking
 - Compliance reporting tools

@@ -561,7 +561,7 @@ export function Dashboard() {
                 <small className="text-muted">Last Sync: {blockchainStatus.lastSync ? new Date(blockchainStatus.lastSync).toLocaleString() : 'Never'}</small>
               </div>
               <div className="mb-2">
-                <small className="text-muted">Smart Contract: {blockchainStatus.smartContract}</small>
+                <small className="text-muted">Smart Contract: {blockchainStatus.contractAddress}</small>
               </div>
             </>
           )}

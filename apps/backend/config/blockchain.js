@@ -14,7 +14,6 @@ const DEPLOYMENT_FILE = path.join(
   path.dirname(fileURLToPath(import.meta.url)),
   '..',
   '..',
-  '..',
   'contracts',
   'deployments',
   'contracts.json'

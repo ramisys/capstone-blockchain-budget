@@ -18,6 +18,7 @@ import { BudgetProgramManagement } from '../pages/budget-programs/BudgetProgramM
 import { BudgetAllocationOverview } from '../pages/budget-allocation/BudgetAllocationOverview';
 import { AllocationDashboard } from '../pages/budget-allocation/AllocationDashboard';
 import { AllocationList } from '../pages/budget-allocation/AllocationList';
+import { BlockchainLedger } from '../pages/blockchain/BlockchainLedger';
 import { ROLES } from '../constants/roles';
 
 export function AppRoutes() {
@@ -88,6 +89,14 @@ export function AppRoutes() {
         <Route path="/budget-allocation/allocations/new" element={<AllocationList />} />
         <Route path="/budget-allocation/allocations/:id/edit" element={<AllocationList />} />
         <Route path="/budget-allocation/allocations/:id" element={<AllocationList />} />
+        <Route
+          path="/budget-allocation/blockchain"
+          element={
+            <ProtectedRoute roles={[ROLES.ADMINISTRATOR, ROLES.TREASURER, ROLES.BUDGET_OFFICER, ROLES.AUDITOR]}>
+              <BlockchainLedger />
+            </ProtectedRoute>
+          }
+        />
         <Route
           path="/budget-allocation/approval-workflow"
           element={
