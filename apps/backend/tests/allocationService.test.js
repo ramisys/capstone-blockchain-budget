@@ -679,6 +679,29 @@ async function runAllocationServiceTests() {
     assert.equal(result.allocationCode, 'BA-2026-002');
   });
 
+  await test('should include fiscalYearId in the create data', async () => {
+    let capturedCreateArgs = null;
+    prisma.$transaction = async (fn) =>
+      fn({
+        budgetAllocation: {
+          findFirst: async () => null,
+          findMany: async () => [],
+          create: async (args) => {
+            capturedCreateArgs = args;
+            return { id: 'new-1', ...args.data };
+          },
+        },
+      });
+
+    const result = await allocationRepository.createWithSequentialCode('BA-2026', 'fy-2026', {
+      departmentId: 'dept-1',
+      allocatedAmount: 100,
+    });
+
+    assert.equal(result.allocationCode, 'BA-2026-001');
+    assert.equal(capturedCreateArgs.data.fiscalYearId, 'fy-2026');
+  });
+
   console.log('\n10. Approval Workflow Tests:');
 
   const pendingAllocation = {

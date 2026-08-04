@@ -247,7 +247,7 @@ class AllocationRepository {
         const allocationCode = `${prefix}-${String(maxSequence + 1).padStart(3, '0')}`;
 
         return tx.budgetAllocation.create({
-          data: { ...data, allocationCode },
+          data: { ...data, allocationCode, fiscalYearId },
           include: allocationInclude,
         });
       },
