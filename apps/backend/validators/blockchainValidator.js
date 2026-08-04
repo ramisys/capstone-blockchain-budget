@@ -14,7 +14,8 @@ export const blockchainQuerySchema = z.object({
     .string()
     .regex(/^\d+$/, 'Limit must be a positive integer')
     .optional()
-    .transform((val) => (val ? parseInt(val, 10) : 10)),
+    .transform((val) => (val ? parseInt(val, 10) : 10))
+    .pipe(z.number().int().positive().max(100, 'Limit cannot exceed 100')),
   search: z.string().optional(),
   allocationId: z.string().optional(),
   status: z
