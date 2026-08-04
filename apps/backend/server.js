@@ -1,6 +1,7 @@
 import app from './app.js';
 import { config } from './config/env.js';
 import prisma from './models/prismaClient.js';
+import { blockchainScheduler } from './services/blockchainScheduler.js';
 
 const PORT = config.port;
 
@@ -9,11 +10,15 @@ const server = app.listen(PORT, () => {
   console.log(`🚀 Authentication Backend Server running on port ${PORT}`);
   console.log(`🔧 Environment: ${config.nodeEnv}`);
   console.log(`=======================================================`);
+
+  // Start background reconciliation for pending blockchain records
+  blockchainScheduler.start();
 });
 
 // Graceful Shutdown handling
 const handleShutdown = async (signal) => {
   console.log(`Received ${signal}. Shutting down server gracefully...`);
+  blockchainScheduler.stop();
   server.close(async () => {
     console.log('HTTP Server closed.');
     await prisma.$disconnect();

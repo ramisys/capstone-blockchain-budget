@@ -151,6 +151,22 @@ class BlockchainRepository {
   }
 
   /**
+   * Find all live (non-superseded) unconfirmed records (Pending or Failed status).
+   *
+   * @returns {Promise<Array>} List of unconfirmed records
+   */
+  async findUnconfirmed() {
+    return prisma.blockchainRecord.findMany({
+      where: {
+        supersededAt: null,
+        status: { in: ['Pending', 'Failed'] },
+      },
+      orderBy: { createdAt: 'asc' },
+      include: { allocation: allocationSelect },
+    });
+  }
+
+  /**
    * Find the most recently created live (non-superseded) record (used for
    * lastSync tracking).
    *
