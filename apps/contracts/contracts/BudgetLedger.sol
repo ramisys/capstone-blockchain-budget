@@ -32,7 +32,6 @@ contract BudgetLedger {
     event Recorded(bytes32 indexed contentHash, address indexed anchoredBy, uint256 blockNumber, uint256 timestamp);
 
     error HashAlreadyRecorded(bytes32 contentHash);
-    error HashNotRecorded(bytes32 contentHash);
     error NotOwner();
 
     constructor() {
