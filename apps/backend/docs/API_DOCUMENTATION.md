@@ -779,29 +779,46 @@ Returns the chronological approval trail for an allocation, newest first, with a
 
 ---
 
-## Phase 4.4 - Blockchain Ledger Endpoints
+# API Documentation - Phase 4.4: Blockchain Ledger Integration
+
+This section documents the Blockchain Ledger endpoints. All endpoints are mounted under the `/api` base URL (`/api/blockchain/...`) and require authentication.
 
 The blockchain ledger anchors every approved allocation with an immutable SHA-256 content
 hash recorded on the `BudgetLedger` EVM smart contract. Draft records are never written
-on-chain. Each write is mirrored
-in the `BlockchainRecord` table so the API remains fully functional even when
-the ledger node is unreachable (records stay `Pending` and can be re-anchored
-later via the retry endpoint).
+on-chain. Each write is mirrored in the `BlockchainRecord` table so the API remains fully
+functional even when the ledger node is unreachable (records stay `Pending` and can be
+re-anchored later via the retry endpoint).
 
-### Blockchain Record Object
+## Blockchain Record Object
 
 | Field | Type | Description |
 |-------|------|-------------|
 | `id` | String (uuid) | Record ID |
-| `allocationId` | String (uuid) | Related allocation |
+| `allocationId` | String (uuid) | Related allocation ID |
 | `allocationCode` | String | Allocation code, e.g. `BA-2026-0001` |
 | `contentHash` | String | Hex-encoded SHA-256 digest of the allocation content |
 | `txHash` | String \| null | Ethereum transaction hash, null until confirmed |
+| `txExplorerUrl` | String \| null | Direct block explorer URL for transaction verification, null if unconfigured/unconfirmed |
 | `blockNumber` | Number \| null | Block number the record was anchored in |
 | `network` | String | Ledger network name, e.g. `hardhat` |
 | `status` | String | `Pending` \| `Confirmed` \| `Failed` |
 | `confirmedAt` | ISO date \| null | When the on-chain write was confirmed |
-| `createdBy` | String (uuid) | User who triggered the anchoring |
+| `createdBy` | String (uuid) | User ID who triggered the anchoring |
+| `createdAt` | ISO date | Record creation timestamp |
+| `updatedAt` | ISO date | Record update timestamp |
+| `allocation` | Object (optional) | Nested allocation summary object when populated |
+
+## Role-Based Access Control
+
+| Endpoint | Administrator | BudgetOfficer | Treasurer | Auditor |
+|----------|:---:|:---:|:---:|:---:|
+| GET `/blockchain/status` | ✓ | ✓ | ✓ | ✓ |
+| GET `/blockchain/transactions` | ✓ | ✓ | ✓ | ✓ |
+| GET `/blockchain/allocations/:id` | ✓ | ✓ | ✓ | ✓ |
+| POST `/blockchain/allocations/:id/verify` | ✓ | ✓ | ✓ | ✓ |
+| POST `/blockchain/allocations/:id/retry` | ✓ | ✓ | ✓ | ✗ |
+
+---
 
 ### 13. Blockchain Ledger Status
 
@@ -827,6 +844,7 @@ Returns provider connectivity plus record statistics for the status dashboard.
       "latestBlock": 120,
       "lastSync": "2026-08-04T09:31:00.000Z",
       "contractAddress": "0x5FbDB2315678afecb367f032d93F642f64180aa3",
+      "contractExplorerUrl": "http://localhost:8545/address/0x5FbDB2315678afecb367f032d93F642f64180aa3",
       "onChainCount": 4,
       "message": "Blockchain ledger is connected.",
       "recordCount": 4,
@@ -837,6 +855,12 @@ Returns provider connectivity plus record statistics for the status dashboard.
   }
 }
 ```
+
+#### Error Responses
+
+- **401 Unauthorized**: Missing or invalid authentication token
+
+---
 
 ### 14. Transaction History
 
@@ -858,7 +882,7 @@ Paginated list of blockchain records with filtering and sorting.
 | `allocationId` | String | No | Filter to a single allocation |
 | `dateFrom` | String (date) | No | Include records created on/after this date |
 | `dateTo` | String (date) | No | Include records created on/before this date |
-| `sortBy` | String | No | `newest` \| `oldest` \| `status` \| `allocationCode` (default `newest`) |
+| `sortBy` | String | No | `newest` \| `oldest` \| `status` \| `allocationCode` \| `createdAt` (default `newest`) |
 | `sortOrder` | String | No | `asc` \| `desc` (default `asc`) |
 
 #### Success Response (200 OK)
@@ -875,6 +899,7 @@ Paginated list of blockchain records with filtering and sorting.
         "allocationCode": "BA-2026-0001",
         "contentHash": "02a4cc19fdf22ddbbe1fc46da8cd2e3bfbffc687283df49f0707b61fa9cb48d2",
         "txHash": "0x9b7f0f1d0a3e2c5b9a1f0e8d7c6b5a4f3e2d1c0b9a8f7e6d5c4b3a2f1e0d9c8",
+        "txExplorerUrl": "http://localhost:8545/tx/0x9b7f0f1d0a3e2c5b9a1f0e8d7c6b5a4f3e2d1c0b9a8f7e6d5c4b3a2f1e0d9c8",
         "blockNumber": 96,
         "network": "hardhat",
         "status": "Confirmed",
@@ -895,6 +920,13 @@ Paginated list of blockchain records with filtering and sorting.
   }
 }
 ```
+
+#### Error Responses
+
+- **400 Bad Request**: Invalid query parameters (e.g. `limit > 100`, invalid status enum, malformed date string)
+- **401 Unauthorized**: Missing or invalid authentication token
+
+---
 
 ### 15. Allocation Verification Detail
 
@@ -917,12 +949,15 @@ re-run.
   "data": {
     "verified": true,
     "integrityOk": true,
-    "onChain": { "exists": true, "anchoredBy": "0x...", "anchoredAt": 1700000000, "blockNumber": 96 },
+    "onChain": { "exists": true, "anchoredBy": "0x5FbDB2315678afecb367f032d93F642f64180aa3", "anchoredAt": 1700000000, "blockNumber": 96 },
+    "inconclusive": false,
     "record": {
       "id": "c1f7b8e0-0000-0000-0000-000000000012",
+      "allocationId": "c1f7b8e0-0000-0000-0000-000000000006",
       "allocationCode": "BA-2026-0001",
       "contentHash": "02a4cc19fdf22ddbbe1fc46da8cd2e3bfbffc687283df49f0707b61fa9cb48d2",
       "txHash": "0x9b7f0f1d0a3e2c5b9a1f0e8d7c6b5a4f3e2d1c0b9a8f7e6d5c4b3a2f1e0d9c8",
+      "txExplorerUrl": "http://localhost:8545/tx/0x9b7f0f1d0a3e2c5b9a1f0e8d7c6b5a4f3e2d1c0b9a8f7e6d5c4b3a2f1e0d9c8",
       "blockNumber": 96,
       "network": "hardhat",
       "status": "Confirmed",
@@ -932,6 +967,14 @@ re-run.
   }
 }
 ```
+
+#### Error Responses
+
+- **400 Bad Request**: Invalid allocation ID format
+- **401 Unauthorized**: Missing or invalid authentication token
+- **404 Not Found**: Allocation does not exist or has been soft-deleted
+
+---
 
 ### 16. Verify Allocation
 
@@ -947,11 +990,39 @@ explaining the outcome, including tampering detection.
 
 #### Success Response (200 OK)
 
-Response shape matches the Allocation Verification Detail endpoint (Section 15).
+```json
+{
+  "success": true,
+  "message": "Allocation verified against the blockchain ledger",
+  "data": {
+    "verified": true,
+    "integrityOk": true,
+    "onChain": { "exists": true, "anchoredBy": "0x5FbDB2315678afecb367f032d93F642f64180aa3", "anchoredAt": 1700000000, "blockNumber": 96 },
+    "inconclusive": false,
+    "record": {
+      "id": "c1f7b8e0-0000-0000-0000-000000000012",
+      "allocationId": "c1f7b8e0-0000-0000-0000-000000000006",
+      "allocationCode": "BA-2026-0001",
+      "contentHash": "02a4cc19fdf22ddbbe1fc46da8cd2e3bfbffc687283df49f0707b61fa9cb48d2",
+      "txHash": "0x9b7f0f1d0a3e2c5b9a1f0e8d7c6b5a4f3e2d1c0b9a8f7e6d5c4b3a2f1e0d9c8",
+      "txExplorerUrl": "http://localhost:8545/tx/0x9b7f0f1d0a3e2c5b9a1f0e8d7c6b5a4f3e2d1c0b9a8f7e6d5c4b3a2f1e0d9c8",
+      "blockNumber": 96,
+      "network": "hardhat",
+      "status": "Confirmed",
+      "confirmedAt": "2026-08-04T09:31:00.000Z"
+    },
+    "message": "Allocation verified on the blockchain ledger."
+  }
+}
+```
 
 #### Error Responses
 
-- **404 Not Found**: allocation does not exist or has been soft-deleted
+- **400 Bad Request**: Invalid allocation ID format
+- **401 Unauthorized**: Missing or invalid authentication token
+- **404 Not Found**: Allocation does not exist or has been soft-deleted
+
+---
 
 ### 17. Retry Blockchain Record
 
@@ -974,9 +1045,11 @@ record exists yet, one is created first.
   "data": {
     "record": {
       "id": "c1f7b8e0-0000-0000-0000-000000000012",
+      "allocationId": "c1f7b8e0-0000-0000-0000-000000000006",
       "allocationCode": "BA-2026-0001",
       "contentHash": "02a4cc19fdf22ddbbe1fc46da8cd2e3bfbffc687283df49f0707b61fa9cb48d2",
       "txHash": "0x9b7f0f1d0a3e2c5b9a1f0e8d7c6b5a4f3e2d1c0b9a8f7e6d5c4b3a2f1e0d9c8",
+      "txExplorerUrl": "http://localhost:8545/tx/0x9b7f0f1d0a3e2c5b9a1f0e8d7c6b5a4f3e2d1c0b9a8f7e6d5c4b3a2f1e0d9c8",
       "blockNumber": 101,
       "network": "hardhat",
       "status": "Confirmed",
@@ -988,6 +1061,10 @@ record exists yet, one is created first.
 
 #### Error Responses
 
-- **404 Not Found**: allocation does not exist or has been soft-deleted
-- **503 Service Unavailable**: ledger not configured or the on-chain write failed
+- **400 Bad Request**: Invalid allocation ID format
+- **401 Unauthorized**: Missing or invalid authentication token
+- **403 Forbidden**: User does not have permission to retry (e.g. Auditor)
+- **404 Not Found**: Allocation does not exist or has been soft-deleted
+- **503 Service Unavailable**: Ledger not configured or the on-chain write failed
+
 
