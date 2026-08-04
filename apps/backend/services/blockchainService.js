@@ -13,7 +13,11 @@ import { toNumber } from '../utils/amountUtils.js';
 
 class BlockchainService {
   /**
-   * Anchor an allocation on the ledger and mirror it in the database.
+   * Anchor an allocation on the ledger and mirror it in the database as the
+   * allocation's current record. Any previous live record for the allocation
+   * is superseded (kept on-chain and in the DB for audit, but excluded from
+   * history and status counts), so repeated approvals after a return-to-draft
+   * never accumulate stale duplicate records.
    *
    * Fail-soft by design: when the ledger is unconfigured or the node is
    * unreachable, a `Pending`/`Failed` record is persisted and the allocation
@@ -59,7 +63,7 @@ class BlockchainService {
       }
     }
 
-    const record = await blockchainRepository.create({
+    const record = await blockchainRepository.createCurrent({
       allocationId: allocation.id,
       allocationCode: allocation.allocationCode,
       contentHash,

@@ -41,7 +41,7 @@ const repositoryMethods = {
   },
   blockchainRepository: {
     findByContentHash: blockchainRepository.findByContentHash,
-    create: blockchainRepository.create,
+    createCurrent: blockchainRepository.createCurrent,
   },
   blockchainService: {
     recordAllocation: blockchainService.recordAllocation,
@@ -89,7 +89,7 @@ function resetMocks() {
  */
 function mockDefaultBlockchain() {
   blockchainRepository.findByContentHash = async () => null;
-  blockchainRepository.create = async (data) => ({ ...data, id: 'record-mock' });
+  blockchainRepository.createCurrent = async (data) => ({ ...data, id: 'record-mock' });
   blockchainService.recordAllocation = async (allocation) => ({
     id: 'record-mock',
     allocationId: allocation.id,

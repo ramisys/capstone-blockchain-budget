@@ -26,7 +26,7 @@ const SAMPLE_ALLOCATION = {
 };
 
 const originalMethods = {
-  repoCreate: blockchainRepository.create,
+  repoCreateCurrent: blockchainRepository.createCurrent,
   repoFindByHash: blockchainRepository.findByContentHash,
   repoFindByAllocation: blockchainRepository.findByAllocationId,
   repoFindMany: blockchainRepository.findMany,
@@ -44,7 +44,7 @@ const originalMethods = {
 };
 
 function resetMocks() {
-  blockchainRepository.create = originalMethods.repoCreate;
+  blockchainRepository.createCurrent = originalMethods.repoCreateCurrent;
   blockchainRepository.findByContentHash = originalMethods.repoFindByHash;
   blockchainRepository.findByAllocationId = originalMethods.repoFindByAllocation;
   blockchainRepository.findMany = originalMethods.repoFindMany;
@@ -72,6 +72,7 @@ function record(overrides = {}) {
     network: 'hardhat',
     status: BLOCKCHAIN_RECORD_STATUS.CONFIRMED,
     confirmedAt: new Date('2026-01-16T09:31:00.000Z'),
+    supersededAt: null,
     createdBy: 'user-1',
     createdAt: new Date('2026-01-16T09:31:00.000Z'),
     updatedAt: new Date('2026-01-16T09:31:00.000Z'),
@@ -114,10 +115,11 @@ async function runBlockchainServiceTests() {
   await test('should record on-chain and persist a Confirmed record', async () => {
     blockchainProvider.isConfigured = () => true;
     blockchainProvider.hasSigner = () => true;
+    blockchainProvider.verify = async () => ({ exists: false, anchoredBy: '', anchoredAt: 0, blockNumber: 0 });
     blockchainProvider.record = async () => ({ txHash: '0xtx9', blockNumber: 100 });
     blockchainRepository.findByContentHash = async () => null;
     let created;
-    blockchainRepository.create = async (data) => {
+    blockchainRepository.createCurrent = async (data) => {
       created = data;
       return record({ ...data, id: 'record-new' });
     };
@@ -138,7 +140,7 @@ async function runBlockchainServiceTests() {
     blockchainProvider.isConfigured = () => false;
     blockchainRepository.findByContentHash = async () => null;
     let created;
-    blockchainRepository.create = async (data) => {
+    blockchainRepository.createCurrent = async (data) => {
       created = data;
       return record({ ...data, id: 'record-pending' });
     };
@@ -154,12 +156,13 @@ async function runBlockchainServiceTests() {
   await test('should fail soft and persist a Failed record when the node rejects the write', async () => {
     blockchainProvider.isConfigured = () => true;
     blockchainProvider.hasSigner = () => true;
+    blockchainProvider.verify = async () => ({ exists: false, anchoredBy: '', anchoredAt: 0, blockNumber: 0 });
     blockchainProvider.record = async () => {
       throw new Error('node unreachable');
     };
     blockchainRepository.findByContentHash = async () => null;
     let created;
-    blockchainRepository.create = async (data) => {
+    blockchainRepository.createCurrent = async (data) => {
       created = data;
       return record({ ...data, id: 'record-failed' });
     };
@@ -186,7 +189,7 @@ async function runBlockchainServiceTests() {
     };
     blockchainRepository.findByContentHash = async () => null;
     let created;
-    blockchainRepository.create = async (data) => {
+    blockchainRepository.createCurrent = async (data) => {
       created = data;
       return record({ ...data, id: 'record-recovered' });
     };
@@ -200,6 +203,31 @@ async function runBlockchainServiceTests() {
     assert.equal(created.confirmedAt.toISOString(), new Date(1700000000 * 1000).toISOString());
     assert.equal(result.status, BLOCKCHAIN_RECORD_STATUS.CONFIRMED);
     assert.equal(result.blockNumber, 88);
+  });
+
+  await test('should supersede the previous live record when a new state is anchored', async () => {
+    blockchainProvider.isConfigured = () => false;
+    blockchainRepository.findByContentHash = async () => null;
+    const previous = record({ id: 'record-h1', txHash: '0xh1', blockNumber: 10 });
+    let superseded = null;
+    blockchainRepository.createCurrent = async (data) => {
+      superseded = previous;
+      previous.supersededAt = new Date();
+      return record({
+        ...data,
+        id: 'record-h2',
+        status: BLOCKCHAIN_RECORD_STATUS.PENDING,
+        txHash: null,
+        blockNumber: null,
+        confirmedAt: null,
+      });
+    };
+
+    const result = await blockchainService.recordAllocation(SAMPLE_ALLOCATION, 'user-1');
+
+    assert.equal(result.id, 'record-h2');
+    assert.equal(result.status, BLOCKCHAIN_RECORD_STATUS.PENDING);
+    assert.ok(superseded.supersededAt instanceof Date, 'previous record should be superseded');
   });
 
   console.log('\n2. verifyAllocation Tests:');
@@ -241,6 +269,13 @@ async function runBlockchainServiceTests() {
       allocatedAmount: 99999,
     });
     blockchainRepository.findByAllocationId = async () => record();
+    blockchainProvider.isConfigured = () => true;
+    blockchainProvider.verify = async () => ({
+      exists: true,
+      anchoredBy: '0xowner',
+      anchoredAt: 1700000000,
+      blockNumber: 42,
+    });
 
     const result = await blockchainService.verifyAllocation('alloc-1', 'user-1');
 
@@ -352,6 +387,7 @@ async function runBlockchainServiceTests() {
     blockchainRepository.findByAllocationId = async () => record({ status: BLOCKCHAIN_RECORD_STATUS.PENDING, txHash: null, blockNumber: null });
     blockchainProvider.isConfigured = () => true;
     blockchainProvider.hasSigner = () => true;
+    blockchainProvider.verify = async () => ({ exists: false, anchoredBy: '', anchoredAt: 0, blockNumber: 0 });
     blockchainProvider.record = async () => ({ txHash: '0xretry', blockNumber: 77 });
     let updatedData;
     blockchainRepository.update = async (id, data) => {
@@ -404,6 +440,7 @@ async function runBlockchainServiceTests() {
     blockchainRepository.findByAllocationId = async () => record({ status: BLOCKCHAIN_RECORD_STATUS.PENDING, txHash: null, blockNumber: null });
     blockchainProvider.isConfigured = () => true;
     blockchainProvider.hasSigner = () => true;
+    blockchainProvider.verify = async () => ({ exists: false, anchoredBy: '', anchoredAt: 0, blockNumber: 0 });
     blockchainProvider.record = async () => {
       throw new Error('revert');
     };

@@ -28,6 +28,7 @@ export interface BlockchainRecord {
   network: string;
   status: BlockchainRecordStatus;
   confirmedAt: string | null;
+  supersededAt?: string | null;
   createdBy: string;
   createdAt: string;
   updatedAt: string;

@@ -17,15 +17,29 @@ const allocationSelect = {
 
 class BlockchainRepository {
   /**
-   * Create a blockchain record mirroring an anchored allocation.
+   * Create a blockchain record as the allocation's current anchor, superseding
+   * any previous live records for the same allocation.
+   *
+   * Superseded records are kept for the immutable on-chain audit trail but are
+   * excluded from history and status counts, so re-approvals after a
+   * return-to-draft do not inflate the ledger.
    *
    * @param {Object} data - Record data
    * @returns {Promise<Object>} Created record
    */
-  async create(data) {
-    return prisma.blockchainRecord.create({
-      data,
-      include: { allocation: allocationSelect },
+  async createCurrent(data) {
+    const { allocationId } = data;
+    const now = new Date();
+
+    return prisma.$transaction(async (tx) => {
+      await tx.blockchainRecord.updateMany({
+        where: { allocationId, supersededAt: null },
+        data: { supersededAt: now },
+      });
+      return tx.blockchainRecord.create({
+        data,
+        include: { allocation: allocationSelect },
+      });
     });
   }
 
@@ -43,14 +57,14 @@ class BlockchainRepository {
   }
 
   /**
-   * Find the most recent blockchain record for an allocation.
+   * Find the current (non-superseded) record for an allocation.
    *
    * @param {string} allocationId - Allocation ID
    * @returns {Promise<Object|null>} Record or null
    */
   async findByAllocationId(allocationId) {
     return prisma.blockchainRecord.findFirst({
-      where: { allocationId },
+      where: { allocationId, supersededAt: null },
       orderBy: { createdAt: 'desc' },
       include: { allocation: allocationSelect },
     });
@@ -124,23 +138,27 @@ class BlockchainRepository {
 
   /**
    * Count records grouped by status (Pending / Confirmed / Failed).
+   * Superseded records are excluded so dashboard counts reflect live anchors.
    *
    * @returns {Promise<Array>} Grouped counts, e.g. [{ status: 'Confirmed', _count: 3 }]
    */
   async countByStatus() {
     return prisma.blockchainRecord.groupBy({
       by: ['status'],
+      where: { supersededAt: null },
       _count: true,
     });
   }
 
   /**
-   * Find the most recently created record (used for lastSync tracking).
+   * Find the most recently created live (non-superseded) record (used for
+   * lastSync tracking).
    *
    * @returns {Promise<Object|null>} Latest record or null
    */
   async getLatest() {
     return prisma.blockchainRecord.findFirst({
+      where: { supersededAt: null },
       orderBy: { createdAt: 'desc' },
       include: { allocation: allocationSelect },
     });
@@ -154,7 +172,7 @@ class BlockchainRepository {
    * @returns {Object} Prisma where clause
    */
   buildWhere(filters = {}) {
-    const where = {};
+    const where = { supersededAt: null };
 
     if (filters.status) {
       where.status = filters.status;
