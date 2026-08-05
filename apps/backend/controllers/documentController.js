@@ -219,6 +219,23 @@ class DocumentController {
   }
 
   /**
+   * Verify a user-uploaded file against the ledger without storing it.
+   * @param {import('express').Request} req
+   * @param {import('express').Response} res
+   * @param {import('express').NextFunction} next
+   */
+  async verifyExternalDocument(req, res, next) {
+    try {
+      const result = await documentBlockchainService.verifyExternalFile(req.file, req.user);
+      return res
+        .status(HTTP_STATUS.OK)
+        .json(formatSuccessResponse('File verification completed', result));
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
    * Re-anchor a Pending/Failed document version on the ledger.
    * @param {import('express').Request} req
    * @param {import('express').Response} res

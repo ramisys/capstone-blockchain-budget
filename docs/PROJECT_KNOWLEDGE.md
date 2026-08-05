@@ -3095,7 +3095,7 @@ Update this section as development progresses.
 | Phase 4.3 | ☑ Completed                                 |
 | Phase 4.4 | ☑ Completed                                 |
 | Phase 4.5 | ☐ Not Started / ◐ In Progress / ☑ Completed |
-| Phase 4.6 | ◐ In Progress (M1–M5 complete; M6–M7 pending) |
+| Phase 4.6 | ◐ In Progress (M1–M6 complete; M7 pending) |
 | Phase 4.7 | ☐ Not Started / ◐ In Progress / ☑ Completed |
 | Phase 5   | ☐ Not Started / ◐ In Progress / ☑ Completed |
 | Phase 6   | ☐ Not Started / ◐ In Progress / ☑ Completed |

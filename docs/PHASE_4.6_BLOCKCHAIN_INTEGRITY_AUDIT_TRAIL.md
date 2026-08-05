@@ -27,7 +27,7 @@ Much of the blockchain integrity core already exists. This plan fills the real g
 | Unified blockchain transaction history | — | ❌ Missing |
 | Blockchain transaction detail view | — | ❌ Missing |
 | Financial activity timeline | `services/timelineService.js` → `GET /api/dashboard/timeline` | ✅ Exists |
-| External-file verification | — | ❌ Missing |
+| External-file verification | `services/documentBlockchainService.js` (`verifyExternalFile`) + `POST /api/verification/documents` | ✅ Exists |
 
 **Four real gaps** targeted by this phase:
 
@@ -422,6 +422,10 @@ contract AuditLedger {
 - **Tasks:** `verifyExternalFile` in `documentBlockchainService`; `POST /api/verification/documents` (reuse `uploadMiddleware`/`validateUploadedFile`); `FileVerificationCard` + Verify Document page + service/hook; route + sidebar.
 - **Dependencies:** none new (uses existing hashing/anchor code).
 - **Output:** uploading a tampered/unmodified copy of a stored document reports correct verified/inconclusive/tampered results.
+- **Status:** ✅ Complete (2026-08-06).
+  - New: `repositories/documentRepository.js` `findVersionByHashWithDocument` (full version + owning document refs matched by SHA-256); `services/documentBlockchainService.js` `verifyExternalFile(file, actor)` — streams the temp upload (never persists it), hashes via `hashStream`, matches against stored versions, consults the ledger when configured, records a `VERIFY` activity + audit entry only on match, and returns `{ verified, integrityOk, onChain, inconclusive, message, matchedVersion, verifiedAgainst }` where `verifiedAgainst` is `'blockchain' | 'database' | 'none'`; `controllers/documentController.js` `verifyExternalDocument`; `routes/verificationRoutes.js` `POST /api/verification/documents` (`authenticate` → `authorize(READ_ROLES)` → `uploadLimiter` → `uploadMiddleware('file')` → `validateUploadedFile`), mounted in `routes/apiRouter.js`.
+  - New backend tests: `tests/externalVerification.test.js` (7 service + 6 route/RBAC); added to `package.json` `test` list; `npm run test:backend` green.
+  - Frontend: `src/types/verification.ts`; `services/verificationService.ts` `verifyExternalFile` (multipart `file`); `hooks/useFileVerification.ts`; `components/verification/FileVerificationCard.tsx` (drag-drop/browse file picker + presentational `ExternalVerificationResult` covering verified / inconclusive / no-match states with matched-document details and explorer link); `pages/verification/VerifyDocument.tsx`; route `/verification` (all four roles) + "Verify File" sidebar entry under Documents; hook + component tests green, `typecheck` + `build:frontend` pass.
 
 ### M7 — Hardening, coverage audit, docs
 - **Objective:** ship-ready phase.

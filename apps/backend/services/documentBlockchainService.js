@@ -1,4 +1,5 @@
 import crypto from 'node:crypto';
+import fs from 'node:fs';
 import { config } from '../config/env.js';
 import { blockchainProvider } from '../config/blockchain.js';
 import { blockchainService } from './blockchainService.js';
@@ -12,6 +13,7 @@ import { auditLogger } from '../utils/auditLogger.js';
 import { AUDIT_ACTIONS } from '../constants/auditActions.js';
 import { logger } from '../utils/logger.js';
 import { toNumber } from '../utils/amountUtils.js';
+import { hashStream } from '../utils/fileUtils.js';
 
 /**
  * Blockchain integration for document versions: fail-soft anchoring on upload /
@@ -166,6 +168,138 @@ class DocumentBlockchainService {
       message,
       documentCode: document.documentCode,
       version: this.serializeVersion(version),
+    };
+  }
+
+  /**
+   * Verify a user-uploaded file against the ledger WITHOUT storing it. The
+   * server streams the inbound temp file (never persisting it), computes its
+   * SHA-256, and looks up a matching DocumentVersion by hash. When a match is
+   * found the on-chain ledger is consulted; when no stored document matches,
+   * the result reports verifiedAgainst: 'none' and is never a false "verified".
+   *
+   * Mirrors the verifyDocument result shape ({ verified, integrityOk, onChain,
+   * inconclusive, message }) plus `matchedVersion` and `verifiedAgainst`
+   * ('blockchain' | 'database' | 'none').
+   *
+   * @param {Object} file - Parsed upload file (from uploadMiddleware)
+   * @param {string|Object} actor - User ID or user object performing the check
+   * @returns {Promise<Object>} Verification result
+   */
+  async verifyExternalFile(file, actor) {
+    if (!file?.path) {
+      throw new AppError('A valid file is required', HTTP_STATUS.BAD_REQUEST);
+    }
+    const actorId = typeof actor === 'string' ? actor : actor?.id;
+
+    let computed;
+    try {
+      computed = await hashStream(fs.createReadStream(file.path));
+    } catch (error) {
+      logger.logEvent(`External file hashing failed: ${error?.message || error}`);
+      throw new AppError('Uploaded file could not be read for verification', HTTP_STATUS.NOT_FOUND);
+    }
+
+    const matchedVersion = await documentRepository.findVersionByHashWithDocument(
+      computed.sha256Hash
+    );
+
+    if (!matchedVersion) {
+      auditLogger.logSuccess({
+        action: AUDIT_ACTIONS.DOCUMENT_VERIFY,
+        actor,
+        resource: { type: 'Document' },
+        details: {
+          source: 'external',
+          verified: false,
+          verifiedAgainst: 'none',
+          sha256Hash: computed.sha256Hash,
+        },
+      });
+
+      return {
+        verified: false,
+        integrityOk: false,
+        onChain: null,
+        inconclusive: false,
+        message:
+          'No document in the system matches this file. It has not been registered or anchored.',
+        matchedVersion: null,
+        verifiedAgainst: 'none',
+      };
+    }
+
+    const sha256Hash = matchedVersion.sha256Hash;
+    let onChain = null;
+    if (blockchainProvider.isConfigured() && sha256Hash) {
+      try {
+        onChain = await blockchainProvider.verify(`0x${sha256Hash}`);
+      } catch {
+        onChain = null;
+      }
+    }
+
+    // Matched by exact hash, so the uploaded bytes agree with the stored hash.
+    const integrityOk = true;
+    const verified = Boolean(integrityOk && onChain?.exists);
+    const inconclusive = !verified && integrityOk && onChain === null;
+
+    let verifiedAgainst;
+    let message;
+    if (verified) {
+      verifiedAgainst = 'blockchain';
+      message = 'File verified on the blockchain ledger.';
+    } else if (onChain === null) {
+      verifiedAgainst = 'database';
+      message =
+        'The file matches a stored document, but on-chain verification is inconclusive — the blockchain node is unreachable, so the anchor could not be confirmed.';
+    } else {
+      verifiedAgainst = 'database';
+      message =
+        'The file matches a stored document, but its hash is not anchored on this node.';
+    }
+
+    await documentRepository.createActivity({
+      documentId: matchedVersion.documentId,
+      versionId: matchedVersion.id,
+      actorId,
+      action: DOCUMENT_ACTIVITY_ACTIONS.VERIFY,
+      details: {
+        source: 'external',
+        verified,
+        integrityOk,
+        onChainExists: Boolean(onChain?.exists),
+        inconclusive,
+      },
+    });
+
+    auditLogger.logSuccess({
+      action: AUDIT_ACTIONS.DOCUMENT_VERIFY,
+      actor,
+      resource: {
+        type: 'Document',
+        id: matchedVersion.documentId,
+        code: matchedVersion.document?.documentCode,
+      },
+      details: {
+        source: 'external',
+        versionNumber: matchedVersion.versionNumber,
+        verified,
+        integrityOk,
+        onChainExists: Boolean(onChain?.exists),
+        inconclusive,
+        verifiedAgainst,
+      },
+    });
+
+    return {
+      verified,
+      integrityOk,
+      onChain,
+      inconclusive,
+      message,
+      matchedVersion: this.serializeVersion(matchedVersion),
+      verifiedAgainst,
     };
   }
 

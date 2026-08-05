@@ -27,6 +27,7 @@ const DocumentList = lazy(() => import('../pages/documents/DocumentList').then((
 const DocumentUpload = lazy(() => import('../pages/documents/DocumentUpload').then((m) => ({ default: m.DocumentUpload })));
 const DocumentDetail = lazy(() => import('../pages/documents/DocumentDetail').then((m) => ({ default: m.DocumentDetail })));
 const AuditLogs = lazy(() => import('../pages/audit/AuditLogs').then((m) => ({ default: m.AuditLogs })));
+const VerifyDocument = lazy(() => import('../pages/verification/VerifyDocument').then((m) => ({ default: m.VerifyDocument })));
 
 export function AppRoutes() {
   return (
@@ -137,6 +138,14 @@ export function AppRoutes() {
           element={
             <ProtectedRoute roles={[ROLES.ADMINISTRATOR, ROLES.TREASURER, ROLES.BUDGET_OFFICER, ROLES.AUDITOR]}>
               <DocumentDetail />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/verification"
+          element={
+            <ProtectedRoute roles={[ROLES.ADMINISTRATOR, ROLES.TREASURER, ROLES.BUDGET_OFFICER, ROLES.AUDITOR]}>
+              <VerifyDocument />
             </ProtectedRoute>
           }
         />

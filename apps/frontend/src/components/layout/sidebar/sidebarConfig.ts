@@ -18,6 +18,7 @@ import {
   FolderOpen,
   FolderPlus,
   ScrollText,
+  ShieldCheck,
 } from 'lucide-react';
 
 export const navigationConfig = [
@@ -131,6 +132,11 @@ export const navigationConfig = [
             label: 'Upload Document',
             path: '/documents/upload',
             icon: FolderPlus,
+          },
+          {
+            label: 'Verify File',
+            path: '/verification',
+            icon: ShieldCheck,
           },
         ],
       },

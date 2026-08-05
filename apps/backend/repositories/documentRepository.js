@@ -341,6 +341,32 @@ class DocumentRepository {
   }
 
   /**
+   * Look up a version by its content hash together with the owning document.
+   * Used by external-file verification so a user-uploaded file can be matched
+   * against the system's stored hashes without persisting the file.
+   *
+   * @param {string} sha256Hash - SHA-256 hex digest of the uploaded file
+   * @returns {Promise<Object|null>} Full version + owning document (or null)
+   */
+  async findVersionByHashWithDocument(sha256Hash) {
+    return prisma.documentVersion.findUnique({
+      where: { sha256Hash },
+      include: {
+        uploader: { select: { id: true, fullName: true, email: true, role: true } },
+        document: {
+          select: {
+            id: true,
+            documentCode: true,
+            title: true,
+            documentType: true,
+            status: true,
+          },
+        },
+      },
+    });
+  }
+
+  /**
    * Find document versions carrying a blockchain anchor, with their owning
    * document. Used by the unified blockchain history feed. Supports the shared
    * history filters (search, status, date range) applied to the version's

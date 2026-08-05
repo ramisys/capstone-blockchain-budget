@@ -11,6 +11,7 @@ import allocationRoutes from './allocationRoutes.js';
 import blockchainRoutes from './blockchainRoutes.js';
 import documentRoutes from './documentRoutes.js';
 import auditLogRoutes from './auditLogRoutes.js';
+import verificationRoutes from './verificationRoutes.js';
 
 const apiRouter = Router();
 
@@ -49,5 +50,8 @@ apiRouter.use('/documents', documentRoutes);
 
 // Mount audit log routes
 apiRouter.use('/audit-logs', auditLogRoutes);
+
+// Mount external file verification routes
+apiRouter.use('/verification', verificationRoutes);
 
 export default apiRouter;
