@@ -7,6 +7,8 @@ import {
   computeEventHash,
   buildAuditLogData,
 } from '../utils/auditPersistence.js';
+import { auditLogger } from '../utils/auditLogger.js';
+import { AUDIT_ACTIONS } from '../constants/auditActions.js';
 import { auditLogRepository } from '../repositories/auditLogRepository.js';
 import { auditEventBlockchainService } from '../services/auditEventBlockchainService.js';
 
@@ -230,6 +232,67 @@ async function runAuditPersistenceTests() {
     );
 
     assert.equal(resolved, true, 'persistAuditEntry should resolve even when anchoring throws');
+  });
+
+  await test('does not persist AUDIT_ANCHOR_RETRY entries (breaks the anchoring feedback loop)', async () => {
+    let createCalled = false;
+    auditLogRepository.create = async () => {
+      createCalled = true;
+      return { id: 'loop-row' };
+    };
+    config.auditLog.persistEnabled = true;
+    auditEventBlockchainService.anchorEvent = async () => {
+      throw new Error('should never be reached');
+    };
+
+    await persistAuditEntry({
+      action: AUDIT_ACTIONS.AUDIT_ANCHOR_RETRY,
+      result: 'SUCCESS',
+      actor: { id: 'system-scheduler' },
+      ip: '127.0.0.1',
+      resource: { type: 'AuditLog', id: 'log-1' },
+      details: { txHash: '0xtx', blockNumber: 9 },
+    });
+
+    assert.equal(createCalled, false, 'anchor-retry bookkeeping must never be re-persisted');
+  });
+
+  await test('sanitizer regression: persisted details never contain passwords or tokens', async () => {
+    let createData = null;
+    auditLogRepository.create = async (data) => {
+      createData = data;
+      return { id: data.id };
+    };
+    config.auditLog.persistEnabled = true;
+    auditEventBlockchainService.anchorEvent = async () => ({});
+
+    // Drive through the real auditLogger.log() path so sanitizeData runs exactly
+    // as it does in production, then flush the fire-and-forget persistence.
+    auditLogger.log({
+      action: 'AUTH_LOGIN',
+      result: 'SUCCESS',
+      actor: { id: 'u1', email: 'admin@example.com', role: 'Administrator' },
+      ip: '127.0.0.1',
+      details: {
+        email: 'admin@example.com',
+        password: 'SuperSecret123!',
+        passwordConfirm: 'SuperSecret123!',
+        accessToken: 'jwt.access.token',
+        nested: { refreshToken: 'jwt.refresh.token', role: 'Administrator' },
+      },
+    });
+
+    await new Promise((resolve) => setImmediate(resolve));
+
+    assert.ok(createData, 'persistAuditEntry should have written a row');
+    assert.equal(createData.details.password, '[REDACTED]');
+    assert.equal(createData.details.passwordConfirm, '[REDACTED]');
+    assert.equal(createData.details.accessToken, '[REDACTED]');
+    assert.equal(createData.details.nested.refreshToken, '[REDACTED]');
+    assert.equal(createData.details.email, 'admin@example.com');
+    assert.equal(createData.details.nested.role, 'Administrator');
+    assert.equal(JSON.stringify(createData.details).includes('SuperSecret'), false);
+    assert.equal(JSON.stringify(createData.details).includes('jwt.'), false);
   });
 
   console.log(`\n✨ Audit Persistence Unit Tests Completed: ${passedTests}/${totalTests} Passed!\n`);

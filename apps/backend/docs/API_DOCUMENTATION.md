@@ -1878,4 +1878,437 @@ cannot be archived again.
 - **404 Not Found**: Document does not exist
 - **409 Conflict**: Document is already archived
 
+---
+
+# API Documentation - Phase 4.6: Blockchain Integrity & Audit Trail
+
+This section documents the Phase 4.6 endpoints: the persisted audit log, the unified
+blockchain history, the financial activity timeline, and external-file verification.
+All endpoints are mounted under the `/api` base URL and require authentication.
+
+## Audit Log Object
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | String (uuid) | Audit entry ID |
+| `action` | String | One of the `AUDIT_ACTIONS` values (e.g. `AUTH_LOGIN`, `ALLOCATION_APPROVED`, `DOCUMENT_UPLOAD`, `AUDIT_ANCHOR_RETRY`) |
+| `result` | String | `SUCCESS` \| `FAILURE` |
+| `resourceType` | String \| null | Entity type the entry refers to (e.g. `Allocation`, `Document`, `User`) |
+| `resourceId` | String (uuid) \| null | ID of the related entity |
+| `resourceCode` | String \| null | Human-readable code (e.g. `BA-2026-0001`) |
+| `actorId` | String (uuid) \| null | Acting user ID |
+| `actor` | Object \| null | Snapshot `{ id, fullName, email, role }` at the time of the event |
+| `ipAddress` | String \| null | Client IP |
+| `userAgent` | String \| null | Client user agent |
+| `details` | Object \| null | Sanitized structured payload (secrets auto-redacted, nested keys included) |
+| `eventHash` | String | SHA-256 digest of the entry content (tamper-evidence) |
+| `txHash` | String \| null | Anchor transaction hash, null until confirmed |
+| `txExplorerUrl` | String \| null | Block explorer link, null if unconfigured/unconfirmed |
+| `anchorStatus` | String | `NotAnchored` \| `Pending` \| `Confirmed` \| `Failed` |
+| `createdAt` | ISO date | Event timestamp |
+
+**Append-only guarantee:** there are no update/delete endpoints or repository mutators.
+`PUT`, `PATCH`, and `DELETE` on `/api/audit-logs` and `/api/audit-logs/:id` return 404.
+The only write path is `POST /api/audit-logs/:id/retry` (anchor bookkeeping only).
+
+## Role-Based Access Control
+
+| Endpoint | Administrator | BudgetOfficer | Treasurer | Auditor |
+|----------|:---:|:---:|:---:|:---:|
+| GET `/audit-logs` | ✓ | ✓ | ✓ | ✓ |
+| GET `/audit-logs/summary` | ✓ | ✓ | ✓ | ✓ |
+| GET `/audit-logs/:id` | ✓ | ✓ | ✓ | ✓ |
+| POST `/audit-logs/:id/retry` | ✓ | ✓ | ✓ | ✗ |
+| GET `/blockchain/history` | ✓ | ✓ | ✓ | ✓ |
+| GET `/blockchain/transactions/:id` | ✓ | ✓ | ✓ | ✓ |
+| GET `/dashboard/timeline` | ✓ | ✓ | ✓ | ✓ |
+| POST `/verification/documents` | ✓ | ✓ | ✓ | ✓ |
+
+---
+
+### 30. List Audit Logs
+
+Paginated, searchable, filterable list of persisted audit entries (newest first).
+
+- **URL**: `/audit-logs`
+- **Method**: `GET`
+- **Auth Required**: Yes (`Bearer <token>`)
+- **Roles**: `Administrator`, `BudgetOfficer`, `Treasurer`, `Auditor`
+
+#### Query Parameters
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `page` | Number | No | Page number, defaults to `1` |
+| `limit` | Number | No | Page size, defaults to `10`, max `100` |
+| `search` | String | No | Partial match on action, resource code, actor name/email |
+| `action` | String | No | Filter by `AUDIT_ACTIONS` value |
+| `result` | String | No | `SUCCESS` \| `FAILURE` |
+| `resourceType` | String | No | Filter by entity type |
+| `resourceId` | String | No | Filter by entity ID |
+| `actorId` | String | No | Filter by acting user ID |
+| `dateFrom` | String (date) | No | Include entries created on/after this date |
+| `dateTo` | String (date) | No | Include entries created on/before this date |
+| `sortBy` | String | No | `newest` (default) \| `oldest` \| `action` \| `result` \| `createdAt` |
+| `sortOrder` | String | No | `asc` \| `desc` |
+
+#### Success Response (200 OK)
+
+```json
+{
+  "success": true,
+  "message": "Audit logs retrieved successfully",
+  "data": {
+    "auditLogs": [
+      {
+        "id": "c1f7b8e0-0000-0000-0000-000000000030",
+        "action": "AUTH_LOGIN",
+        "result": "SUCCESS",
+        "resourceType": null,
+        "resourceId": null,
+        "resourceCode": null,
+        "actorId": "c1f7b8e0-1234-4567-89ab-cdef01234567",
+        "actor": { "id": "c1f7b8e0-1234-4567-89ab-cdef01234567", "fullName": "System Administrator", "email": "admin@university.edu", "role": "Administrator" },
+        "ipAddress": "127.0.0.1",
+        "userAgent": "axios/1.7.2",
+        "details": {},
+        "eventHash": "6c3f4a2b9e1d8c0f5b7a2e4f1d3c6b8a0e9d7f5c3b1a9e8d6f4c2b0a1e3f5d7",
+        "txHash": "0x4c1e8f2a6b3d5f7a9c0e2d4f6a8b1c3e5f7a9d0b2c4e6f8a1d3f5b7c9e0a2d4f6",
+        "txExplorerUrl": "http://localhost:8545/tx/0x4c1e8f2a6b3d5f7a9c0e2d4f6a8b1c3e5f7a9d0b2c4e6f8a1d3f5b7c9e0a2d4f6",
+        "anchorStatus": "Confirmed",
+        "createdAt": "2026-08-06T08:00:00.000Z"
+      }
+    ],
+    "pagination": { "total": 1, "page": 1, "limit": 10, "totalPages": 1 }
+  }
+}
+```
+
+#### Error Responses
+
+- **400 Bad Request**: Invalid query parameters (e.g. `limit > 100`, invalid enum, malformed date)
+- **401 Unauthorized**: Missing or invalid authentication token
+
+---
+
+### 31. Audit Log Summary
+
+Counts by action and result for the audit dashboard.
+
+- **URL**: `/audit-logs/summary`
+- **Method**: `GET`
+- **Auth Required**: Yes (`Bearer <token>`)
+- **Roles**: `Administrator`, `BudgetOfficer`, `Treasurer`, `Auditor`
+
+#### Success Response (200 OK)
+
+```json
+{
+  "success": true,
+  "message": "Audit log summary retrieved successfully",
+  "data": {
+    "summary": {
+      "total": 128,
+      "byAction": { "AUTH_LOGIN": 42, "ALLOCATION_APPROVED": 8, "DOCUMENT_UPLOAD": 12 },
+      "byResult": { "SUCCESS": 120, "FAILURE": 8 },
+      "byAnchorStatus": { "Confirmed": 110, "Pending": 15, "Failed": 2, "NotAnchored": 1 }
+    }
+  }
+}
+```
+
+#### Error Responses
+
+- **401 Unauthorized**: Missing or invalid authentication token
+
+---
+
+### 32. Get Audit Log Entry
+
+Returns a single audit entry including anchor status and explorer link.
+
+- **URL**: `/audit-logs/:id`
+- **Method**: `GET`
+- **Auth Required**: Yes (`Bearer <token>`)
+- **Roles**: `Administrator`, `BudgetOfficer`, `Treasurer`, `Auditor`
+
+#### Success Response (200 OK)
+
+```json
+{
+  "success": true,
+  "message": "Audit log retrieved successfully",
+  "data": { "auditLog": { "id": "c1f7b8e0-...", "action": "AUTH_LOGIN", "result": "SUCCESS", "anchorStatus": "Confirmed", "...": "..." } }
+}
+```
+
+#### Error Responses
+
+- **400 Bad Request**: Invalid audit log ID format
+- **401 Unauthorized**: Missing or invalid authentication token
+- **404 Not Found**: Audit log entry does not exist
+
+---
+
+### 33. Retry Audit Anchor
+
+Re-anchors a `Pending` or `Failed` audit entry on the `AuditLedger` contract.
+Already-confirmed entries are returned as-is. Auditor is not permitted to retry.
+
+- **URL**: `/audit-logs/:id/retry`
+- **Method**: `POST`
+- **Auth Required**: Yes (`Bearer <token>`)
+- **Roles**: `Administrator`, `BudgetOfficer`, `Treasurer`
+- **Request Body**: none
+
+#### Success Response (200 OK)
+
+```json
+{
+  "success": true,
+  "message": "Audit entry anchored successfully",
+  "data": {
+    "auditLog": {
+      "id": "c1f7b8e0-0000-0000-0000-000000000030",
+      "action": "AUTH_LOGIN",
+      "result": "SUCCESS",
+      "anchorStatus": "Confirmed",
+      "txHash": "0x4c1e8f2a6b3d5f7a9c0e2d4f6a8b1c3e5f7a9d0b2c4e6f8a1d3f5b7c9e0a2d4f6",
+      "txExplorerUrl": "http://localhost:8545/tx/0x4c1e8f2a6b3d5f7a9c0e2d4f6a8b1c3e5f7a9d0b2c4e6f8a1d3f5b7c9e0a2d4f6"
+    }
+  }
+}
+```
+
+#### Error Responses
+
+- **400 Bad Request**: Invalid audit log ID format
+- **401 Unauthorized**: Missing or invalid authentication token
+- **403 Forbidden**: User does not have permission to retry (e.g. Auditor)
+- **404 Not Found**: Audit log entry does not exist
+- **503 Service Unavailable**: Ledger not configured or the on-chain write failed
+
+---
+
+### 34. Unified Blockchain History
+
+Returns a single type-aware ledger view across allocations, document versions, and
+audit events, merged by anchor time and paginated.
+
+- **URL**: `/blockchain/history`
+- **Method**: `GET`
+- **Auth Required**: Yes (`Bearer <token>`)
+- **Roles**: `Administrator`, `BudgetOfficer`, `Treasurer`, `Auditor`
+
+#### Query Parameters
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `page` | Number | No | Page number, defaults to `1` |
+| `limit` | Number | No | Page size, defaults to `10`, max `100` |
+| `recordType` | String | No | `Allocation` \| `Document` \| `Audit` |
+| `status` | String | No | `Pending` \| `Confirmed` \| `Failed` |
+| `search` | String | No | Partial match on code/hash/tx hash |
+| `dateFrom` | String (date) | No | Include anchors created on/after this date |
+| `dateTo` | String (date) | No | Include anchors created on/before this date |
+| `sortBy` | String | No | `newest` (default) \| `oldest` \| `code` \| `status` \| `createdAt` |
+| `sortOrder` | String | No | `asc` \| `desc` |
+
+#### Success Response (200 OK)
+
+```json
+{
+  "success": true,
+  "message": "Blockchain history retrieved successfully",
+  "data": {
+    "entries": [
+      {
+        "id": "c1f7b8e0-0000-0000-0000-000000000012",
+        "recordType": "Allocation",
+        "code": "BA-2026-0001",
+        "hash": "02a4cc19fdf22ddbbe1fc46da8cd2e3bfbffc687283df49f0707b61fa9cb48d2",
+        "txHash": "0x9b7f0f1d0a3e2c5b9a1f0e8d7c6b5a4f3e2d1c0b9a8f7e6d5c4b3a2f1e0d9c8",
+        "blockNumber": 96,
+        "network": "hardhat",
+        "status": "Confirmed",
+        "createdAt": "2026-08-04T09:31:00.000Z",
+        "explorerUrl": "http://localhost:8545/tx/0x9b7f0f1d0a3e2c5b9a1f0e8d7c6b5a4f3e2d1c0b9a8f7e6d5c4b3a2f1e0d9c8",
+        "ref": { "allocationId": "c1f7b8e0-0000-0000-0000-000000000006" }
+      }
+    ],
+    "pagination": { "total": 1, "page": 1, "limit": 10, "totalPages": 1 }
+  }
+}
+```
+
+#### Error Responses
+
+- **400 Bad Request**: Invalid query parameters (e.g. `limit > 100`, invalid `recordType`/`status` enum, malformed date)
+- **401 Unauthorized**: Missing or invalid authentication token
+
+---
+
+### 35. Blockchain Transaction Detail
+
+Returns the anchor details for a single unified ledger entry plus, when
+available, the on-chain record confirmation.
+
+- **URL**: `/blockchain/transactions/:id`
+- **Method**: `GET`
+- **Auth Required**: Yes (`Bearer <token>`)
+- **Roles**: `Administrator`, `BudgetOfficer`, `Treasurer`, `Auditor`
+
+#### Success Response (200 OK)
+
+```json
+{
+  "success": true,
+  "message": "Blockchain transaction retrieved successfully",
+  "data": {
+    "entry": {
+      "id": "c1f7b8e0-0000-0000-0000-000000000012",
+      "recordType": "Allocation",
+      "code": "BA-2026-0001",
+      "hash": "02a4cc19fdf22ddbbe1fc46da8cd2e3bfbffc687283df49f0707b61fa9cb48d2",
+      "txHash": "0x9b7f0f1d0a3e2c5b9a1f0e8d7c6b5a4f3e2d1c0b9a8f7e6d5c4b3a2f1e0d9c8",
+      "blockNumber": 96,
+      "network": "hardhat",
+      "status": "Confirmed",
+      "createdAt": "2026-08-04T09:31:00.000Z",
+      "explorerUrl": "http://localhost:8545/tx/0x9b7f0f1d0a3e2c5b9a1f0e8d7c6b5a4f3e2d1c0b9a8f7e6d5c4b3a2f1e0d9c8",
+      "ref": { "allocationId": "c1f7b8e0-0000-0000-0000-000000000006" }
+    }
+  }
+}
+```
+
+#### Error Responses
+
+- **400 Bad Request**: Invalid transaction ID format
+- **401 Unauthorized**: Missing or invalid authentication token
+- **404 Not Found**: Transaction entry does not exist
+
+---
+
+### 36. Financial Activity Timeline
+
+Merged chronological feed of allocation approvals, document activities, audit log
+entries, and blockchain anchors for the dashboard.
+
+- **URL**: `/dashboard/timeline`
+- **Method**: `GET`
+- **Auth Required**: Yes (`Bearer <token>`)
+- **Roles**: `Administrator`, `BudgetOfficer`, `Treasurer`, `Auditor`
+
+#### Query Parameters
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `page` | Number | No | Page number, defaults to `1` |
+| `limit` | Number | No | Page size, defaults to `10`, max `100` |
+| `kind` | String | No | `AllocationApproval` \| `DocumentActivity` \| `AuditLog` \| `BlockchainRecord` |
+| `dateFrom` | String (date) | No | Include events on/after this date |
+| `dateTo` | String (date) | No | Include events on/before this date |
+| `sortBy` | String | No | `newest` (default) \| `oldest` \| `createdAt` |
+| `sortOrder` | String | No | `asc` \| `desc` |
+
+#### Success Response (200 OK)
+
+```json
+{
+  "success": true,
+  "message": "Timeline retrieved successfully",
+  "data": {
+    "timeline": [
+      {
+        "id": "c1f7b8e0-0000-0000-0000-000000000040",
+        "kind": "AllocationApproval",
+        "action": "Approved",
+        "label": "Allocation approved",
+        "description": "BA-2026-0001 approved by System Administrator",
+        "actor": { "id": "c1f7b8e0-1234-4567-89ab-cdef01234567", "fullName": "System Administrator", "email": "admin@university.edu", "role": "Administrator" },
+        "resourceType": "Allocation",
+        "resourceCode": "BA-2026-0001",
+        "details": { "allocationId": "c1f7b8e0-0000-0000-0000-000000000006" },
+        "createdAt": "2026-08-03T10:00:00.000Z"
+      }
+    ],
+    "pagination": { "total": 1, "page": 1, "limit": 10, "totalPages": 1 }
+  }
+}
+```
+
+#### Error Responses
+
+- **400 Bad Request**: Invalid query parameters (e.g. `limit > 100`, invalid `kind` enum, malformed date)
+- **401 Unauthorized**: Missing or invalid authentication token
+
+---
+
+### 37. Verify External Document
+
+Verifies a user-supplied file (not stored in the system) against recorded document
+hashes and the ledger. The uploaded file is streamed to a temp location, hashed
+(SHA-256), and matched against stored `DocumentVersion` rows **without ever being
+persisted**. When a match is found and a ledger node is reachable, the on-chain
+anchor is confirmed; otherwise the result is `inconclusive` (never a false
+"verified"). A `VERIFY` document activity + audit entry are recorded only on a match.
+
+- **URL**: `/verification/documents`
+- **Method**: `POST`
+- **Auth Required**: Yes (`Bearer <token>`)
+- **Roles**: `Administrator`, `BudgetOfficer`, `Treasurer`, `Auditor`
+- **Rate Limit**: uploads are limited (default 20 requests per 15 minutes per IP)
+- **Content-Type**: `multipart/form-data`
+
+#### Form Fields
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `file` | File | Yes | File bytes to verify (≤ 25 MB, allowed type) |
+
+#### Success Response (200 OK)
+
+```json
+{
+  "success": true,
+  "message": "External document verification completed",
+  "data": {
+    "verified": true,
+    "integrityOk": true,
+    "onChain": { "exists": true, "anchoredBy": "0x5FbDB2315678afecb367f032d93F642f64180aa3", "anchoredAt": 1710000000, "blockNumber": 96 },
+    "inconclusive": false,
+    "message": "Document verified on the blockchain ledger.",
+    "matchedVersion": {
+      "id": "c1f7b8e0-0000-0000-0000-000000000021",
+      "documentId": "c1f7b8e0-0000-0000-0000-000000000020",
+      "versionNumber": 1,
+      "originalFileName": "pr-laboratory.pdf",
+      "sha256Hash": "02a4cc19fdf22ddbbe1fc46da8cd2e3bfbffc687283df49f0707b61fa9cb48d2",
+      "blockchainStatus": "Confirmed",
+      "document": { "id": "c1f7b8e0-0000-0000-0000-000000000020", "documentCode": "DOC-2026-0001", "title": "Purchase Request - Laboratory Equipment" }
+    },
+    "verifiedAgainst": "blockchain"
+  }
+}
+```
+
+**Outcome semantics**
+
+| `verified` | `verifiedAgainst` | Meaning |
+|------------|-------------------|---------|
+| `true` | `blockchain` | Hash matches a stored version **and** the on-chain anchor was confirmed |
+| `true` | `database` | Hash matches a stored version but the ledger could not be consulted |
+| `false` | `none` | No stored version matches the computed hash (no on-chain evidence) |
+
+`inconclusive` is `true` only when a hash match exists but the ledger node is
+unreachable, so the anchor cannot be confirmed or refuted.
+
+#### Error Responses
+
+- **400 Bad Request**: Missing `file`, or unexpected file field
+- **401 Unauthorized**: Missing or invalid authentication token
+- **413 Payload Too Large**: File exceeds the configured size limit
+- **415 Unsupported Media Type**: File type not allowed or extension/MIME mismatch
+
 

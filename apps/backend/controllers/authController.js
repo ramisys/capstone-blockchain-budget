@@ -59,6 +59,13 @@ class AuthController {
       const { refreshToken } = req.body;
       const result = await authService.refreshToken(refreshToken);
 
+      auditLogger.logFromReq(req, {
+        action: AUDIT_ACTIONS.AUTH_REFRESH_TOKEN,
+        result: AUDIT_RESULTS.SUCCESS,
+        actor: req.user,
+        resource: req.user ? { type: 'User', id: req.user.id } : null,
+      });
+
       return res
         .status(HTTP_STATUS.OK)
         .json(
@@ -99,6 +106,12 @@ class AuthController {
         .status(HTTP_STATUS.OK)
         .json(formatSuccessResponse('Logout successful', {}));
     } catch (error) {
+      auditLogger.logFromReq(req, {
+        action: AUDIT_ACTIONS.AUTH_LOGOUT,
+        result: AUDIT_RESULTS.FAILURE,
+        resource: req.user ? { type: 'User', id: req.user.id } : null,
+        error,
+      });
       next(error);
     }
   }

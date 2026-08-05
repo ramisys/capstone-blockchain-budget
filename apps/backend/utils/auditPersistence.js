@@ -1,6 +1,6 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { config } from '../config/env.js';
-import { AUDIT_RESULTS } from '../constants/auditActions.js';
+import { AUDIT_ACTIONS, AUDIT_RESULTS } from '../constants/auditActions.js';
 import { auditLogRepository } from '../repositories/auditLogRepository.js';
 import { auditEventBlockchainService } from '../services/auditEventBlockchainService.js';
 
@@ -97,6 +97,17 @@ export function buildAuditLogData(payload) {
  */
 export async function persistAuditEntry(entry) {
   if (!config.auditLog.persistEnabled) {
+    return;
+  }
+
+  // Audit anchoring bookkeeping is never persisted. The AUDIT_ANCHOR_RETRY
+  // events emitted by auditEventBlockchainService describe an on-chain write
+  // whose durable record already lives on the retried row (anchorStatus,
+  // txHash, blockNumber, confirmedAt). Persisting them here would create a new
+  // Pending row that is itself anchored, which logs another AUDIT_ANCHOR_RETRY
+  // and so on — an unbounded anchor-persist feedback loop when the AuditLedger
+  // is configured. Skipping them keeps the trail lossless and the loop broken.
+  if (entry?.action === AUDIT_ACTIONS.AUDIT_ANCHOR_RETRY) {
     return;
   }
 

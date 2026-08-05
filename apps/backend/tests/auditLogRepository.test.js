@@ -181,6 +181,51 @@ async function runAuditLogRepositoryTests() {
     assert.equal(result[0].anchorStatus, 'Pending');
   });
 
+  await test('append-only: repository exposes no update/delete mutation methods', async () => {
+    const mutators = ['update', 'updateMany', 'delete', 'deleteMany'];
+    for (const method of mutators) {
+      assert.equal(
+        typeof auditLogRepository[method],
+        'undefined',
+        `${method} must not exist on the audit log repository (append-only trail)`
+      );
+    }
+    assert.equal(typeof auditLogRepository.create, 'function');
+    assert.equal(typeof auditLogRepository.findById, 'function');
+    assert.equal(typeof auditLogRepository.updateAnchor, 'function');
+  });
+
+  await test('append-only: updateAnchor touches only anchor fields, never audit content', async () => {
+    let captured = null;
+    prisma.auditLog.update = async (args) => {
+      captured = args;
+      return { id: 'log-1', ...args.data };
+    };
+
+    const confirmedAt = new Date();
+    await auditLogRepository.updateAnchor('log-1', {
+      anchorStatus: 'Confirmed',
+      txHash: '0xtx',
+      blockNumber: 9,
+      network: 'hardhat-local',
+      confirmedAt,
+    });
+
+    assert.equal(captured.where.id, 'log-1');
+    assert.deepEqual(captured.data, {
+      anchorStatus: 'Confirmed',
+      txHash: '0xtx',
+      blockNumber: 9,
+      network: 'hardhat-local',
+      confirmedAt,
+    });
+    assert.equal(
+      captured.data.anchorStatus,
+      'Confirmed',
+      'only anchor bookkeeping may be updated on an audit row'
+    );
+  });
+
   console.log(
     `\n✨ Audit Log Repository Unit Tests Completed: ${passedTests}/${totalTests} Passed!\n`
   );

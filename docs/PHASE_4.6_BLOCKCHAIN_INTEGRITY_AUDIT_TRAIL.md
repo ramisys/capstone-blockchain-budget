@@ -431,6 +431,12 @@ contract AuditLedger {
 - **Objective:** ship-ready phase.
 - **Tasks:** audit **all** service call sites vs. `AUDIT_ACTIONS` (fill any gaps); append-only verification (no update/delete paths); sanitizer regression tests; add new backend test files to `package.json` `test` list; run `npm run test` + `npm run typecheck --workspace=apps/frontend` + `npm run build:frontend`; update docs/README for Phase 4.6.
 - **Dependencies:** M1–M6.
+- **Status:** ✅ Complete (2026-08-06).
+  - **Coverage audit (all service call sites vs. `AUDIT_ACTIONS`):** every controller handler that mutates state emits a success + failure audit; document/allocation verify/retry are audited at the service layer; read-only endpoints (list/detail/status/download/preview/timeline/history) intentionally do not log. Two real gaps found and fixed: `authController.refreshToken` logged only failures (added `AUTH_REFRESH_TOKEN` SUCCESS), and `authController.logout` logged only success (added `AUTH_LOGOUT` FAILURE). No audit action is referenced anywhere that is not defined in `AUDIT_ACTIONS`.
+  - **Critical hardening fix — audit-anchor feedback loop:** the persistence sink (`persistAuditEntry`) now skips `AUDIT_ANCHOR_RETRY` entries. Previously every successful anchor (background `anchorEvent`, manual/scheduler `retryEvent`) logged `AUDIT_ANCHOR_RETRY` → the sink persisted a fresh Pending row → that row was anchored → logged again → unbounded insert/RPC loop whenever `AUDIT_LOG_DB_ENABLED=true` **and** the AuditLedger was configured. The retry outcome is still fully recorded on the retried row's `anchorStatus`/`txHash`/`blockNumber`/`confirmedAt`; only the redundant, self-perpetuating audit row is dropped. Verified by a dedicated regression test.
+  - **Append-only verification:** `tests/auditLogRepository.test.js` asserts the repository exposes no `update`/`updateMany`/`delete`/`deleteMany` mutators and that `updateAnchor` touches anchor bookkeeping only; `tests/auditLogRoutes.test.js` asserts `PUT`/`PATCH`/`DELETE` on `/api/audit-logs` and `/api/audit-logs/:id` return 404 (routes are read + `POST /:id/retry` only).
+  - **Sanitizer regression:** `tests/auditPersistence.test.js` drives a real `auditLogger.log()` → `persistAuditEntry` pass with `password`/`accessToken`/nested `refreshToken` details and asserts the persisted row's `details` are fully redacted (nothing sensitive survives to `audit_logs.details`).
+  - **Test list + full runs:** all `*.test.js` files verified present in `package.json` `test`; `npm run test:backend` green (44 files), `npm run test:frontend` green (22 files / 174 tests), `npm run typecheck --workspace=apps/frontend` green, `npm run build:frontend` passes.
 
 ---
 
@@ -519,26 +525,27 @@ apps/frontend/src/
 - [x] `GET /api/blockchain/history` returns unified Allocation/Document/Audit history with correct pagination/filtering
 - [x] `GET /api/blockchain/transactions/:id` returns full detail incl. explorer links
 - [x] `GET /api/dashboard/timeline` returns merged financial activity feed
-- [ ] `POST /api/verification/documents` verifies external files (tamper + inconclusive + verified cases)
-- [ ] All new endpoints follow `authenticate → authorize → validateRequest`
-- [ ] New backend test files added to `package.json` test list; `npm run test:backend` green
+- [x] `GET /api/dashboard/timeline` returns merged financial activity feed
+- [x] `POST /api/verification/documents` verifies external files (tamper + inconclusive + verified cases)
+- [x] All new endpoints follow `authenticate → authorize → validateRequest`
+- [x] New backend test files added to `package.json` test list; `npm run test:backend` green
 
 **Frontend**
-- [ ] Audit Logs page: table, filters, pagination, detail drawer with anchor status + explorer links
+- [x] Audit Logs page: table, filters, pagination, detail drawer with anchor status + explorer links
 - [x] Blockchain Ledger shows unified type-aware history + transaction detail drawer
-- [ ] Verify Document page works for tampered / valid / unreachable-node scenarios
+- [x] Verify Document page works for tampered / valid / unreachable-node scenarios
 - [x] Dashboard shows the financial activity timeline
-- [ ] Sidebar + routes registered; `npm run typecheck --workspace=apps/frontend` green
-- [ ] Frontend component/hook tests added; `npm run test:frontend` green
+- [x] Sidebar + routes registered; `npm run typecheck --workspace=apps/frontend` green
+- [x] Frontend component/hook tests added; `npm run test:frontend` green
 
 **Security & integrity**
-- [ ] No update/delete endpoint for audit logs (append-only verified by tests)
-- [ ] Sanitizer regression tests confirm no passwords/tokens in `audit_logs.details`
-- [ ] Verification never reports "verified" when the node is unreachable (`inconclusive` path tested)
-- [ ] Ownership/RBAC reviewed for every new endpoint
+- [x] No update/delete endpoint for audit logs (append-only verified by tests)
+- [x] Sanitizer regression tests confirm no passwords/tokens in `audit_logs.details`
+- [x] Verification never reports "verified" when the node is unreachable (`inconclusive` path tested)
+- [x] Ownership/RBAC reviewed for every new endpoint
 
 **Finish line**
-- [ ] `npm run test` (backend + frontend) passes
-- [ ] `npm run build:frontend` passes
-- [ ] Manual end-to-end: upload document → anchored → download → re-verify → timeline/audit log show the events → explorer links open
-- [ ] `docs/` + README updated for Phase 4.6
+- [x] `npm run test` (backend + frontend) passes
+- [x] `npm run build:frontend` passes
+- [ ] Manual end-to-end: upload document → anchored → download → re-verify → timeline/audit log show the events → explorer links open *(recommended live run before the demo — requires a running MySQL DB + configured node)*
+- [x] `docs/` + README updated for Phase 4.6

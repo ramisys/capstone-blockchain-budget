@@ -139,6 +139,13 @@ async function request(path, { method = 'GET', token } = {}) {
   return { status: res.status, body: await res.json() };
 }
 
+async function requestRaw(path, { method = 'GET', token } = {}) {
+  const headers = {};
+  if (token) headers.Authorization = `Bearer ${token}`;
+  const res = await fetch(`${baseUrl}${path}`, { method, headers });
+  return { status: res.status };
+}
+
 async function runAuditLogRouteTests() {
   console.log('🧪 Starting Audit Log Route / RBAC Unit Tests...\n');
   let passedTests = 0;
@@ -322,6 +329,33 @@ async function runAuditLogRouteTests() {
       assert.equal(res.status, 200);
       assert.equal(res.body.success, true);
       assert.equal(retryAnchorCalls, 1);
+    });
+
+    console.log('\n4. Append-Only Tests:');
+    await test('append-only: no PUT/PATCH/DELETE mutation routes are registered', async () => {
+      userRepository.findById = async () => makeUser(ROLES.ADMINISTRATOR);
+      stubService();
+
+      for (const method of ['PUT', 'PATCH', 'DELETE']) {
+        const res = await requestRaw(`/api/audit-logs/${VALID_UUID}`, {
+          method,
+          token: tokenFor(ROLES.ADMINISTRATOR),
+        });
+        assert.equal(res.status, 404, `${method} /api/audit-logs/:id must not resolve to a mutation route`);
+      }
+    });
+
+    await test('append-only: PUT/DELETE on the collection also return 404', async () => {
+      userRepository.findById = async () => makeUser(ROLES.AUDITOR);
+      stubService();
+
+      for (const method of ['PUT', 'PATCH', 'DELETE']) {
+        const res = await requestRaw('/api/audit-logs', {
+          method,
+          token: tokenFor(ROLES.AUDITOR),
+        });
+        assert.equal(res.status, 404, `${method} /api/audit-logs must not be registered`);
+      }
     });
   } finally {
     await stopServer();
