@@ -117,8 +117,11 @@ describe('DocumentTable component suite', () => {
     expect(screen.getByText('Archive')).toBeInTheDocument();
   });
 
-  it('hides Archive for an Auditor', () => {
-    renderWithProviders(<DocumentTable {...defaultProps} role={ROLES.AUDITOR} />);
+  it('hides Archive for an Auditor on someone else upload', () => {
+    const otherDoc = mockDocument({ uploadedBy: 'user-999' });
+    renderWithProviders(
+      <DocumentTable {...defaultProps} documents={[otherDoc]} role={ROLES.AUDITOR} currentUserId="user-1" />
+    );
 
     openRowDropdown(screen.getByRole('button', { name: /Actions for DOC-2026-0001/ }));
     expect(screen.queryByText('Archive')).not.toBeInTheDocument();

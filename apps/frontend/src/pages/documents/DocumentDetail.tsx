@@ -33,9 +33,7 @@ const canEditDocument = (role: string): boolean => WRITE_ROLES.includes(role as 
 
 const canArchiveDocument = (role: string, document: ManagedDocument, currentUserId?: string): boolean => {
   if (role === ROLES.ADMINISTRATOR) return true;
-  if (role === ROLES.BUDGET_OFFICER) return document.uploadedBy === currentUserId;
-  if (role === ROLES.TREASURER) return document.uploadedBy === currentUserId || Boolean(document.allocation);
-  return false;
+  return document.uploadedBy === currentUserId;
 };
 
 /**
