@@ -68,11 +68,6 @@ export const BUDGET_LEDGER_ABI = [
   },
   {
     type: 'error',
-    name: 'HashNotRecorded',
-    inputs: [{ name: 'contentHash', type: 'bytes32' }],
-  },
-  {
-    type: 'error',
     name: 'NotOwner',
     inputs: [],
   },

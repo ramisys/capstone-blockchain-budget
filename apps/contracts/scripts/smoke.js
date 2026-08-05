@@ -74,10 +74,29 @@ async function main() {
   const backendAbi = (await import(`file://${BACKEND_ABI_FILE.replace(/\\/g, '/')}`)).BUDGET_LEDGER_ABI;
   const sig = (item) => `${item.type}:${item.name}`;
   const deployedSigs = new Set(abi.map(sig));
-  const backendSigs = backendAbi.map(sig).filter((s) => s.startsWith('function:'));
+  const backendSigs = backendAbi.map(sig);
   const missing = backendSigs.filter((s) => !deployedSigs.has(s));
-  assert.deepStrictEqual(missing, [], 'backend ABI functions should all exist in the deployed ABI');
-  console.log(`ABI check : backend mirrors ${backendSigs.length} deployed functions`);
+  assert.deepStrictEqual(
+    missing,
+    [],
+    'backend ABI entries (functions/errors/events) must all exist in the deployed ABI'
+  );
+
+  const byType = (list, t) =>
+    list.filter((x) => x.type === t).map(sig).sort();
+  for (const t of ['error', 'event']) {
+    const deployedEntries = byType(abi, t);
+    const backendEntries = byType(backendAbi, t);
+    assert.deepStrictEqual(
+      backendEntries,
+      deployedEntries,
+      `backend ABI must exactly mirror the deployed ${t} entries`
+    );
+  }
+  console.log(
+    `ABI check : backend mirrors ${byType(abi, 'function').length} functions, ` +
+      `${byType(abi, 'error').length} errors, ${byType(abi, 'event').length} events`
+  );
 
   console.log('========================================================');
   console.log('SMOKE PASS — record, verify, tamper-evidence, replay-guard, ABI parity all OK');
