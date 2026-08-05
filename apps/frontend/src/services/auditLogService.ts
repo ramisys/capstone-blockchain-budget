@@ -28,4 +28,9 @@ export const auditLogApi = {
   getAuditLogSummary(): Promise<AxiosResponse<ApiEnvelope<{ summary: AuditLogSummary }>>> {
     return apiClient.get('/audit-logs/summary');
   },
+
+  // Retry anchoring a Pending/Failed audit event on the blockchain ledger
+  retryAuditLog(id: string): Promise<AxiosResponse<ApiEnvelope<{ log: AuditLog }>>> {
+    return apiClient.post(`/audit-logs/${id}/retry`);
+  },
 };

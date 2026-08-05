@@ -17,6 +17,8 @@ const READ_ROLES = [
   ROLES.AUDITOR,
 ];
 
+const RETRY_ROLES = [ROLES.ADMINISTRATOR, ROLES.TREASURER, ROLES.BUDGET_OFFICER];
+
 /**
  * @route   GET /api/audit-logs
  * @description Get paginated audit log entries with filtering and sorting
@@ -50,6 +52,18 @@ router.get(
   authorize(...READ_ROLES),
   validateRequest(auditLogIdParamSchema, 'params'),
   (req, res, next) => auditLogController.getLogById(req, res, next)
+);
+
+/**
+ * @route   POST /api/audit-logs/:id/retry
+ * @description Re-anchor a Pending/Failed audit event on the AuditLedger contract
+ * @access  Private (Admin, Treasurer, BudgetOfficer)
+ */
+router.post(
+  '/:id/retry',
+  authorize(...RETRY_ROLES),
+  validateRequest(auditLogIdParamSchema, 'params'),
+  (req, res, next) => auditLogController.retryAnchor(req, res, next)
 );
 
 export default router;

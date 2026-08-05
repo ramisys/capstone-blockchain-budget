@@ -40,6 +40,27 @@ class AuditLogRepository {
   }
 
   /**
+   * Update only the blockchain anchor fields of an audit log entry.
+   *
+   * The `audit_logs` table is append-only with respect to audit content — the
+   * action, actor snapshot, and details can never change. This method exists
+   * solely so the anchoring pipeline (and the retry scheduler) can mark a row
+   * Confirmed/Failed with its on-chain txHash/blockNumber after the event is
+   * written to the AuditLedger contract.
+   *
+   * @param {string} id - Audit log ID
+   * @param {Object} data - Anchor fields (anchorStatus, txHash, blockNumber,
+   *                        network, confirmedAt)
+   * @returns {Promise<Object>} Updated audit log row
+   */
+  async updateAnchor(id, data) {
+    return prisma.auditLog.update({
+      where: { id },
+      data,
+    });
+  }
+
+  /**
    * Find audit log entries with filtering, pagination, and ordering.
    *
    * @param {Object} filters - Filter criteria (action, result, actorId,

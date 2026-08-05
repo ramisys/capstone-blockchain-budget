@@ -34,6 +34,13 @@ function validateBlockchainEnv() {
     throw new Error('BLOCKCHAIN_CONTRACT_ADDRESS must be a valid 20-byte hex Ethereum address (0x...).');
   }
 
+  const auditLedgerAddress = process.env.BLOCKCHAIN_AUDIT_LEDGER_ADDRESS;
+  if (auditLedgerAddress && !/^0x[0-9a-fA-F]{40}$/.test(auditLedgerAddress)) {
+    throw new Error(
+      'BLOCKCHAIN_AUDIT_LEDGER_ADDRESS must be a valid 20-byte hex Ethereum address (0x...).'
+    );
+  }
+
   const privateKey = process.env.BLOCKCHAIN_PRIVATE_KEY;
   if (privateKey && !/^0x[0-9a-fA-F]{64}$|^[0-9a-fA-F]{64}$/.test(privateKey)) {
     throw new Error('BLOCKCHAIN_PRIVATE_KEY must be a valid 32-byte hex private key (64 hex characters).');
@@ -116,6 +123,7 @@ export const config = {
       ? parseInt(process.env.BLOCKCHAIN_CHAIN_ID, 10)
       : null,
     contractAddress: process.env.BLOCKCHAIN_CONTRACT_ADDRESS || null,
+    auditLedgerAddress: process.env.BLOCKCHAIN_AUDIT_LEDGER_ADDRESS || null,
     privateKey: process.env.BLOCKCHAIN_PRIVATE_KEY || null,
     rpcTimeoutMs: parseInt(process.env.BLOCKCHAIN_RPC_TIMEOUT_MS, 10) || 5000,
     explorerUrl: process.env.BLOCKCHAIN_EXPLORER_URL || null,

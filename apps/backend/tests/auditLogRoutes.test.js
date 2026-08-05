@@ -19,11 +19,13 @@ const originalServiceMethods = {
   getLogs: auditLogService.getLogs,
   getLogById: auditLogService.getLogById,
   getSummary: auditLogService.getSummary,
+  retryAnchor: auditLogService.retryAnchor,
 };
 
 let logsCalls = 0;
 let summaryCalls = 0;
 let logByIdCalls = 0;
+let retryAnchorCalls = 0;
 
 function makeUser(role) {
   return {
@@ -43,10 +45,12 @@ function resetMocks() {
   logsCalls = 0;
   summaryCalls = 0;
   logByIdCalls = 0;
+  retryAnchorCalls = 0;
   userRepository.findById = originalFindById;
   auditLogService.getLogs = originalServiceMethods.getLogs;
   auditLogService.getLogById = originalServiceMethods.getLogById;
   auditLogService.getSummary = originalServiceMethods.getSummary;
+  auditLogService.retryAnchor = originalServiceMethods.retryAnchor;
 }
 
 function stubService() {
@@ -87,6 +91,20 @@ function stubService() {
       txHash: null,
       blockNumber: null,
       txExplorerUrl: null,
+      createdAt: '2026-08-06T08:00:00.000Z',
+    };
+  };
+  auditLogService.retryAnchor = async (id) => {
+    retryAnchorCalls++;
+    return {
+      id,
+      action: 'AUTH_LOGIN',
+      result: 'Success',
+      eventHash: 'a'.repeat(64),
+      anchorStatus: 'Confirmed',
+      txHash: '0xretry',
+      blockNumber: 42,
+      txExplorerUrl: 'https://explorer.example/tx/0xretry',
       createdAt: '2026-08-06T08:00:00.000Z',
     };
   };
@@ -246,6 +264,64 @@ async function runAuditLogRouteTests() {
       assert.equal(res.body.success, true);
       assert.equal(logByIdCalls, 1);
       assert.equal(res.body.data.log.id, VALID_UUID);
+    });
+
+    console.log('\n3. Retry Anchor / RBAC Tests:');
+    await test('should reject an Auditor retry with 403', async () => {
+      userRepository.findById = async () => makeUser(ROLES.AUDITOR);
+      stubService();
+
+      const res = await request(`/api/audit-logs/${VALID_UUID}/retry`, {
+        method: 'POST',
+        token: tokenFor(ROLES.AUDITOR),
+      });
+
+      assert.equal(res.status, 403);
+      assert.equal(res.body.success, false);
+      assert.equal(retryAnchorCalls, 0, 'retryAnchor must not be invoked for an Auditor');
+    });
+
+    await test('should reject an invalid id for retry with 400', async () => {
+      userRepository.findById = async () => makeUser(ROLES.ADMINISTRATOR);
+      stubService();
+
+      const res = await request('/api/audit-logs/not-a-uuid/retry', {
+        method: 'POST',
+        token: tokenFor(ROLES.ADMINISTRATOR),
+      });
+
+      assert.equal(res.status, 400);
+      assert.equal(res.body.success, false);
+      assert.equal(retryAnchorCalls, 0, 'retryAnchor must not be invoked on invalid input');
+    });
+
+    await test('should allow an Administrator to retry an anchor', async () => {
+      userRepository.findById = async () => makeUser(ROLES.ADMINISTRATOR);
+      stubService();
+
+      const res = await request(`/api/audit-logs/${VALID_UUID}/retry`, {
+        method: 'POST',
+        token: tokenFor(ROLES.ADMINISTRATOR),
+      });
+
+      assert.equal(res.status, 200);
+      assert.equal(res.body.success, true);
+      assert.equal(retryAnchorCalls, 1);
+      assert.equal(res.body.data.log.anchorStatus, 'Confirmed');
+    });
+
+    await test('should allow a Treasurer to retry an anchor', async () => {
+      userRepository.findById = async () => makeUser(ROLES.TREASURER);
+      stubService();
+
+      const res = await request(`/api/audit-logs/${VALID_UUID}/retry`, {
+        method: 'POST',
+        token: tokenFor(ROLES.TREASURER),
+      });
+
+      assert.equal(res.status, 200);
+      assert.equal(res.body.success, true);
+      assert.equal(retryAnchorCalls, 1);
     });
   } finally {
     await stopServer();

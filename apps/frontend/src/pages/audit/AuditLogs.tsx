@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
-import { useAuditLogs, useAuditLogSummary, useAuditLog } from '../../hooks/useAuditLogs';
+import { useAuditLogs, useAuditLogSummary, useAuditLog, useRetryAuditLog } from '../../hooks/useAuditLogs';
 import { useListControls } from '../../hooks/useListControls';
 import { useAuditLogFilters } from '../../hooks/useAuditLogFilters';
+import { useAuth } from '../../hooks/useAuth';
+import { ROLES } from '../../constants/roles';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import SearchInput from '../../components/ui/SearchInput';
@@ -24,7 +26,7 @@ import {
   AUDIT_ANCHOR_STATUS_LABELS,
 } from '../../constants/audit';
 import { formatNumber, formatDateTime } from '../../utils/format';
-import { ScrollText, ShieldCheck, XCircle, Clock, Loader2, ExternalLink, Link2 } from 'lucide-react';
+import { ScrollText, ShieldCheck, XCircle, Clock, Loader2, ExternalLink, Link2, RefreshCw } from 'lucide-react';
 import type { AuditLog } from '../../types/audit';
 
 interface StatusCardProps {
@@ -58,6 +60,11 @@ const shortHash = (value: string | null, length = 12): string => {
 
 const ALL = '__all__';
 
+const RETRY_ROLES = [ROLES.ADMINISTRATOR, ROLES.TREASURER, ROLES.BUDGET_OFFICER];
+
+const isRetryable = (log: AuditLog): boolean =>
+  log.anchorStatus === 'Pending' || log.anchorStatus === 'Failed';
+
 export function AuditLogs() {
   const { search, setSearch, debouncedSearch, page, setPage, pageSize, sortBy, sortOrder } =
     useListControls({ initialSortBy: 'newest', initialSortOrder: 'desc' });
@@ -65,6 +72,10 @@ export function AuditLogs() {
   const { filters, setFilter, resetFilters, hasActiveFilters } = useAuditLogFilters();
 
   const [selectedLogId, setSelectedLogId] = useState<string | null>(null);
+  const [retryingId, setRetryingId] = useState<string | null>(null);
+
+  const { hasRole } = useAuth();
+  const canRetry = hasRole(...RETRY_ROLES);
 
   const { data: summaryData, isLoading: isSummaryLoading, error: summaryError } = useAuditLogSummary();
 
@@ -84,10 +95,21 @@ export function AuditLogs() {
 
   const { data: detailLog, isLoading: isDetailLoading } = useAuditLog(selectedLogId ?? undefined);
 
+  const { mutateAsync: retryLog, isPending: isRetrying } = useRetryAuditLog();
+
   const logs = logsData?.logs ?? [];
   const pagination = logsData?.pagination ?? { total: 0, page: 1, limit: 10, totalPages: 0 };
 
   const openDetail = (log: AuditLog) => setSelectedLogId(log.id);
+
+  const handleRetry = (log: AuditLog) => {
+    setRetryingId(log.id);
+    retryLog(log.id)
+      .catch(() => {
+        // Error toast is handled by the mutation hook.
+      })
+      .finally(() => setRetryingId(null));
+  };
 
   return (
     <div className="min-h-screen bg-slate-50/50 py-8 px-4 sm:px-6 lg:px-8">
@@ -228,7 +250,15 @@ export function AuditLogs() {
             </Card>
           ) : (
             <Card className="p-0 overflow-hidden">
-              <AuditLogsTable logs={logs} pagination={pagination} onView={openDetail} onPageChange={setPage} />
+              <AuditLogsTable
+                logs={logs}
+                pagination={pagination}
+                onView={openDetail}
+                onPageChange={setPage}
+                canRetry={canRetry}
+                onRetry={handleRetry}
+                retryingId={retryingId}
+              />
               {isLogsLoading && logs.length === 0 && (
                 <div className="p-8 text-center text-sm text-slate-500">
                   <Loader2 className="w-5 h-5 animate-spin mx-auto mb-2" />
@@ -351,10 +381,32 @@ export function AuditLogs() {
             )}
           </div>
 
-          <div className="px-7 py-4 bg-slate-50/70 border-t border-slate-100 shrink-0 flex justify-end">
-            <Button variant="outline" type="button" onClick={() => setSelectedLogId(null)}>
-              Close
-            </Button>
+          <div className="px-7 py-4 bg-slate-50/70 border-t border-slate-100 shrink-0 flex items-center justify-between gap-2">
+            <div>
+              {detailLog && canRetry && isRetryable(detailLog) && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  type="button"
+                  disabled={isRetrying}
+                  onClick={() => handleRetry(detailLog)}
+                  title="Retry anchoring this audit event on the ledger"
+                >
+                  {isRetrying ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <RefreshCw className="w-3.5 h-3.5" />
+                  )}
+                  {isRetrying ? 'Anchoring...' : 'Retry Anchor'}
+                </Button>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              {detailLog && canRetry && isRetryable(detailLog) && <span className="text-xs text-slate-400 mr-1 hidden sm:inline">Pending or failed anchors can be re-submitted</span>}
+              <Button variant="outline" type="button" onClick={() => setSelectedLogId(null)}>
+                Close
+              </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>

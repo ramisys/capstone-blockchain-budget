@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { auditLogService } from '../services/auditLogService.js';
 import { auditLogRepository } from '../repositories/auditLogRepository.js';
+import { auditEventBlockchainService } from '../services/auditEventBlockchainService.js';
 import { config } from '../config/env.js';
 import { disableAuditPersistence } from './auditTestConfig.js';
 
@@ -12,6 +13,7 @@ const originalMethods = {
   findById: auditLogRepository.findById,
   countByAction: auditLogRepository.countByAction,
   countByResult: auditLogRepository.countByResult,
+  retryEvent: auditEventBlockchainService.retryEvent,
 };
 
 const originalExplorerUrl = config.blockchain.explorerUrl;
@@ -22,6 +24,7 @@ function resetMocks() {
   auditLogRepository.findById = originalMethods.findById;
   auditLogRepository.countByAction = originalMethods.countByAction;
   auditLogRepository.countByResult = originalMethods.countByResult;
+  auditEventBlockchainService.retryEvent = originalMethods.retryEvent;
   config.blockchain.explorerUrl = originalExplorerUrl;
 }
 
@@ -190,6 +193,51 @@ async function runAuditLogServiceTests() {
     const result = await auditLogService.getTxExplorerUrl('0xabc');
 
     assert.equal(result, 'https://explorer.example/tx/0xabc');
+  });
+
+  console.log('\n5. retryAnchor Tests:');
+  await test('should throw 404 when the entry does not exist', async () => {
+    auditLogRepository.findById = async () => null;
+
+    await assert.rejects(
+      () => auditLogService.retryAnchor('missing', 'user-1'),
+      (err) => err.statusCode === 404 && err.message.includes('not found')
+    );
+  });
+
+  await test('should delegate to the audit event service and serialize the result', async () => {
+    auditLogRepository.findById = async () => entry();
+    config.blockchain.explorerUrl = 'https://explorer.example';
+
+    let retriedWith = null;
+    auditEventBlockchainService.retryEvent = async (log, actor) => {
+      retriedWith = { id: log.id, actor };
+      return { ...log, anchorStatus: 'Confirmed', txHash: '0xretry', blockNumber: 88n };
+    };
+
+    const result = await auditLogService.retryAnchor('log-1', { id: 'user-1', role: 'Administrator' });
+
+    assert.equal(retriedWith.id, 'log-1');
+    assert.equal(retriedWith.actor.id, 'user-1');
+    assert.equal(result.anchorStatus, 'Confirmed');
+    assert.equal(result.txHash, '0xretry');
+    assert.equal(result.blockNumber, 88);
+    assert.equal(typeof result.blockNumber, 'number');
+    assert.equal(result.txExplorerUrl, 'https://explorer.example/tx/0xretry');
+  });
+
+  await test('should propagate 503 failures from the audit event service', async () => {
+    auditLogRepository.findById = async () => entry();
+    auditEventBlockchainService.retryEvent = async () => {
+      const err = new Error('node unreachable');
+      err.statusCode = 503;
+      throw err;
+    };
+
+    await assert.rejects(
+      () => auditLogService.retryAnchor('log-1', 'user-1'),
+      (err) => err.statusCode === 503 && err.message.includes('node unreachable')
+    );
   });
 
   console.log(`\n✨ Audit Log Service Unit Tests Completed: ${passedTests}/${totalTests} Passed!\n`);

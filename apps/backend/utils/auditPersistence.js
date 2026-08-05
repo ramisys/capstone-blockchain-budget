@@ -2,6 +2,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import { config } from '../config/env.js';
 import { AUDIT_RESULTS } from '../constants/auditActions.js';
 import { auditLogRepository } from '../repositories/auditLogRepository.js';
+import { auditEventBlockchainService } from '../services/auditEventBlockchainService.js';
 
 /**
  * Map the audit logger result constants ('SUCCESS'/'FAILURE') to the Prisma
@@ -103,7 +104,13 @@ export async function persistAuditEntry(entry) {
     const id = randomUUID();
     const payload = buildCanonicalPayload(entry, id);
     payload.eventHash = computeEventHash(payload);
-    await auditLogRepository.create(buildAuditLogData(payload));
+    const auditLog = await auditLogRepository.create(buildAuditLogData(payload));
+
+    // Fail-soft on-chain anchoring of the event hash. Runs inside the sink so
+    // it never blocks the caller (auditLogger fires `void persistAuditEntry`),
+    // and anchorEvent itself never throws. Unconfigured ledgers leave the row
+    // Pending for the scheduler / manual retry to pick up.
+    await auditEventBlockchainService.anchorEvent(auditLog);
   } catch (err) {
     console.error('[AUDIT-PERSIST] Failed to persist audit log entry:', err.message);
   }

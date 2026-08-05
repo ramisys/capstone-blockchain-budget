@@ -74,6 +74,24 @@ class AuditLogController {
       next(error);
     }
   }
+
+  /**
+   * Re-anchor a Pending/Failed audit log entry on the AuditLedger contract.
+   * @param {import('express').Request} req
+   * @param {import('express').Response} res
+   * @param {import('express').NextFunction} next
+   */
+  async retryAnchor(req, res, next) {
+    try {
+      const { id } = req.params;
+      const log = await auditLogService.retryAnchor(id, req.user);
+      return res
+        .status(HTTP_STATUS.OK)
+        .json(formatSuccessResponse('Audit event anchored successfully', { log }));
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 export const auditLogController = new AuditLogController();

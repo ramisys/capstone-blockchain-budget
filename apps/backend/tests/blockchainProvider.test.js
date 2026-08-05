@@ -27,6 +27,7 @@ function resetBlockchainConfig() {
   config.blockchain.network = originalBlockchainConfig.network;
   config.blockchain.chainId = originalBlockchainConfig.chainId;
   config.blockchain.contractAddress = originalBlockchainConfig.contractAddress;
+  config.blockchain.auditLedgerAddress = originalBlockchainConfig.auditLedgerAddress;
   config.blockchain.privateKey = originalBlockchainConfig.privateKey;
   blockchainProvider._reset();
 }
@@ -127,6 +128,48 @@ async function runBlockchainProviderTests() {
     assert.equal(blockchainProvider.getContractAddress(), null);
   });
 
+  console.log('\n2b. Audit Ledger Address Resolution Tests:');
+  await test('should prefer the env audit ledger address over the deployment file', async () => {
+    writeDeploymentFile(
+      JSON.stringify({ address: '0x2222222222222222222222222222222222222222', auditLedgerAddress: '0x3333333333333333333333333333333333333333' })
+    );
+    config.blockchain.auditLedgerAddress = TEST_ADDRESS;
+
+    assert.equal(blockchainProvider.getAuditLedgerAddress(), TEST_ADDRESS);
+  });
+
+  await test('should discover the audit ledger address from the deployment file as a fallback', async () => {
+    writeDeploymentFile(
+      JSON.stringify({ address: TEST_ADDRESS, auditLedgerAddress: '0x4444444444444444444444444444444444444444' })
+    );
+    config.blockchain.auditLedgerAddress = null;
+
+    assert.equal(blockchainProvider.getAuditLedgerAddress(), '0x4444444444444444444444444444444444444444');
+  });
+
+  await test('should return null when no audit ledger address is available anywhere', async () => {
+    writeDeploymentFile('{}');
+    config.blockchain.auditLedgerAddress = null;
+
+    assert.equal(blockchainProvider.getAuditLedgerAddress(), null);
+  });
+
+  await test('should report audit unconfigured when the audit ledger address is missing', async () => {
+    config.blockchain.rpcUrl = 'http://127.0.0.1:8545';
+    config.blockchain.contractAddress = TEST_ADDRESS;
+    config.blockchain.auditLedgerAddress = null;
+    writeDeploymentFile('{}');
+
+    assert.equal(blockchainProvider.isAuditConfigured(), false);
+  });
+
+  await test('should report audit configured when RPC URL and audit address are set', async () => {
+    config.blockchain.rpcUrl = 'http://127.0.0.1:8545';
+    config.blockchain.auditLedgerAddress = TEST_ADDRESS;
+
+    assert.equal(blockchainProvider.isAuditConfigured(), true);
+  });
+
   console.log('\n3. Lazy Initialization Tests:');
   await test('should build ethers instances lazily and cache them', async () => {
     config.blockchain.rpcUrl = 'http://127.0.0.1:8545';
@@ -217,6 +260,104 @@ async function runBlockchainProviderTests() {
     mockContractCalls({ recordCount: async () => 7n });
 
     assert.equal(await blockchainProvider.getRecordCount(), 7);
+  });
+
+  console.log('\n4b. Audit Ledger Interaction Tests:');
+  await test('should reject audit recording when no signer is configured', async () => {
+    config.blockchain.rpcUrl = 'http://127.0.0.1:8545';
+    config.blockchain.auditLedgerAddress = TEST_ADDRESS;
+    config.blockchain.privateKey = null;
+
+    await assert.rejects(
+      () => blockchainProvider.auditRecord('0xabc', 'AUTH_LOGIN'),
+      /BLOCKCHAIN_PRIVATE_KEY is not configured/
+    );
+  });
+
+  await test('should return tx hash and block number from a confirmed audit write', async () => {
+    config.blockchain.rpcUrl = 'http://127.0.0.1:8545';
+    config.blockchain.auditLedgerAddress = TEST_ADDRESS;
+    config.blockchain.privateKey = TEST_PRIVATE_KEY;
+    blockchainProvider._auditContract = {
+      recordEvent: async () => ({ wait: async () => ({ hash: '0xaudittx', blockNumber: 15 }) }),
+    };
+
+    const result = await blockchainProvider.auditRecord('0xabc', 'AUTH_LOGIN');
+
+    assert.equal(result.txHash, '0xaudittx');
+    assert.equal(result.blockNumber, 15);
+  });
+
+  await test('should normalize auditVerify() results to plain numbers', async () => {
+    blockchainProvider._auditContract = {
+      verifyEvent: async () => [true, 'AUTH_LOGIN', '0xowner', 1700000000n, 90n],
+    };
+
+    const result = await blockchainProvider.auditVerify('0xabc');
+
+    assert.deepEqual(result, {
+      exists: true,
+      category: 'AUTH_LOGIN',
+      anchoredBy: '0xowner',
+      anchoredAt: 1700000000,
+      blockNumber: 90,
+    });
+  });
+
+  await test('should normalize getAuditEventCount() to a plain number', async () => {
+    blockchainProvider._auditContract = { totalEvents: async () => 12n };
+
+    assert.equal(await blockchainProvider.getAuditEventCount(), 12);
+  });
+
+  console.log('\n5b. Audit Ledger Status Reporting Tests:');
+  await test('should report not-configured status when the audit address is missing', async () => {
+    config.blockchain.rpcUrl = null;
+    config.blockchain.auditLedgerAddress = null;
+
+    const status = await blockchainProvider.getAuditLedgerStatus();
+
+    assert.equal(status.configured, false);
+    assert.equal(status.connected, false);
+    assert.equal(status.auditLedgerAddress, null);
+    assert.ok(status.message.includes('not yet configured'));
+  });
+
+  await test('should report a connected audit status with total events and explorer links', async () => {
+    config.blockchain.rpcUrl = 'http://127.0.0.1:8545';
+    config.blockchain.auditLedgerAddress = TEST_ADDRESS;
+    config.blockchain.network = 'hardhat';
+    config.blockchain.explorerUrl = 'https://sepolia.etherscan.io';
+    blockchainProvider._provider = {
+      getNetwork: async () => ({ name: 'hardhat', chainId: 31337n }),
+    };
+    blockchainProvider._auditContract = { totalEvents: async () => 5n };
+
+    const status = await blockchainProvider.getAuditLedgerStatus();
+
+    assert.equal(status.configured, true);
+    assert.equal(status.connected, true);
+    assert.equal(status.totalEvents, 5);
+    assert.equal(status.auditLedgerAddress, TEST_ADDRESS);
+    assert.equal(status.contractExplorerUrl, `https://sepolia.etherscan.io/address/${TEST_ADDRESS}`);
+  });
+
+  await test('should fail gracefully with a disconnected audit status when the node is unreachable', async () => {
+    config.blockchain.rpcUrl = 'http://127.0.0.1:8545';
+    config.blockchain.auditLedgerAddress = TEST_ADDRESS;
+    blockchainProvider._provider = {
+      getNetwork: async () => {
+        throw new Error('ETIMEDOUT: request timed out');
+      },
+    };
+    blockchainProvider._auditContract = { totalEvents: async () => 0n };
+
+    const status = await blockchainProvider.getAuditLedgerStatus();
+
+    assert.equal(status.configured, true);
+    assert.equal(status.connected, false);
+    assert.ok(status.message.includes('unreachable'));
+    assert.equal(status.auditLedgerAddress, TEST_ADDRESS);
   });
 
   console.log('\n5. Status Reporting Tests:');

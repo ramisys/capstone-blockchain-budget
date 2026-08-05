@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import React from 'react';
-import { useAuditLogs, useAuditLog, useAuditLogSummary } from '../useAuditLogs';
+import { useAuditLogs, useAuditLog, useAuditLogSummary, useRetryAuditLog } from '../useAuditLogs';
 import { auditLogApi } from '../../services/auditLogService';
 import type { AuditLog, AuditLogsResponse, AuditLogSummary } from '../../types/audit';
 
@@ -11,6 +11,7 @@ vi.mock('../../services/auditLogService', () => ({
     getAuditLogs: vi.fn(),
     getAuditLog: vi.fn(),
     getAuditLogSummary: vi.fn(),
+    retryAuditLog: vi.fn(),
   },
 }));
 
@@ -151,6 +152,33 @@ describe('useAuditLogs hook suite', () => {
       expect(result.current.data?.successCount).toBe(8);
       expect(result.current.data?.failureCount).toBe(2);
       expect(result.current.data?.pendingAnchors).toBe(3);
+    });
+  });
+
+  describe('useRetryAuditLog', () => {
+    it('calls retryAuditLog with the log id and resolves', async () => {
+      vi.mocked(auditLogApi.retryAuditLog).mockResolvedValueOnce({
+        data: { data: { log: mockLog } },
+      } as any);
+
+      const { wrapper } = createWrapper();
+      const { result } = renderHook(() => useRetryAuditLog(), { wrapper });
+
+      const response = await result.current.mutateAsync('log-1');
+
+      expect(auditLogApi.retryAuditLog).toHaveBeenCalledWith('log-1');
+      expect(response.data.data.log.id).toBe('log-1');
+    });
+
+    it('propagates mutation errors to the caller', async () => {
+      vi.mocked(auditLogApi.retryAuditLog).mockRejectedValueOnce(new Error('Blockchain ledger is not configured'));
+
+      const { wrapper } = createWrapper();
+      const { result } = renderHook(() => useRetryAuditLog(), { wrapper });
+
+      await expect(result.current.mutateAsync('log-1')).rejects.toThrow(
+        'Blockchain ledger is not configured'
+      );
     });
   });
 });

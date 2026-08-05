@@ -3,28 +3,38 @@ import { BlockchainScheduler } from '../services/blockchainScheduler.js';
 import { blockchainProvider } from '../config/blockchain.js';
 import { blockchainRepository } from '../repositories/blockchainRepository.js';
 import { documentRepository } from '../repositories/documentRepository.js';
+import { auditLogRepository } from '../repositories/auditLogRepository.js';
 import { blockchainService } from '../services/blockchainService.js';
 import { documentBlockchainService } from '../services/documentBlockchainService.js';
+import { auditEventBlockchainService } from '../services/auditEventBlockchainService.js';
 import { disableAuditPersistence } from './auditTestConfig.js';
 
 disableAuditPersistence();
 
 const originalMethods = {
   isConfigured: blockchainProvider.isConfigured,
+  isAuditConfigured: blockchainProvider.isAuditConfigured,
   findUnconfirmed: blockchainRepository.findUnconfirmed,
   findUnconfirmedVersions: documentRepository.findUnconfirmedVersions,
+  findUnconfirmedAuditLogs: auditLogRepository.findUnconfirmed,
   retryRecord: blockchainService.retryRecord,
   retryVersion: documentBlockchainService.retryVersion,
+  retryEvent: auditEventBlockchainService.retryEvent,
 };
 
 function resetMocks() {
   blockchainProvider.isConfigured = originalMethods.isConfigured;
+  blockchainProvider.isAuditConfigured = originalMethods.isAuditConfigured;
   blockchainRepository.findUnconfirmed = originalMethods.findUnconfirmed;
   documentRepository.findUnconfirmedVersions = originalMethods.findUnconfirmedVersions;
+  auditLogRepository.findUnconfirmed = originalMethods.findUnconfirmedAuditLogs;
   blockchainService.retryRecord = originalMethods.retryRecord;
   documentBlockchainService.retryVersion = originalMethods.retryVersion;
+  auditEventBlockchainService.retryEvent = originalMethods.retryEvent;
   documentRepository.findUnconfirmedVersions = async () => [];
   documentBlockchainService.retryVersion = async (version) => ({ ...version, status: 'Confirmed' });
+  blockchainProvider.isAuditConfigured = () => false;
+  auditLogRepository.findUnconfirmed = async () => [];
 }
 
 async function runBlockchainSchedulerTests() {
@@ -160,6 +170,71 @@ async function runBlockchainSchedulerTests() {
     assert.equal(result.processed, 2);
     assert.equal(result.succeeded, 1);
     assert.equal(result.failed, 1);
+  });
+
+  await test('reconcilePendingRecords() also retries unconfirmed audit log anchors', async () => {
+    blockchainProvider.isConfigured = () => true;
+    blockchainProvider.isAuditConfigured = () => true;
+    blockchainRepository.findUnconfirmed = async () => [];
+    auditLogRepository.findUnconfirmed = async () => [
+      { id: 'log-1', eventHash: 'a'.repeat(64), action: 'AUTH_LOGIN', anchorStatus: 'Pending' },
+      { id: 'log-2', eventHash: 'b'.repeat(64), action: 'USER_CREATE', anchorStatus: 'Failed' },
+    ];
+
+    const retried = [];
+    auditEventBlockchainService.retryEvent = async (auditLog, actor) => {
+      retried.push({ id: auditLog.id, actorRole: actor.role });
+      return { ...auditLog, anchorStatus: 'Confirmed' };
+    };
+
+    const scheduler = new BlockchainScheduler();
+    const result = await scheduler.reconcilePendingRecords();
+
+    assert.equal(result.processed, 2);
+    assert.equal(result.succeeded, 2);
+    assert.equal(result.failed, 0);
+    assert.deepEqual(retried.map((r) => r.id), ['log-1', 'log-2']);
+    assert.equal(retried[0].actorRole, 'System');
+  });
+
+  await test('reconcilePendingRecords() fail-softs when an audit anchor retry throws', async () => {
+    blockchainProvider.isConfigured = () => true;
+    blockchainProvider.isAuditConfigured = () => true;
+    blockchainRepository.findUnconfirmed = async () => [];
+    auditLogRepository.findUnconfirmed = async () => [
+      { id: 'log-1', eventHash: 'a'.repeat(64), action: 'AUTH_LOGIN', anchorStatus: 'Pending' },
+      { id: 'log-2', eventHash: 'b'.repeat(64), action: 'AUTH_LOGIN', anchorStatus: 'Pending' },
+    ];
+    auditEventBlockchainService.retryEvent = async (auditLog) => {
+      if (auditLog.id === 'log-1') {
+        throw new Error('RPC node connection reset');
+      }
+      return { ...auditLog, anchorStatus: 'Confirmed' };
+    };
+
+    const scheduler = new BlockchainScheduler();
+    const result = await scheduler.reconcilePendingRecords();
+
+    assert.equal(result.processed, 2);
+    assert.equal(result.succeeded, 1);
+    assert.equal(result.failed, 1);
+  });
+
+  await test('reconcilePendingRecords() skips audit anchors when the audit ledger is not configured', async () => {
+    blockchainProvider.isConfigured = () => true;
+    blockchainProvider.isAuditConfigured = () => false;
+    blockchainRepository.findUnconfirmed = async () => [];
+    let findUnconfirmedAuditCalled = false;
+    auditLogRepository.findUnconfirmed = async () => {
+      findUnconfirmedAuditCalled = true;
+      return [];
+    };
+
+    const scheduler = new BlockchainScheduler();
+    const result = await scheduler.reconcilePendingRecords();
+
+    assert.equal(result.processed, 0);
+    assert.equal(findUnconfirmedAuditCalled, false);
   });
 
   await test('reconcilePendingRecords() prevents overlapping concurrent runs', async () => {

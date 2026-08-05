@@ -22,8 +22,8 @@ Much of the blockchain integrity core already exists. This plan fills the real g
 | Pending/Failed anchor reconciliation | `services/blockchainScheduler.js` (60s interval) | ✅ Exists |
 | Allocation status history | `AllocationApproval` table + `ApprovalHistory` UI | ✅ Exists |
 | Document lifecycle history | `DocumentActivity` table + `ActivityTimeline` UI | ✅ Exists |
-| Audit events (structured) | `utils/auditLogger.js` — **console only, NOT persisted** | ⚠️ Gap |
-| Audit events anchored on-chain | — | ❌ Missing |
+| Audit events (structured) | `utils/auditLogger.js` → persisted `audit_logs` (M1/M2) | ✅ Exists |
+| Audit events anchored on-chain | `contracts/AuditLedger.sol` + `services/auditEventBlockchainService.js` | ✅ Exists |
 | Unified blockchain transaction history | — | ❌ Missing |
 | Blockchain transaction detail view | — | ❌ Missing |
 | Financial activity timeline | — | ❌ Missing |
@@ -51,7 +51,7 @@ Much of the blockchain integrity core already exists. This plan fills the real g
 | **Status history tracking** | Partial | Generalized via audit entries carrying `before`/`after`; no duplicate tables |
 | **Blockchain transaction history (unified)** | ⚠️ Allocations only | Union query over allocation records + document anchors (+ audit anchors) |
 | **Blockchain transaction details** | Partial (verification dialog) | New detail view: tx hash, block, network, explorer link, anchor metadata, related entity |
-| **Audit event on-chain anchoring** | ❌ Missing | New `AuditLedger.sol` + fail-soft anchoring |
+| **Audit event on-chain anchoring** | ✅ Exists | `AuditLedger.sol` + fail-soft anchoring |
 | **Financial activity timeline** | ❌ Missing | Merged chronological feed (allocations, approvals, documents, blockchain, audits) |
 | **External-file verification** | ❌ Missing | Verify a user-uploaded file (not stored) against the ledger |
 
@@ -388,7 +388,12 @@ contract AuditLedger {
 - **Objective:** audit/status-change events are cryptographically anchored.
 - **Tasks:** `AuditLedger.sol` + contract tests + `deploy.js` update + redeploy + smoke; `AUDIT_LEDGER_ABI`, env var, provider audit methods; `auditEventBlockchainService` + scheduler integration; `anchorStatus`/`txHash`/`eventHash` populated; retry endpoint.
 - **Dependencies:** M1.
-- **Output:** audit events show `Confirmed` anchors + explorer links; contract + service + scheduler tests pass.
+- **Status:** ✅ Complete (2026-08-06).
+  - New: `contracts/AuditLedger.sol` (owner-only `recordEvent`/`verifyEvent`/`getAuditEvent`/`eventCount`/`totalEvents`, `EventAlreadyRecorded`/`InvalidCategory`/`NotOwner`, `EventRecorded` event); `test/AuditLedger.test.js` (12) → 22 contract tests pass; `deploy.js` writes `auditLedgerAddress` to `deployments/contracts.json`; `smoke.js` verifies both ledgers incl. backend ABI parity.
+  - New: `config/blockchainAbi.js` `AUDIT_LEDGER_ABI`; `config/env.js` `BLOCKCHAIN_AUDIT_LEDGER_ADDRESS`; `config/blockchain.js` `getAuditLedgerAddress`/`isAuditConfigured`/`auditRecord`/`auditVerify`/`getAuditEventCount`/`getAuditLedgerStatus` (+ provider shared via `_loadBase`, audit ledger independent of BudgetLedger config).
+  - New: `services/auditEventBlockchainService.js` (fail-soft `anchorEvent` from the persistence sink, `retryEvent` with verify-then-record recovery, never throws); `auditLogRepository.updateAnchor`; scheduler retries unconfirmed audit anchors; `POST /api/audit-logs/:id/retry` (Admin/Treasurer/BudgetOfficer).
+  - New backend tests: `auditEventBlockchainService.test.js` (16) + extensions to `auditPersistence` (anchoring wiring), `auditLogService` (retryAnchor), `auditLogRoutes` (retry RBAC), `blockchainProvider`, `blockchainScheduler`; `npm run test:backend` green.
+  - Frontend: `retryAuditLog` API + `useRetryAuditLog` mutation (invalidates list/detail/summary, toasts), Retry action for Pending/Failed rows + detail dialog (role-gated); hook + page tests green, `typecheck` + build pass.
 
 ### M4 — Unified blockchain history + transaction details
 - **Objective:** one ledger view across allocations, documents, audits.
@@ -487,12 +492,12 @@ apps/frontend/src/
 ## 10. Deliverables Checklist
 
 **Database & backend**
-- [ ] `audit_logs` migration applied (`npx prisma migrate dev`), enums created
-- [ ] Audit persistence sink wired into `auditLogger`; every existing action persists (verify via studio / API)
-- [ ] `AuditLog` repository/service/controller/routes/validators complete
-- [ ] `AuditLedger.sol` compiled, tested, deployed; `contracts.json` has `auditLedgerAddress`
-- [ ] Provider + env support audit ledger; anchor + verify + status methods working
-- [ ] Audit events anchored on-chain (Confirmed) with scheduler auto-retry + manual retry endpoint
+- [x] `audit_logs` migration applied (`npx prisma migrate dev`), enums created
+- [x] Audit persistence sink wired into `auditLogger`; every existing action persists (verify via studio / API)
+- [x] `AuditLog` repository/service/controller/routes/validators complete
+- [x] `AuditLedger.sol` compiled, tested, deployed; `contracts.json` has `auditLedgerAddress`
+- [x] Provider + env support audit ledger; anchor + verify + status methods working
+- [x] Audit events anchored on-chain (Confirmed) with scheduler auto-retry + manual retry endpoint
 - [ ] `GET /api/blockchain/history` returns unified Allocation/Document/Audit history with correct pagination/filtering
 - [ ] `GET /api/blockchain/transactions/:id` returns full detail incl. explorer links
 - [ ] `GET /api/dashboard/timeline` returns merged financial activity feed

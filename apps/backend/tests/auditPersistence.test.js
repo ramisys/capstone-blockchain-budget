@@ -8,12 +8,15 @@ import {
   buildAuditLogData,
 } from '../utils/auditPersistence.js';
 import { auditLogRepository } from '../repositories/auditLogRepository.js';
+import { auditEventBlockchainService } from '../services/auditEventBlockchainService.js';
 
 const originalCreate = auditLogRepository.create;
+const originalAnchorEvent = auditEventBlockchainService.anchorEvent;
 const originalPersistEnabled = config.auditLog.persistEnabled;
 
 function resetMocks() {
   auditLogRepository.create = originalCreate;
+  auditEventBlockchainService.anchorEvent = originalAnchorEvent;
   config.auditLog.persistEnabled = originalPersistEnabled;
 }
 
@@ -187,6 +190,46 @@ async function runAuditPersistenceTests() {
     );
 
     assert.equal(resolved, true, 'persistAuditEntry should resolve even on DB failure');
+  });
+
+  await test('persistAuditEntry() hands the created row to the anchoring service', async () => {
+    let createdRow = null;
+    auditLogRepository.create = async (data) => {
+      createdRow = { id: 'log-1', ...data };
+      return createdRow;
+    };
+    config.auditLog.persistEnabled = true;
+
+    let anchoredLog = null;
+    auditEventBlockchainService.anchorEvent = async (log) => {
+      anchoredLog = log;
+      return log;
+    };
+
+    await persistAuditEntry({ action: 'AUTH_LOGIN', result: 'SUCCESS', actor: null, ip: 'UNKNOWN' });
+
+    assert.ok(createdRow, 'create should have been called');
+    assert.ok(anchoredLog, 'anchorEvent should have been called');
+    assert.equal(anchoredLog.id, createdRow.id);
+    assert.equal(anchoredLog.eventHash, createdRow.eventHash);
+    assert.match(anchoredLog.eventHash, /^[0-9a-f]{64}$/);
+  });
+
+  await test('persistAuditEntry() never throws when the anchoring service fails', async () => {
+    auditLogRepository.create = async (data) => ({ id: 'log-2', ...data });
+    config.auditLog.persistEnabled = true;
+    auditEventBlockchainService.anchorEvent = async () => {
+      throw new Error('RPC down');
+    };
+
+    let resolved = false;
+    await persistAuditEntry({ action: 'AUTH_LOGIN', result: 'SUCCESS', actor: null, ip: 'UNKNOWN' }).then(
+      () => {
+        resolved = true;
+      }
+    );
+
+    assert.equal(resolved, true, 'persistAuditEntry should resolve even when anchoring throws');
   });
 
   console.log(`\n✨ Audit Persistence Unit Tests Completed: ${passedTests}/${totalTests} Passed!\n`);

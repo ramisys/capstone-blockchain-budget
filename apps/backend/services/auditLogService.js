@@ -1,5 +1,6 @@
 import { config } from '../config/env.js';
 import { auditLogRepository } from '../repositories/auditLogRepository.js';
+import { auditEventBlockchainService } from './auditEventBlockchainService.js';
 import { AppError } from '../errors/appError.js';
 import { HTTP_STATUS } from '../constants/httpStatus.js';
 
@@ -75,6 +76,26 @@ class AuditLogService {
         .map((group) => ({ action: group.action, count: group._count }))
         .sort((a, b) => b.count - a.count),
     };
+  }
+
+  /**
+   * Re-anchor a single audit log entry on the AuditLedger contract.
+   *
+   * Already-confirmed entries are returned as-is; unconfigured ledgers and
+   * anchor failures surface as 503 through `auditEventBlockchainService.retryEvent`.
+   *
+   * @param {string} id - Audit log ID
+   * @param {string|Object} actor - User ID or user object triggering the retry
+   * @returns {Promise<Object>} Serialized, updated audit log entry
+   */
+  async retryAnchor(id, actor) {
+    const entry = await auditLogRepository.findById(id);
+    if (!entry) {
+      throw new AppError('Audit log entry not found', HTTP_STATUS.NOT_FOUND);
+    }
+
+    const updated = await auditEventBlockchainService.retryEvent(entry, actor);
+    return this.serialize(updated);
   }
 
   /**

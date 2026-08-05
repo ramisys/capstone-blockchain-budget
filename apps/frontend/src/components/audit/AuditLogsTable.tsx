@@ -14,7 +14,7 @@ import { AuditResultBadge } from './AuditResultBadge';
 import { AuditAnchorStatusBadge } from './AuditAnchorStatusBadge';
 import { AUDIT_ACTION_LABELS } from '../../constants/auditActions';
 import { formatDateTime } from '../../utils/format';
-import { ExternalLink, Link2, Eye } from 'lucide-react';
+import { ExternalLink, Link2, Eye, RefreshCw } from 'lucide-react';
 import type { AuditLog } from '../../types/audit';
 import type { PaginationInfo } from '../../types/allocation';
 
@@ -24,11 +24,17 @@ const shortHash = (value: string | null, length = 10): string => {
   return `${value.slice(0, length)}...${value.slice(-length)}`;
 };
 
+const isRetryable = (log: AuditLog): boolean =>
+  log.anchorStatus === 'Pending' || log.anchorStatus === 'Failed';
+
 interface AuditLogsTableProps {
   logs: AuditLog[];
   pagination: PaginationInfo;
   onView: (log: AuditLog) => void;
   onPageChange: (page: number) => void;
+  canRetry?: boolean;
+  onRetry?: (log: AuditLog) => void;
+  retryingId?: string | null;
 }
 
 const AuditLogsTable: React.FC<AuditLogsTableProps> = ({
@@ -36,6 +42,9 @@ const AuditLogsTable: React.FC<AuditLogsTableProps> = ({
   pagination,
   onView,
   onPageChange,
+  canRetry = false,
+  onRetry,
+  retryingId = null,
 }) => {
   return (
     <div className="space-y-4">
@@ -115,10 +124,29 @@ const AuditLogsTable: React.FC<AuditLogsTableProps> = ({
                     </span>
                   </TableCell>
                   <TableCell className="px-6 py-4 text-sm font-medium whitespace-nowrap" onClick={(event) => event.stopPropagation()}>
-                    <Button variant="outline" size="sm" type="button" onClick={() => onView(log)}>
-                      <Eye className="w-3.5 h-3.5" />
-                      Details
-                    </Button>
+                    <div className="inline-flex items-center gap-2">
+                      {canRetry && isRetryable(log) && onRetry && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          type="button"
+                          disabled={retryingId === log.id}
+                          onClick={() => onRetry(log)}
+                          title="Retry anchoring this audit event on the ledger"
+                        >
+                          {retryingId === log.id ? (
+                            <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                          ) : (
+                            <RefreshCw className="w-3.5 h-3.5" />
+                          )}
+                          {retryingId === log.id ? 'Anchoring' : 'Retry'}
+                        </Button>
+                      )}
+                      <Button variant="outline" size="sm" type="button" onClick={() => onView(log)}>
+                        <Eye className="w-3.5 h-3.5" />
+                        Details
+                      </Button>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))

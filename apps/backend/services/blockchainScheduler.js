@@ -1,8 +1,10 @@
 import { blockchainProvider } from '../config/blockchain.js';
 import { blockchainRepository } from '../repositories/blockchainRepository.js';
 import { documentRepository } from '../repositories/documentRepository.js';
+import { auditLogRepository } from '../repositories/auditLogRepository.js';
 import { blockchainService } from './blockchainService.js';
 import { documentBlockchainService } from './documentBlockchainService.js';
+import { auditEventBlockchainService } from './auditEventBlockchainService.js';
 import { logger } from '../utils/logger.js';
 
 const SYSTEM_ACTOR = {
@@ -18,8 +20,9 @@ export class BlockchainScheduler {
   }
 
   /**
-   * Scan for and retry unconfirmed (Pending / Failed) blockchain records and
-   * document version anchors if the blockchain provider is configured.
+   * Scan for and retry unconfirmed (Pending / Failed) blockchain records,
+   * document version anchors, and audit event anchors if the blockchain
+   * provider is configured.
    *
    * Safeguarded against concurrent overlapping runs. Individual record failures
    * are caught so batch reconciliation continues fail-soft.
@@ -27,7 +30,7 @@ export class BlockchainScheduler {
    * @returns {Promise<{processed: number, succeeded: number, failed: number}>} Summary of results
    */
   async reconcilePendingRecords() {
-    if (!blockchainProvider.isConfigured()) {
+    if (!blockchainProvider.isConfigured() && !blockchainProvider.isAuditConfigured()) {
       return { processed: 0, succeeded: 0, failed: 0 };
     }
 
@@ -42,9 +45,16 @@ export class BlockchainScheduler {
     let failed = 0;
 
     try {
-      const unconfirmed = await blockchainRepository.findUnconfirmed();
-      const unconfirmedVersions = await documentRepository.findUnconfirmedVersions();
-      processed = unconfirmed.length + unconfirmedVersions.length;
+      const [unconfirmed, unconfirmedVersions, unconfirmedAuditLogs] = await Promise.all([
+        blockchainProvider.isConfigured() ? blockchainRepository.findUnconfirmed() : Promise.resolve([]),
+        blockchainProvider.isConfigured()
+          ? documentRepository.findUnconfirmedVersions()
+          : Promise.resolve([]),
+        blockchainProvider.isAuditConfigured()
+          ? auditLogRepository.findUnconfirmed()
+          : Promise.resolve([]),
+      ]);
+      processed = unconfirmed.length + unconfirmedVersions.length + unconfirmedAuditLogs.length;
 
       if (processed > 0) {
         logger.logEvent(
@@ -73,6 +83,20 @@ export class BlockchainScheduler {
             failed++;
             logger.logEvent(
               `Blockchain scheduler auto-retry failed for document version ${version.id}: ${
+                error?.message || String(error)
+              }`
+            );
+          }
+        }
+
+        for (const auditLog of unconfirmedAuditLogs) {
+          try {
+            await auditEventBlockchainService.retryEvent(auditLog, SYSTEM_ACTOR);
+            succeeded++;
+          } catch (error) {
+            failed++;
+            logger.logEvent(
+              `Blockchain scheduler auto-retry failed for audit log ${auditLog.id}: ${
                 error?.message || String(error)
               }`
             );

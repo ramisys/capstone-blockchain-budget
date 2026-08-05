@@ -3,7 +3,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ethers } from 'ethers';
 import { config } from './env.js';
-import { BUDGET_LEDGER_ABI } from './blockchainAbi.js';
+import { BUDGET_LEDGER_ABI, AUDIT_LEDGER_ABI } from './blockchainAbi.js';
 
 /**
  * Path to the deployment artifact written by the Hardhat deploy script
@@ -37,6 +37,24 @@ function readDeployedContractAddress() {
 }
 
 /**
+ * Read the AuditLedger contract address from the Hardhat deployment artifact,
+ * if present.
+ *
+ * @returns {string|null} Audit ledger contract address or null
+ */
+function readDeployedAuditLedgerAddress() {
+  try {
+    if (!fs.existsSync(DEPLOYMENT_FILE)) return null;
+    const deployment = JSON.parse(fs.readFileSync(DEPLOYMENT_FILE, 'utf8'));
+    return typeof deployment?.auditLedgerAddress === 'string'
+      ? deployment.auditLedgerAddress
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * EVM adapter for the BudgetLedger contract.
  *
  * Lazily builds an ethers provider / wallet / contract on first use and caches
@@ -49,6 +67,7 @@ class BlockchainProvider {
     this._provider = null;
     this._signer = null;
     this._contract = null;
+    this._auditContract = null;
     this._lastSync = null;
   }
 
@@ -59,6 +78,15 @@ class BlockchainProvider {
    */
   isConfigured() {
     return Boolean(config.blockchain.rpcUrl && this.getContractAddress());
+  }
+
+  /**
+   * Whether the audit ledger is fully configured (RPC URL + audit contract address).
+   *
+   * @returns {boolean}
+   */
+  isAuditConfigured() {
+    return Boolean(config.blockchain.rpcUrl && this.getAuditLedgerAddress());
   }
 
   /**
@@ -77,6 +105,16 @@ class BlockchainProvider {
    */
   getContractAddress() {
     return config.blockchain.contractAddress || readDeployedContractAddress();
+  }
+
+  /**
+   * Resolve the AuditLedger contract address from env, falling back to the
+   * deployment file.
+   *
+   * @returns {string|null}
+   */
+  getAuditLedgerAddress() {
+    return config.blockchain.auditLedgerAddress || readDeployedAuditLedgerAddress();
   }
 
   /**
@@ -104,14 +142,15 @@ class BlockchainProvider {
   }
 
   /**
-   * Lazily initialize the ethers provider, wallet, and contract.
+   * Lazily initialize the shared ethers provider and wallet (used by both the
+   * budget ledger and the audit ledger). Cached across calls.
    *
    * @private
-   * @returns {Object} { provider, signer, contract }
+   * @returns {Object} { provider, signer }
    */
-  _load() {
-    if (this._contract) {
-      return { provider: this._provider, signer: this._signer, contract: this._contract };
+  _loadBase() {
+    if (this._provider) {
+      return { provider: this._provider, signer: this._signer };
     }
 
     if (!config.blockchain.rpcUrl) {
@@ -127,21 +166,67 @@ class BlockchainProvider {
       fetchReq,
       config.blockchain.chainId ? Number(config.blockchain.chainId) : undefined
     );
-    const contractAddress = this.getContractAddress();
-    if (!contractAddress) {
-      throw new Error('BudgetLedger contract address is not configured');
-    }
 
     let signer = null;
     if (config.blockchain.privateKey) {
       signer = new ethers.Wallet(config.blockchain.privateKey, provider);
     }
 
-    const contract = new ethers.Contract(contractAddress, BUDGET_LEDGER_ABI, signer || provider);
-
     this._provider = provider;
     this._signer = signer;
+    return { provider, signer };
+  }
+
+  /**
+   * Lazily initialize the ethers provider, wallet, and BudgetLedger contract.
+   *
+   * @private
+   * @returns {Object} { provider, signer, contract }
+   */
+  _load() {
+    if (this._contract) {
+      return { provider: this._provider, signer: this._signer, contract: this._contract };
+    }
+
+    const { provider, signer } = this._loadBase();
+
+    const contractAddress = this.getContractAddress();
+    if (!contractAddress) {
+      throw new Error('BudgetLedger contract address is not configured');
+    }
+
+    const contract = new ethers.Contract(contractAddress, BUDGET_LEDGER_ABI, signer || provider);
+
     this._contract = contract;
+    return { provider, signer, contract };
+  }
+
+  /**
+   * Lazily initialize the ethers provider, wallet, and AuditLedger contract.
+   *
+   * Reuses the same provider/signer as the budget ledger (they share the RPC
+   * URL and signing key); only the contract instance differs, and it does not
+   * depend on the BudgetLedger address being configured. Reads are possible
+   * whenever an RPC URL is configured; writes need a signer.
+   *
+   * @private
+   * @returns {Object} { provider, signer, contract }
+   */
+  _loadAudit() {
+    if (this._auditContract) {
+      return { provider: this._provider, signer: this._signer, contract: this._auditContract };
+    }
+
+    const auditLedgerAddress = this.getAuditLedgerAddress();
+    if (!auditLedgerAddress) {
+      throw new Error('AuditLedger contract address is not configured');
+    }
+
+    const { provider, signer } = this._loadBase();
+
+    const contract = new ethers.Contract(auditLedgerAddress, AUDIT_LEDGER_ABI, signer || provider);
+
+    this._auditContract = contract;
     return { provider, signer, contract };
   }
 
@@ -152,6 +237,7 @@ class BlockchainProvider {
     this._provider = null;
     this._signer = null;
     this._contract = null;
+    this._auditContract = null;
     this._lastSync = null;
   }
 
@@ -202,6 +288,106 @@ class BlockchainProvider {
     const { contract } = this._load();
     const count = await contract.recordCount();
     return Number(count);
+  }
+
+  /**
+   * Anchor an audit event hash on the AuditLedger contract. Throws when
+   * unconfigured or when the node rejects the transaction.
+   *
+   * @param {string} eventHash - Hex-encoded 32-byte event hash (e.g. SHA-256)
+   * @param {string} category - Non-empty event category (e.g. the audit action)
+   * @returns {Promise<{txHash: string, blockNumber: number}>} Confirmation
+   */
+  async auditRecord(eventHash, category) {
+    const { contract, provider } = this._loadAudit();
+    if (!this.hasSigner()) {
+      throw new Error('BLOCKCHAIN_PRIVATE_KEY is not configured; cannot submit ledger transactions');
+    }
+
+    const tx = await contract.recordEvent(eventHash, category);
+    const receipt = await tx.wait();
+    const blockNumber = receipt?.blockNumber ?? (await provider.getBlockNumber());
+
+    this._lastSync = new Date();
+    return { txHash: receipt.hash, blockNumber: Number(blockNumber) };
+  }
+
+  /**
+   * Check whether an audit event hash is anchored on the AuditLedger contract.
+   *
+   * @param {string} eventHash - Hex-encoded 32-byte event hash
+   * @returns {Promise<{exists: boolean, category: string, anchoredBy: string, anchoredAt: number, blockNumber: number}>}
+   */
+  async auditVerify(eventHash) {
+    const { contract } = this._loadAudit();
+    const [exists, category, anchoredBy, anchoredAt, blockNumber] = await contract.verifyEvent(
+      eventHash
+    );
+    return {
+      exists,
+      category,
+      anchoredBy,
+      anchoredAt: Number(anchoredAt),
+      blockNumber: Number(blockNumber),
+    };
+  }
+
+  /**
+   * Fetch the current on-chain audit event count.
+   *
+   * @returns {Promise<number>}
+   */
+  async getAuditEventCount() {
+    const { contract } = this._loadAudit();
+    const count = await contract.totalEvents();
+    return Number(count);
+  }
+
+  /**
+   * Probe connectivity and report the AuditLedger status without throwing.
+   * Never used to decide critical behavior, only for the status dashboard.
+   *
+   * @returns {Promise<Object>} Audit ledger status summary
+   */
+  async getAuditLedgerStatus() {
+    if (!this.isAuditConfigured()) {
+      return {
+        configured: false,
+        connected: false,
+        auditLedgerAddress: null,
+        totalEvents: null,
+        explorerUrl: config.blockchain.explorerUrl,
+        contractExplorerUrl: null,
+        message: 'Audit ledger integration is not yet configured.',
+      };
+    }
+
+    try {
+      const { provider } = this._loadAudit();
+      await provider.getNetwork();
+      const totalEvents = await this.getAuditEventCount().catch(() => null);
+      const auditLedgerAddress = this.getAuditLedgerAddress();
+
+      return {
+        configured: true,
+        connected: true,
+        auditLedgerAddress,
+        totalEvents,
+        explorerUrl: config.blockchain.explorerUrl,
+        contractExplorerUrl: this.getExplorerAddressUrl(auditLedgerAddress),
+        message: 'Audit ledger is connected.',
+      };
+    } catch (error) {
+      return {
+        configured: true,
+        connected: false,
+        auditLedgerAddress: this.getAuditLedgerAddress(),
+        totalEvents: null,
+        explorerUrl: config.blockchain.explorerUrl,
+        contractExplorerUrl: this.getExplorerAddressUrl(this.getAuditLedgerAddress()),
+        message: `Audit ledger node is unreachable: ${error?.message || String(error)}`,
+      };
+    }
   }
 
   /**

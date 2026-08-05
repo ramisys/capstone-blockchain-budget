@@ -1,20 +1,22 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import React from 'react';
 import userEvent from '@testing-library/user-event';
-import { renderWithProviders, screen, waitFor, fireEvent } from '../../../test/test-utils';
+import { renderWithProviders, screen, waitFor, fireEvent, createTestAuthValue } from '../../../test/test-utils';
 import { AuditLogs } from '../AuditLogs';
 import type { AuditLog, AuditLogSummary } from '../../../types/audit';
 
-const { logsHook, logHook, summaryHook } = vi.hoisted(() => ({
+const { logsHook, logHook, summaryHook, retryHook } = vi.hoisted(() => ({
   logsHook: vi.fn(),
   logHook: vi.fn(),
   summaryHook: vi.fn(),
+  retryHook: vi.fn(),
 }));
 
 vi.mock('../../../hooks/useAuditLogs', () => ({
   useAuditLogs: logsHook,
   useAuditLog: logHook,
   useAuditLogSummary: summaryHook,
+  useRetryAuditLog: retryHook,
 }));
 
 const mockLog: AuditLog = {
@@ -69,6 +71,10 @@ function defaultMocks() {
     error: null,
   });
   logHook.mockReturnValue({ data: mockLog, isLoading: false, isError: false, error: null });
+  retryHook.mockReturnValue({
+    mutateAsync: vi.fn().mockResolvedValue({ data: { data: { log: mockLog } } }),
+    isPending: false,
+  });
 }
 
 describe('AuditLogs page integration suite', () => {
@@ -162,5 +168,40 @@ describe('AuditLogs page integration suite', () => {
         { sortBy: 'newest', sortOrder: 'desc' }
       );
     });
+  });
+
+  it('hides retry actions when the role cannot retry anchors', () => {
+    renderWithProviders(<AuditLogs />);
+
+    expect(screen.queryByRole('button', { name: /Retry/ })).not.toBeInTheDocument();
+  });
+
+  it('shows a retry action for Pending/Failed anchors and triggers the mutation', async () => {
+    const user = userEvent.setup();
+    const mutateAsync = vi.fn().mockResolvedValue({ data: { data: { log: mockLog2 } } });
+    retryHook.mockReturnValue({ mutateAsync, isPending: false });
+
+    renderWithProviders(<AuditLogs />, { authValue: createTestAuthValue({ hasRole: () => true }) });
+
+    const retryButtons = screen.getAllByRole('button', { name: /Retry/ });
+    expect(retryButtons.length).toBeGreaterThan(0);
+
+    await user.click(retryButtons[0]);
+    expect(mutateAsync).toHaveBeenCalledWith('log-2');
+  });
+
+  it('shows a retry action in the detail dialog for retryable entries', async () => {
+    const user = userEvent.setup();
+    const mutateAsync = vi.fn().mockResolvedValue({ data: { data: { log: mockLog2 } } });
+    retryHook.mockReturnValue({ mutateAsync, isPending: false });
+    logHook.mockReturnValue({ data: mockLog2, isLoading: false, isError: false, error: null });
+
+    renderWithProviders(<AuditLogs />, { authValue: createTestAuthValue({ hasRole: () => true }) });
+
+    fireEvent.click(screen.getAllByRole('button', { name: /Details/ })[0]);
+
+    const retryButton = await screen.findByRole('button', { name: /Retry Anchor/ });
+    await user.click(retryButton);
+    expect(mutateAsync).toHaveBeenCalledWith('log-2');
   });
 });
