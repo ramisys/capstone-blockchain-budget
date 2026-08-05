@@ -28,7 +28,9 @@ The documentation lives in `docs/` at the repository root. Each document targets
 | File | Concern | Status |
 |------|---------|--------|
 | `docs/INDEX.md` | Central navigation (this file) | ✅ Exists |
-| `docs/ARCHITECTURE.md` | End-to-end system architecture, request flow, module responsibilities | 🚧 Planned |
+| `docs/PROJECT_OVERVIEW.md` | High-level purpose, features, users, workflow, technology | ✅ Exists |
+| `docs/ARCHITECTURE.md` | End-to-end system architecture, request flow, module responsibilities | ✅ Exists |
+| `docs/FILE_STRUCTURE.md` | Directory/file organization, module mapping, naming conventions | ✅ Exists |
 | `docs/BACKEND.md` | Backend layout, layers, patterns, security model, audit logging | 🚧 Planned |
 | `docs/API.md` | REST API reference (routes, RBAC matrix, pagination/error conventions) | 🚧 Planned |
 | `docs/DATABASE.md` | Prisma schema, models, enums, migrations, seed data | 🚧 Planned |
@@ -37,7 +39,7 @@ The documentation lives in `docs/` at the repository root. Each document targets
 | `docs/BLOCKCHAIN.md` | On-chain anchoring, verification, retry scheduler, unified history, audit trail | 🚧 Planned |
 | `docs/TESTING.md` | Backend + frontend + contract test suites, how to run them, conventions | 🚧 Planned |
 
-> **Status note:** Only `INDEX.md` exists at this time. The planned files above are the intended documentation set; each describes a clearly bounded concern and should be written against the source code (never copied from stale Markdown).
+> **Status note:** `INDEX.md`, `PROJECT_OVERVIEW.md`, `ARCHITECTURE.md`, and `FILE_STRUCTURE.md` exist at this time. The planned files above are the intended documentation set; each describes a clearly bounded concern and should be written against the source code (never copied from stale Markdown).
 
 Conventions for all docs in this set:
 
@@ -153,21 +155,23 @@ The same pattern applies to three anchor sources: allocation records (`Blockchai
 1. **`README.md`** (root) — high-level stack, install/run steps, seed credentials.
 2. **`AGENTS.md`** (root) — *authoritative* operational guide: commands, conventions, gotchas.
 3. **`docs/INDEX.md`** — this map.
-4. **`docs/ARCHITECTURE.md`** — how the pieces fit together.
-5. **`docs/BACKEND.md`** — layering, security, audit logging.
-6. **`docs/DATABASE.md`** — schema and workflows.
-7. **`docs/API.md`** — endpoints and RBAC.
-8. **`docs/FRONTEND.md`** — UI structure and data flow.
-9. **`docs/CONTRACTS.md`** → **`docs/BLOCKCHAIN.md`** — the ledger layer.
-10. **`docs/TESTING.md`** — how to verify changes.
+4. **`docs/FILE_STRUCTURE.md`** — where everything lives (directory/file map, module tables, naming conventions).
+5. **`docs/ARCHITECTURE.md`** — how the pieces fit together.
+6. **`docs/BACKEND.md`** — layering, security, audit logging.
+7. **`docs/DATABASE.md`** — schema and workflows.
+8. **`docs/API.md`** — endpoints and RBAC.
+9. **`docs/FRONTEND.md`** — UI structure and data flow.
+10. **`docs/CONTRACTS.md`** → **`docs/BLOCKCHAIN.md`** — the ledger layer.
+11. **`docs/TESTING.md`** — how to verify changes.
 
 ### For AI agents (task-oriented)
 
 1. **`docs/INDEX.md`** — navigation + source-of-truth hierarchy.
 2. **`AGENTS.md`** — command reference and hard rules (ESM `.js` imports, no `@/` alias, test list maintenance, Prisma workflow).
-3. **`docs/ARCHITECTURE.md`** — the mental model.
-4. The single topic doc matching the task (backend / frontend / contracts / database / api / blockchain / testing).
-5. Verify with the test/lint commands documented in **`docs/TESTING.md`** and `AGENTS.md`.
+3. **`docs/FILE_STRUCTURE.md`** — the file map; start here to locate the code you need to touch.
+4. **`docs/ARCHITECTURE.md`** — the mental model.
+5. The single topic doc matching the task (backend / frontend / contracts / database / api / blockchain / testing).
+6. Verify with the test/lint commands documented in **`docs/TESTING.md`** and `AGENTS.md`.
 
 ---
 
@@ -226,6 +230,7 @@ When any two sources disagree, resolve in this order (highest first):
 - **New contracts / ABI changes** require updates to `docs/CONTRACTS.md` and `docs/BLOCKCHAIN.md`, plus redeploy + regenerate `apps/contracts/deployments/contracts.json`.
 - **Test changes** belong in `docs/TESTING.md`; remember the backend test-script list lives in `apps/backend/package.json`.
 - **Update this index** whenever a doc is added, removed, or renamed, or when the documentation map changes.
+- **Directory/file layout changes** (new directories, renames, new layer folders) require an update to `docs/FILE_STRUCTURE.md`, including its module tables, folder-relationship diagrams, and naming-convention notes.
 - **Mark plans clearly.** Roadmap-only features (e.g. Phase 5 "Expense Tracking") appear as placeholders in the UI/routes; label them "planned" in docs and do not describe them as implemented.
 - **Keep diagrams honest.** Mermaid diagrams must match the code (layers, flows, tables). Stale diagrams are worse than none.
 - **State unknowns.** If a fact cannot be determined from code, say so explicitly (see the list in [Section 6](#6-source-of-truth-hierarchy)).
@@ -239,7 +244,9 @@ When any two sources disagree, resolve in this order (highest first):
 | Document | Description |
 |----------|-------------|
 | [docs/INDEX.md](./INDEX.md) | **This file.** Central navigation, doc map, reading order, AI workflow, source-of-truth hierarchy. |
-| [docs/ARCHITECTURE.md](./ARCHITECTURE.md) | 🚧 Planned — end-to-end architecture, request flow, module responsibilities, diagram. |
+| [docs/PROJECT_OVERVIEW.md](./PROJECT_OVERVIEW.md) | ✅ Exists — purpose, features, users, workflow, modules, technology. |
+| [docs/ARCHITECTURE.md](./ARCHITECTURE.md) | ✅ Exists — end-to-end architecture, repository topology, layered backend pipeline, frontend data flow, contracts, key runtime flows, dev topology, discrepancies. |
+| [docs/FILE_STRUCTURE.md](./FILE_STRUCTURE.md) | ✅ Exists — directory/file organization, module-to-file tables, folder relationships, naming conventions, generated/special directories. |
 | [docs/BACKEND.md](./BACKEND.md) | 🚧 Planned — backend structure, layering, security model, audit logging, scheduler. |
 | [docs/API.md](./API.md) | 🚧 Planned — REST API reference, RBAC matrix, validation/pagination/error conventions. |
 | [docs/DATABASE.md](./DATABASE.md) | 🚧 Planned — Prisma models, enums, relations, migrations, seed data. |
