@@ -26,6 +26,7 @@ const BlockchainLedger = lazy(() => import('../pages/blockchain/BlockchainLedger
 const DocumentList = lazy(() => import('../pages/documents/DocumentList').then((m) => ({ default: m.DocumentList })));
 const DocumentUpload = lazy(() => import('../pages/documents/DocumentUpload').then((m) => ({ default: m.DocumentUpload })));
 const DocumentDetail = lazy(() => import('../pages/documents/DocumentDetail').then((m) => ({ default: m.DocumentDetail })));
+const AuditLogs = lazy(() => import('../pages/audit/AuditLogs').then((m) => ({ default: m.AuditLogs })));
 
 export function AppRoutes() {
   return (
@@ -136,6 +137,16 @@ export function AppRoutes() {
           element={
             <ProtectedRoute roles={[ROLES.ADMINISTRATOR, ROLES.TREASURER, ROLES.BUDGET_OFFICER, ROLES.AUDITOR]}>
               <DocumentDetail />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Audit Trail Routes */}
+        <Route
+          path="/audit"
+          element={
+            <ProtectedRoute roles={[ROLES.ADMINISTRATOR, ROLES.TREASURER, ROLES.BUDGET_OFFICER, ROLES.AUDITOR]}>
+              <AuditLogs />
             </ProtectedRoute>
           }
         />

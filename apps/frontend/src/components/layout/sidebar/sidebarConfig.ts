@@ -17,6 +17,7 @@ import {
   FileText,
   FolderOpen,
   FolderPlus,
+  ScrollText,
 } from 'lucide-react';
 
 export const navigationConfig = [
@@ -130,6 +131,19 @@ export const navigationConfig = [
             label: 'Upload Document',
             path: '/documents/upload',
             icon: FolderPlus,
+          },
+        ],
+      },
+      {
+        type: 'group',
+        label: 'Audit Trail',
+        icon: ScrollText,
+        defaultExpanded: false,
+        items: [
+          {
+            label: 'Audit Logs',
+            path: '/audit',
+            icon: ScrollText,
           },
         ],
       },

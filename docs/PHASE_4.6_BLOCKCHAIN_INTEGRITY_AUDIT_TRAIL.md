@@ -380,6 +380,9 @@ contract AuditLedger {
 - **Tasks:** `auditLogService`/`controller`/`routes`/`validator`; mount in `apiRouter`; frontend types/constants/service/hooks; `AuditLogs` page + table + filters + detail drawer; sidebar + route.
 - **Dependencies:** M1.
 - **Output:** `GET /api/audit-logs` works; Audit Logs page renders live data; backend `auditLogService.test.js`/`auditLogRoutes.test.js` + frontend tests.
+- **Status:** ✅ Complete (2026-08-06).
+  - New: `validators/auditLogValidator.js`, `services/auditLogService.js` (list/detail/summary, BigInt→Number serialization, `txExplorerUrl`), `controllers/auditLogController.js`, `routes/auditLogRoutes.js` (all 4 roles, `/summary` before `/:id`), mounted in `apiRouter` at `/api/audit-logs`; `tests/auditLogService.test.js` (10) + `tests/auditLogRoutes.test.js` (8) added to the `test` chain.
+  - New: `src/types/audit.ts`, `src/constants/auditActions.ts` + `src/constants/audit.ts`, `src/services/auditLogService.ts`, `src/hooks/useAuditLogs.ts` + `useAuditLogFilters.ts`, `src/components/audit/{AuditLogsTable,AuditResultBadge,AuditAnchorStatusBadge}.tsx`, `src/pages/audit/AuditLogs.tsx` (summary cards, filters, table, detail dialog), route `/audit` + sidebar group. Tests: `useAuditLogs.test.tsx` + `AuditLogs.test.tsx` (11 total).
 
 ### M3 — Audit event on-chain anchoring
 - **Objective:** audit/status-change events are cryptographically anchored.

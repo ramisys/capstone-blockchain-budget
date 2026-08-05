@@ -10,6 +10,7 @@ import budgetProgramRoutes from './budgetProgramRoutes.js';
 import allocationRoutes from './allocationRoutes.js';
 import blockchainRoutes from './blockchainRoutes.js';
 import documentRoutes from './documentRoutes.js';
+import auditLogRoutes from './auditLogRoutes.js';
 
 const apiRouter = Router();
 
@@ -45,5 +46,8 @@ apiRouter.use('/blockchain', blockchainRoutes);
 
 // Mount document management routes
 apiRouter.use('/documents', documentRoutes);
+
+// Mount audit log routes
+apiRouter.use('/audit-logs', auditLogRoutes);
 
 export default apiRouter;
