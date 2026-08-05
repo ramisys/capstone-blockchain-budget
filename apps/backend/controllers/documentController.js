@@ -132,6 +132,74 @@ class DocumentController {
   }
 
   /**
+   * Replace a document's current version with a new file (multipart).
+   * @param {import('express').Request} req
+   * @param {import('express').Response} res
+   * @param {import('express').NextFunction} next
+   */
+  async replaceDocument(req, res, next) {
+    try {
+      const { id } = req.params;
+      const result = await documentService.replaceDocument(id, req.file, req.body, req.user);
+
+      auditLogger.logFromReq(req, {
+        action: AUDIT_ACTIONS.DOCUMENT_REPLACE,
+        result: AUDIT_RESULTS.SUCCESS,
+        resource: { type: 'Document', id, code: result.document.documentCode },
+        details: { toVersionNumber: result.version.versionNumber },
+      });
+
+      return res
+        .status(HTTP_STATUS.OK)
+        .json(formatSuccessResponse('Document replaced successfully', result));
+    } catch (error) {
+      auditLogger.logFromReq(req, {
+        action: AUDIT_ACTIONS.DOCUMENT_REPLACE,
+        result: AUDIT_RESULTS.FAILURE,
+        resource: { type: 'Document', id: req.params.id },
+        error,
+      });
+      next(error);
+    }
+  }
+
+  /**
+   * Get the full version history of a document.
+   * @param {import('express').Request} req
+   * @param {import('express').Response} res
+   * @param {import('express').NextFunction} next
+   */
+  async getDocumentVersions(req, res, next) {
+    try {
+      const { id } = req.params;
+      const versions = await documentService.getDocumentVersions(id);
+      return res
+        .status(HTTP_STATUS.OK)
+        .json(formatSuccessResponse('Document versions retrieved successfully', { versions }));
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Get the persisted activity timeline of a document.
+   * @param {import('express').Request} req
+   * @param {import('express').Response} res
+   * @param {import('express').NextFunction} next
+   */
+  async getDocumentActivities(req, res, next) {
+    try {
+      const { id } = req.params;
+      const activities = await documentService.getDocumentActivities(id);
+      return res
+        .status(HTTP_STATUS.OK)
+        .json(formatSuccessResponse('Document activities retrieved successfully', { activities }));
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
    * Archive + soft-delete a document.
    * @param {import('express').Request} req
    * @param {import('express').Response} res

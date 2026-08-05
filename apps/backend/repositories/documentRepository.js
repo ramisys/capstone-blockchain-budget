@@ -129,6 +129,76 @@ class DocumentRepository {
   }
 
   /**
+   * Create a new version for an existing document and promote it to the
+   * document's current version in one serializable transaction. The new
+   * versionNumber is derived from the highest existing version so concurrent
+   * replaces can never collide (the composite unique constraint backstops it).
+   *
+   * @param {string} documentId - Document ID
+   * @param {Object} versionData - New DocumentVersion data (without documentId/versionNumber/replaceReason)
+   * @param {string|null} replaceReason - Optional reason for the replacement
+   * @returns {Promise<{document: Object, version: Object}>} Updated document + created version
+   */
+  async replaceCurrentVersion(documentId, versionData, replaceReason = null) {
+    return prisma.$transaction(
+      async (tx) => {
+        const latest = await tx.documentVersion.findMany({
+          where: { documentId },
+          select: { versionNumber: true },
+          orderBy: { versionNumber: 'desc' },
+          take: 1,
+        });
+
+        const versionNumber = (latest[0]?.versionNumber || 0) + 1;
+
+        const version = await tx.documentVersion.create({
+          data: { ...versionData, documentId, versionNumber, replaceReason },
+          include: versionInclude,
+        });
+
+        const document = await tx.managedDocument.update({
+          where: { id: documentId },
+          data: { currentVersionId: version.id },
+          include: documentInclude,
+        });
+
+        return { document, version };
+      },
+      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }
+    );
+  }
+
+  /**
+   * List all versions of a document (newest first) with uploader details.
+   *
+   * @param {string} documentId - Document ID
+   * @returns {Promise<Array>} Version list
+   */
+  async findVersionsByDocumentId(documentId) {
+    return prisma.documentVersion.findMany({
+      where: { documentId },
+      orderBy: { versionNumber: 'desc' },
+      include: versionInclude,
+    });
+  }
+
+  /**
+   * List the persisted activity timeline of a document (newest first).
+   *
+   * @param {string} documentId - Document ID
+   * @returns {Promise<Array>} Activity list with actor details
+   */
+  async findActivities(documentId) {
+    return prisma.documentActivity.findMany({
+      where: { documentId },
+      orderBy: { createdAt: 'desc' },
+      include: {
+        actor: { select: { id: true, fullName: true, email: true, role: true } },
+      },
+    });
+  }
+
+  /**
    * Update a document by ID.
    *
    * @param {string} id - Document ID

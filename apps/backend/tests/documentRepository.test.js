@@ -3,6 +3,8 @@ import prisma from '../models/prismaClient.js';
 import { documentRepository } from '../repositories/documentRepository.js';
 
 const originalTransaction = prisma.$transaction;
+const originalFindVersions = prisma.documentVersion.findMany;
+const originalFindActivities = prisma.documentActivity.findMany;
 
 let passedTests = 0;
 let totalTests = 0;
@@ -56,8 +58,43 @@ function stubTransaction(tx) {
   prisma.$transaction = async (callback) => callback(tx);
 }
 
+/**
+ * Build a fake tx client for replaceCurrentVersion: version.create persists the
+ * created version, managedDocument.update returns the promoted document, and
+ * documentVersion.findMany returns the supplied existing version numbers.
+ */
+function makeReplaceTransactionStub(existingVersionNumbers = []) {
+  const created = { version: null, document: null };
+  const tx = {
+    documentVersion: {
+      findMany: async () =>
+        existingVersionNumbers
+          .slice()
+          .sort((a, b) => b - a)
+          .map((versionNumber) => ({ versionNumber })),
+      create: async (args) => {
+        created.version = { id: `ver-${args.data.versionNumber}`, ...args.data };
+        return created.version;
+      },
+    },
+    managedDocument: {
+      update: async (args) => {
+        created.document = {
+          id: 'doc-1',
+          documentCode: 'DOC-2026-0001',
+          currentVersionId: args.data.currentVersionId,
+        };
+        return created.document;
+      },
+    },
+  };
+  return { tx, created };
+}
+
 function resetMocks() {
   prisma.$transaction = originalTransaction;
+  prisma.documentVersion.findMany = originalFindVersions;
+  prisma.documentActivity.findMany = originalFindActivities;
 }
 
 async function runRepositoryTests() {
@@ -179,6 +216,86 @@ async function runRepositoryTests() {
       documentCode: 'desc',
     });
     assert.deepEqual(documentRepository.buildOrderBy({ sortBy: 'title' }), { title: 'asc' });
+  });
+
+  console.log('\n4. replaceCurrentVersion - version promotion:');
+  await test('creates the next version and promotes it to current', async () => {
+    const { tx, created } = makeReplaceTransactionStub([1, 2]);
+    stubTransaction(tx);
+
+    const result = await documentRepository.replaceCurrentVersion('doc-1', {
+      originalFileName: 'pr-v3.pdf',
+      storageKey: 'key-3.pdf',
+      sha256Hash: 'c'.repeat(64),
+    }, 'Third revision');
+
+    assert.equal(created.version.versionNumber, 3);
+    assert.equal(created.version.replaceReason, 'Third revision');
+    assert.equal(result.document.currentVersionId, 'ver-3');
+    assert.equal(result.version.versionNumber, 3);
+  });
+
+  await test('starts at version 1 when a document has no versions yet', async () => {
+    const { tx, created } = makeReplaceTransactionStub([]);
+    stubTransaction(tx);
+
+    await documentRepository.replaceCurrentVersion('doc-1', {
+      originalFileName: 'pr.pdf',
+      storageKey: 'key.pdf',
+      sha256Hash: 'd'.repeat(64),
+    });
+
+    assert.equal(created.version.versionNumber, 1);
+  });
+
+  await test('normalizes a missing replace reason to null', async () => {
+    const { tx, created } = makeReplaceTransactionStub([1]);
+    stubTransaction(tx);
+
+    await documentRepository.replaceCurrentVersion('doc-1', {
+      originalFileName: 'pr-v2.pdf',
+      storageKey: 'key-2.pdf',
+      sha256Hash: 'e'.repeat(64),
+    });
+
+    assert.equal(created.version.replaceReason, null);
+  });
+
+  console.log('\n5. findVersionsByDocumentId / findActivities:');
+  await test('lists versions newest first', async () => {
+    const versions = [
+      { id: 'ver-3', versionNumber: 3 },
+      { id: 'ver-2', versionNumber: 2 },
+      { id: 'ver-1', versionNumber: 1 },
+    ];
+    let where = null;
+    let orderBy = null;
+    prisma.documentVersion.findMany = async (args) => {
+      where = args.where;
+      orderBy = args.orderBy;
+      return versions;
+    };
+
+    const result = await documentRepository.findVersionsByDocumentId('doc-1');
+
+    assert.equal(where.documentId, 'doc-1');
+    assert.deepEqual(orderBy, { versionNumber: 'desc' });
+    assert.equal(result.length, 3);
+    assert.equal(result[0].versionNumber, 3);
+  });
+
+  await test('lists activities newest first with actor details', async () => {
+    const activities = [{ id: 'act-2' }, { id: 'act-1' }];
+    let where = null;
+    prisma.documentActivity.findMany = async (args) => {
+      where = args.where;
+      return activities;
+    };
+
+    const result = await documentRepository.findActivities('doc-1');
+
+    assert.equal(where.documentId, 'doc-1');
+    assert.equal(result.length, 2);
   });
 
   console.log(`\n✨ Document Repository Tests Completed: ${passedTests}/${totalTests} Passed!\n`);

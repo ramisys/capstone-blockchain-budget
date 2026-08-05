@@ -22,6 +22,9 @@ const originals = {
     findById: documentRepository.findById,
     findVersionByHash: documentRepository.findVersionByHash,
     createDocumentWithVersion: documentRepository.createDocumentWithVersion,
+    replaceCurrentVersion: documentRepository.replaceCurrentVersion,
+    findVersionsByDocumentId: documentRepository.findVersionsByDocumentId,
+    findActivities: documentRepository.findActivities,
     createActivity: documentRepository.createActivity,
     update: documentRepository.update,
     softDelete: documentRepository.softDelete,
@@ -551,6 +554,169 @@ async function runServiceTests() {
       () => documentService.getPreviewFile('doc-1'),
       (err) => err instanceof AppError && err.statusCode === HTTP_STATUS.UNSUPPORTED_MEDIA_TYPE
     );
+  });
+
+  console.log('\n6. replaceDocument:');
+  await test('replaces the current version and records a REPLACE activity', async () => {
+    documentRepository.findById = async () => makeDocument();
+    let stored = false;
+    documentStorage.storeStream = async (stream) => {
+      stream.resume();
+      stored = true;
+      return { sha256Hash: 'g'.repeat(64), sizeBytes: 10 };
+    };
+    documentRepository.findVersionByHash = async () => null;
+    let replaceArgs = null;
+    documentRepository.replaceCurrentVersion = async (id, versionData, replaceReason) => {
+      replaceArgs = { id, versionData, replaceReason };
+      return {
+        document: makeDocument({ currentVersionId: 'ver-2' }),
+        version: { id: 'ver-2', versionNumber: 2, fileSizeBytes: 10n },
+      };
+    };
+    let activity = null;
+    documentRepository.createActivity = async (data) => {
+      activity = data;
+      return data;
+    };
+
+    const result = await documentService.replaceDocument(
+      'doc-1',
+      uploadFile,
+      { replaceReason: 'Corrected amount' },
+      { id: 'user-1', role: ROLES.BUDGET_OFFICER }
+    );
+
+    assert.equal(stored, true);
+    assert.equal(replaceArgs.id, 'doc-1');
+    assert.equal(replaceArgs.versionData.uploadedBy, 'user-1');
+    assert.equal(replaceArgs.replaceReason, 'Corrected amount');
+    assert.equal(result.version.versionNumber, 2);
+    assert.equal(result.document.currentVersionId, 'ver-2');
+    assert.equal(activity.action, DOCUMENT_ACTIVITY_ACTIONS.REPLACE);
+    assert.equal(activity.details.toVersionNumber, 2);
+  });
+
+  await test('forbids a Budget Officer from replacing another user\'s document', async () => {
+    documentRepository.findById = async () => makeDocument({ uploadedBy: 'other-user' });
+
+    await assert.rejects(
+      () => documentService.replaceDocument('doc-1', uploadFile, {}, { id: 'user-1', role: ROLES.BUDGET_OFFICER }),
+      (err) => err instanceof ForbiddenError
+    );
+  });
+
+  await test('rejects replacing an archived document', async () => {
+    documentRepository.findById = async () => makeDocument({ status: DOCUMENT_STATUS.ARCHIVED });
+
+    await assert.rejects(
+      () => documentService.replaceDocument('doc-1', uploadFile, {}, { id: 'user-1', role: ROLES.BUDGET_OFFICER }),
+      (err) => err instanceof AppError && err.statusCode === HTTP_STATUS.CONFLICT
+    );
+  });
+
+  await test('rejects a replacement beyond the version limit before storing bytes', async () => {
+    documentRepository.findById = async () =>
+      makeDocument({ _count: { versions: 50 } });
+    let stored = false;
+    documentStorage.storeStream = async (stream) => {
+      stream.resume();
+      stored = true;
+      return { sha256Hash: 'j'.repeat(64), sizeBytes: 10 };
+    };
+
+    await assert.rejects(
+      () => documentService.replaceDocument('doc-1', uploadFile, {}, { id: 'user-1', role: ROLES.BUDGET_OFFICER }),
+      (err) => err instanceof AppError && err.statusCode === HTTP_STATUS.CONFLICT
+    );
+    assert.equal(stored, false);
+  });
+
+  await test('rejects a byte-identical replacement and removes the stored blob', async () => {
+    let removed = false;
+    documentRepository.findById = async () => makeDocument();
+    documentStorage.storeStream = async (stream) => {
+      stream.resume();
+      return { sha256Hash: 'h'.repeat(64), sizeBytes: 10 };
+    };
+    documentStorage.removeBlob = async () => {
+      removed = true;
+    };
+    documentRepository.findVersionByHash = async () => ({ id: 'ver-1', documentId: 'doc-1' });
+
+    await assert.rejects(
+      () => documentService.replaceDocument('doc-1', uploadFile, {}, { id: 'user-1', role: ROLES.BUDGET_OFFICER }),
+      (err) => err instanceof AppError && err.statusCode === HTTP_STATUS.CONFLICT
+    );
+    assert.equal(removed, true);
+  });
+
+  await test('removes the stored blob when the version write fails', async () => {
+    let removed = false;
+    documentRepository.findById = async () => makeDocument();
+    documentStorage.storeStream = async (stream) => {
+      stream.resume();
+      return { sha256Hash: 'i'.repeat(64), sizeBytes: 10 };
+    };
+    documentStorage.removeBlob = async () => {
+      removed = true;
+    };
+    documentRepository.findVersionByHash = async () => null;
+    documentRepository.replaceCurrentVersion = async () => {
+      throw new Error('db down');
+    };
+
+    await assert.rejects(
+      () => documentService.replaceDocument('doc-1', uploadFile, {}, { id: 'user-1', role: ROLES.BUDGET_OFFICER }),
+      /db down/
+    );
+    assert.equal(removed, true);
+  });
+
+  await test('rejects a missing file', async () => {
+    documentRepository.findById = async () => makeDocument();
+
+    await assert.rejects(
+      () => documentService.replaceDocument('doc-1', null, {}, { id: 'user-1', role: ROLES.BUDGET_OFFICER }),
+      (err) => err instanceof ValidationError
+    );
+  });
+
+  console.log('\n7. versions / activities:');
+  await test('lists versions with BigInt sizes serialized to numbers', async () => {
+    documentRepository.findById = async () => makeDocument();
+    documentRepository.findVersionsByDocumentId = async () => [
+      { ...currentVersion, versionNumber: 2, fileSizeBytes: 100n },
+      currentVersion,
+    ];
+
+    const versions = await documentService.getDocumentVersions('doc-1');
+
+    assert.equal(versions.length, 2);
+    assert.equal(versions[0].versionNumber, 2);
+    assert.equal(versions[0].fileSizeBytes, 100);
+  });
+
+  await test('throws 404 when listing versions of a soft-deleted document', async () => {
+    documentRepository.findById = async () => makeDocument({ deletedAt: new Date() });
+
+    await assert.rejects(
+      () => documentService.getDocumentVersions('doc-1'),
+      (err) => err instanceof AppError && err.statusCode === HTTP_STATUS.NOT_FOUND
+    );
+  });
+
+  await test('lists the persisted activity timeline', async () => {
+    documentRepository.findById = async () => makeDocument();
+    documentRepository.findActivities = async () => [
+      { action: 'REPLACE', details: { toVersionNumber: 2 } },
+      { action: 'UPLOAD', details: {} },
+    ];
+
+    const activities = await documentService.getDocumentActivities('doc-1');
+
+    assert.equal(activities.length, 2);
+    assert.equal(activities[0].action, 'REPLACE');
   });
 
   console.log(`\n✨ Document Service Tests Completed: ${passedTests}/${totalTests} Passed!\n`);

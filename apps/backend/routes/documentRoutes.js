@@ -7,6 +7,7 @@ import { uploadMiddleware, validateUploadedFile } from '../middleware/uploadMidd
 import {
   createDocumentSchema,
   updateDocumentSchema,
+  replaceDocumentSchema,
   documentQuerySchema,
   documentIdParamSchema,
   documentVersionQuerySchema,
@@ -69,6 +70,30 @@ router.get(
 );
 
 /**
+ * @route   GET /api/documents/:id/versions
+ * @description Get the full version history of a document
+ * @access  Private (Admin, Treasurer, BudgetOfficer, Auditor)
+ */
+router.get(
+  '/:id/versions',
+  authorize(...READ_ROLES),
+  validateRequest(documentIdParamSchema, 'params'),
+  (req, res, next) => documentController.getDocumentVersions(req, res, next)
+);
+
+/**
+ * @route   GET /api/documents/:id/activity
+ * @description Get the persisted activity timeline of a document
+ * @access  Private (Admin, Treasurer, BudgetOfficer, Auditor)
+ */
+router.get(
+  '/:id/activity',
+  authorize(...READ_ROLES),
+  validateRequest(documentIdParamSchema, 'params'),
+  (req, res, next) => documentController.getDocumentActivities(req, res, next)
+);
+
+/**
  * @route   GET /api/documents/:id
  * @description Get document by ID (including current version + verification status)
  * @access  Private (Admin, Treasurer, BudgetOfficer, Auditor)
@@ -92,6 +117,21 @@ router.post(
   validateUploadedFile,
   validateRequest(createDocumentSchema),
   (req, res, next) => documentController.uploadDocument(req, res, next)
+);
+
+/**
+ * @route   POST /api/documents/:id/replace
+ * @description Replace the current version with a new file (multipart)
+ * @access  Private (Admin, Treasurer, BudgetOfficer - own)
+ */
+router.post(
+  '/:id/replace',
+  authorize(...WRITE_ROLES),
+  validateRequest(documentIdParamSchema, 'params'),
+  uploadMiddleware('file'),
+  validateUploadedFile,
+  validateRequest(replaceDocumentSchema),
+  (req, res, next) => documentController.replaceDocument(req, res, next)
 );
 
 /**

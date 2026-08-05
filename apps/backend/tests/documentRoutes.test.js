@@ -21,6 +21,9 @@ const originalServiceMethods = {
   uploadDocument: documentService.uploadDocument,
   updateDocument: documentService.updateDocument,
   deleteDocument: documentService.deleteDocument,
+  replaceDocument: documentService.replaceDocument,
+  getDocumentVersions: documentService.getDocumentVersions,
+  getDocumentActivities: documentService.getDocumentActivities,
   getDownloadFile: documentService.getDownloadFile,
   getPreviewFile: documentService.getPreviewFile,
 };
@@ -31,6 +34,9 @@ const calls = {
   upload: 0,
   update: 0,
   remove: 0,
+  replace: 0,
+  versions: 0,
+  activity: 0,
   download: 0,
   preview: 0,
 };
@@ -88,6 +94,33 @@ function stubService() {
   documentService.deleteDocument = async () => {
     calls.remove++;
     return { message: 'Document archived successfully' };
+  };
+  documentService.replaceDocument = async (_id, _file, metadata) => {
+    calls.replace++;
+    return {
+      document: { ...documentFixture, currentVersionId: 'ver-2' },
+      version: {
+        id: 'ver-2',
+        versionNumber: 2,
+        originalFileName: 'pr-v2.pdf',
+        replaceReason: metadata.replaceReason ?? null,
+        fileSizeBytes: 10,
+      },
+    };
+  };
+  documentService.getDocumentVersions = async () => {
+    calls.versions++;
+    return [
+      { id: 'ver-2', versionNumber: 2, fileSizeBytes: 10 },
+      { id: 'ver-1', versionNumber: 1, fileSizeBytes: 12345 },
+    ];
+  };
+  documentService.getDocumentActivities = async () => {
+    calls.activity++;
+    return [
+      { action: 'REPLACE', details: { toVersionNumber: 2 } },
+      { action: 'UPLOAD', details: {} },
+    ];
   };
   documentService.getDownloadFile = async (id) => {
     calls.download++;
@@ -247,6 +280,20 @@ async function runDocumentRouteTests() {
       assert.equal(calls.remove, 0);
     });
 
+    await test('rejects an Auditor replace with 403 and never reaches the service', async () => {
+      userRepository.findById = async () => makeUser(ROLES.AUDITOR);
+      stubService();
+
+      const res = await request(`/api/documents/${VALID_UUID}/replace`, {
+        method: 'POST',
+        token: tokenFor(ROLES.AUDITOR),
+        form: makeUploadForm(),
+      });
+
+      assert.equal(res.status, 403);
+      assert.equal(calls.replace, 0, 'replaceDocument should never be invoked for an Auditor');
+    });
+
     await test('allows an Auditor to read the document list', async () => {
       userRepository.findById = async () => makeUser(ROLES.AUDITOR);
       stubService();
@@ -361,6 +408,71 @@ async function runDocumentRouteTests() {
       assert.equal(res.status, 200);
       assert.equal(res.body.success, true);
       assert.equal(calls.remove, 1);
+    });
+
+    await test('replaces a document as an Administrator', async () => {
+      userRepository.findById = async () => makeUser(ROLES.ADMINISTRATOR);
+      stubService();
+
+      const form = new FormData();
+      form.append('file', new Blob([PDF_BYTES]), 'pr-v2.pdf');
+      form.append('replaceReason', 'Corrected amount');
+
+      const res = await request(`/api/documents/${VALID_UUID}/replace`, {
+        method: 'POST',
+        token: tokenFor(ROLES.ADMINISTRATOR),
+        form,
+      });
+
+      assert.equal(res.status, 200);
+      assert.equal(res.body.success, true);
+      assert.equal(calls.replace, 1);
+      assert.equal(res.body.data.version.versionNumber, 2);
+      assert.equal(res.body.data.version.replaceReason, 'Corrected amount');
+    });
+
+    await test('rejects a replace request with no file', async () => {
+      userRepository.findById = async () => makeUser(ROLES.BUDGET_OFFICER);
+      stubService();
+
+      const form = new FormData();
+      form.append('replaceReason', 'no file attached');
+
+      const res = await request(`/api/documents/${VALID_UUID}/replace`, {
+        method: 'POST',
+        token: tokenFor(ROLES.BUDGET_OFFICER),
+        form,
+      });
+
+      assert.equal(res.status, 400);
+      assert.equal(calls.replace, 0);
+    });
+
+    await test('lists versions for an Auditor', async () => {
+      userRepository.findById = async () => makeUser(ROLES.AUDITOR);
+      stubService();
+
+      const res = await request(`/api/documents/${VALID_UUID}/versions`, {
+        token: tokenFor(ROLES.AUDITOR),
+      });
+
+      assert.equal(res.status, 200);
+      assert.equal(calls.versions, 1);
+      assert.equal(res.body.data.versions.length, 2);
+      assert.equal(res.body.data.versions[0].versionNumber, 2);
+    });
+
+    await test('lists activities for a Treasurer', async () => {
+      userRepository.findById = async () => makeUser(ROLES.TREASURER);
+      stubService();
+
+      const res = await request(`/api/documents/${VALID_UUID}/activity`, {
+        token: tokenFor(ROLES.TREASURER),
+      });
+
+      assert.equal(res.status, 200);
+      assert.equal(calls.activity, 1);
+      assert.equal(res.body.data.activities[0].action, 'REPLACE');
     });
 
     console.log('\n3. Download / preview:');

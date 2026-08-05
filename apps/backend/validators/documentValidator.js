@@ -111,6 +111,20 @@ export const documentQuerySchema = z.object({
 });
 
 /**
+ * Zod schema for the optional fields accompanying a document replacement.
+ * The schema runs AFTER multer has parsed the multipart body, so the only
+ * present value is a string. Empty reasons normalize to `null`.
+ */
+export const replaceDocumentSchema = z.object({
+  replaceReason: z
+    .string()
+    .trim()
+    .max(500, 'Replace reason must not exceed 500 characters')
+    .transform((value) => (value === '' ? null : value))
+    .optional(),
+});
+
+/**
  * Zod schema for the :id route parameter on single-document routes.
  */
 export const documentIdParamSchema = z.object({

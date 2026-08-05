@@ -4,6 +4,7 @@ import { fiscalYearRepository } from '../repositories/fiscalYearRepository.js';
 import { departmentRepository } from '../repositories/departmentRepository.js';
 import { allocationRepository } from '../repositories/allocationRepository.js';
 import { documentStorage } from './documentStorageService.js';
+import { config } from '../config/env.js';
 import { AppError } from '../errors/appError.js';
 import { ForbiddenError, ValidationError } from '../errors/apiError.js';
 import { HTTP_STATUS } from '../constants/httpStatus.js';
@@ -30,6 +31,14 @@ const PREVIEWABLE_MIME_TYPES = new Set([
 ]);
 
 class DocumentService {
+  /**
+   * Maximum number of versions a single document may accumulate before
+   * replacement is rejected. Configured via MAX_DOCUMENT_VERSIONS.
+   */
+  get maxVersions() {
+    return config.storage.maxVersions;
+  }
+
   /**
    * Upload a new document: validate references, stream the inbound temp file
    * into the storage driver (hashing in the same pass), then persist the
@@ -269,6 +278,134 @@ class DocumentService {
     });
 
     return { message: 'Document archived successfully' };
+  }
+
+  /**
+   * Replace a document's current version with a new file. The previous version
+   * stays fully stored, immutable, and downloadable; the document code and
+   * metadata are unchanged. Only Active documents may be replaced, and Budget
+   * Officers are limited to documents they uploaded. Uploads beyond the
+   * configured version limit are rejected, as are byte-identical files
+   * (dedupe by SHA-256).
+   *
+   * @param {string} id - Document ID
+   * @param {Object} file - Parsed upload file (from uploadMiddleware)
+   * @param {Object} metadata - Validated replace fields (replaceReason)
+   * @param {Object} actor - Authenticated user performing the replacement
+   * @returns {Promise<Object>} { document, version } with the new version
+   */
+  async replaceDocument(id, file, metadata, actor) {
+    if (!file || !file.storageKey || !file.path) {
+      throw new ValidationError('A valid file is required');
+    }
+
+    const existing = await this.getExistingDocument(id);
+    this.assertCanModify(existing, actor);
+
+    if (existing.status !== DOCUMENT_STATUS.ACTIVE) {
+      throw new AppError('Only active documents can be replaced', HTTP_STATUS.CONFLICT);
+    }
+
+    const versionCount = existing._count?.versions ?? 0;
+    if (versionCount >= this.maxVersions) {
+      throw new AppError(
+        `A document cannot have more than ${this.maxVersions} versions`,
+        HTTP_STATUS.CONFLICT
+      );
+    }
+
+    let blobStored = false;
+    let versionCreated = false;
+    let stored;
+
+    try {
+      stored = await documentStorage.storeStream(fs.createReadStream(file.path), file.storageKey);
+      blobStored = true;
+
+      const duplicate = await documentRepository.findVersionByHash(stored.sha256Hash);
+      if (duplicate) {
+        throw new AppError(
+          'A version with the same content already exists',
+          HTTP_STATUS.CONFLICT
+        );
+      }
+
+      const replaceReason = metadata.replaceReason ?? null;
+      const { document, version } = await documentRepository.replaceCurrentVersion(
+        id,
+        {
+          originalFileName: file.safeName,
+          storageKey: file.storageKey,
+          mimeType: file.detectedMime,
+          fileSizeBytes: stored.sizeBytes,
+          fileExtension: file.extension,
+          sha256Hash: stored.sha256Hash,
+          uploadedBy: actor.id,
+        },
+        replaceReason
+      );
+      versionCreated = true;
+
+      await documentRepository.createActivity({
+        documentId: id,
+        versionId: version.id,
+        actorId: actor.id,
+        action: DOCUMENT_ACTIVITY_ACTIONS.REPLACE,
+        details: {
+          fromVersionNumber: existing.currentVersion?.versionNumber ?? 0,
+          toVersionNumber: version.versionNumber,
+          replaceReason,
+          fileSizeBytes: stored.sizeBytes,
+          sha256Hash: stored.sha256Hash,
+        },
+      });
+
+      logger.logEvent(
+        `Document ${existing.documentCode} replaced (v${version.versionNumber}) by user ${actor.id}`
+      );
+      auditLogger.logSuccess({
+        action: AUDIT_ACTIONS.DOCUMENT_REPLACE,
+        actor,
+        resource: { type: 'Document', id, code: existing.documentCode },
+        details: {
+          fromVersionNumber: existing.currentVersion?.versionNumber ?? 0,
+          toVersionNumber: version.versionNumber,
+        },
+      });
+
+      return {
+        document: this.serialize(document),
+        version: this.serializeVersion(version),
+      };
+    } catch (error) {
+      if (blobStored && !versionCreated) {
+        await documentStorage.removeBlob(file.storageKey).catch(() => {});
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * List all versions of a document (newest first).
+   *
+   * @param {string} id - Document ID
+   * @returns {Promise<Array>} Serialized versions
+   */
+  async getDocumentVersions(id) {
+    const document = await this.getExistingDocument(id);
+    const versions = await documentRepository.findVersionsByDocumentId(document.id);
+    return versions.map((version) => this.serializeVersion(version));
+  }
+
+  /**
+   * List the persisted activity timeline of a document (newest first).
+   *
+   * @param {string} id - Document ID
+   * @returns {Promise<Array>} Activity entries
+   */
+  async getDocumentActivities(id) {
+    const document = await this.getExistingDocument(id);
+    return documentRepository.findActivities(document.id);
   }
 
   /**
