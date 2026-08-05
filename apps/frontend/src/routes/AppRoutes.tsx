@@ -19,6 +19,9 @@ import { BudgetAllocationOverview } from '../pages/budget-allocation/BudgetAlloc
 import { AllocationDashboard } from '../pages/budget-allocation/AllocationDashboard';
 import { AllocationList } from '../pages/budget-allocation/AllocationList';
 import { BlockchainLedger } from '../pages/blockchain/BlockchainLedger';
+import { DocumentList } from '../pages/documents/DocumentList';
+import { DocumentUpload } from '../pages/documents/DocumentUpload';
+import { DocumentDetail } from '../pages/documents/DocumentDetail';
 import { ROLES } from '../constants/roles';
 
 export function AppRoutes() {
@@ -97,14 +100,39 @@ export function AppRoutes() {
             </ProtectedRoute>
           }
         />
-        <Route
-          path="/budget-allocation/approval-workflow"
+        <Route path="/budget-allocation/approval-workflow"
           element={
             <div className="p-8 text-center">
               <h2 className="text-2xl font-bold text-slate-900 mb-4">Approval Workflow</h2>
               <p className="text-slate-500 mb-6">Planned feature in Phase 5</p>
               <button className="btn btn-outline-primary">Notify Me When Available</button>
             </div>
+          }
+        />
+
+        {/* Document Management Routes */}
+        <Route
+          path="/documents"
+          element={
+            <ProtectedRoute roles={[ROLES.ADMINISTRATOR, ROLES.TREASURER, ROLES.BUDGET_OFFICER, ROLES.AUDITOR]}>
+              <DocumentList />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/documents/upload"
+          element={
+            <ProtectedRoute roles={[ROLES.ADMINISTRATOR, ROLES.TREASURER, ROLES.BUDGET_OFFICER]}>
+              <DocumentUpload />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/documents/:id"
+          element={
+            <ProtectedRoute roles={[ROLES.ADMINISTRATOR, ROLES.TREASURER, ROLES.BUDGET_OFFICER, ROLES.AUDITOR]}>
+              <DocumentDetail />
+            </ProtectedRoute>
           }
         />
 

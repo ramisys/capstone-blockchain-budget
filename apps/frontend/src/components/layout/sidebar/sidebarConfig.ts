@@ -14,6 +14,9 @@ import {
   Users,
   UserCircle,
   Link2,
+  FileText,
+  FolderOpen,
+  FolderPlus,
 } from 'lucide-react';
 
 export const navigationConfig = [
@@ -109,6 +112,24 @@ export const navigationConfig = [
             path: '/expense-tracking',
             icon: Receipt,
             status: 'Planned',
+          },
+        ],
+      },
+      {
+        type: 'group',
+        label: 'Documents',
+        icon: FileText,
+        defaultExpanded: false,
+        items: [
+          {
+            label: 'Document List',
+            path: '/documents',
+            icon: FolderOpen,
+          },
+          {
+            label: 'Upload Document',
+            path: '/documents/upload',
+            icon: FolderPlus,
           },
         ],
       },
