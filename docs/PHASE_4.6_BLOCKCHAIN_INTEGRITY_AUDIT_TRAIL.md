@@ -26,7 +26,7 @@ Much of the blockchain integrity core already exists. This plan fills the real g
 | Audit events anchored on-chain | `contracts/AuditLedger.sol` + `services/auditEventBlockchainService.js` | ✅ Exists |
 | Unified blockchain transaction history | — | ❌ Missing |
 | Blockchain transaction detail view | — | ❌ Missing |
-| Financial activity timeline | — | ❌ Missing |
+| Financial activity timeline | `services/timelineService.js` → `GET /api/dashboard/timeline` | ✅ Exists |
 | External-file verification | — | ❌ Missing |
 
 **Four real gaps** targeted by this phase:
@@ -411,6 +411,11 @@ contract AuditLedger {
 - **Tasks:** `timelineService` + `GET /dashboard/timeline`; `FinancialActivityTimeline` component; `useFinancialTimeline`; dashboard integration.
 - **Dependencies:** M2.
 - **Output:** dashboard shows a scrollable, filterable activity timeline.
+- **Status:** ✅ Complete (2026-08-06).
+  - New: `constants/timelineKinds.js` (`TIMELINE_KINDS`: AllocationApproval/DocumentActivity/AuditLog/BlockchainRecord); `services/timelineService.js` — `getTimeline(filters, pagination, ordering)` merges allocation approvals, document activities, audit logs, and blockchain anchors (kind filter loads only the requested source; no per-source limit; merged + sorted + paginated in memory, `MAX_LIMIT` 100, normalizes each to `{ id, kind, action, label, description, actor, resourceType, resourceCode, details, createdAt }`); `controllers/timelineController.js` (`getTimeline`); `validators/dashboardValidator.js` (`timelineQuerySchema`: page, limit ≤100, kind enum, dateFrom/dateTo, sortBy, sortOrder).
+  - Extended: `repositories/allocationApprovalRepository.js` (`findTimeline`), `repositories/documentRepository.js` (`findRecentActivities`), `routes/dashboardRoutes.js` (`GET /dashboard/timeline` with `validateRequest(timelineQuerySchema, 'query')`).
+  - New backend tests: `tests/timelineService.test.js` (7) + `tests/timelineRoutes.test.js` (6); added to `package.json` test list; `npm run test:backend` green.
+  - Frontend: `src/types/timeline.ts` (`TimelineKind`, `TimelineActor`, `TimelineEntry`, `TimelineResponse`, `TimelineParams`); `src/constants/timeline.ts` (kind values/labels/variants); `dashboardService.getTimeline`; `useFinancialTimeline` hook; new `components/dashboard/FinancialActivityTimeline.tsx` (kind filter pills, entry badges/icons, pagination, loading/empty/error states); `Dashboard` page replaced the Recent Activity card with the timeline next to Notifications; hook + component tests green, `typecheck` + `build:frontend` pass.
 
 ### M6 — External-file verification
 - **Objective:** verify any file against the ledger without storing it.
@@ -509,7 +514,7 @@ apps/frontend/src/
 - [x] Audit events anchored on-chain (Confirmed) with scheduler auto-retry + manual retry endpoint
 - [x] `GET /api/blockchain/history` returns unified Allocation/Document/Audit history with correct pagination/filtering
 - [x] `GET /api/blockchain/transactions/:id` returns full detail incl. explorer links
-- [ ] `GET /api/dashboard/timeline` returns merged financial activity feed
+- [x] `GET /api/dashboard/timeline` returns merged financial activity feed
 - [ ] `POST /api/verification/documents` verifies external files (tamper + inconclusive + verified cases)
 - [ ] All new endpoints follow `authenticate → authorize → validateRequest`
 - [ ] New backend test files added to `package.json` test list; `npm run test:backend` green
@@ -518,7 +523,7 @@ apps/frontend/src/
 - [ ] Audit Logs page: table, filters, pagination, detail drawer with anchor status + explorer links
 - [x] Blockchain Ledger shows unified type-aware history + transaction detail drawer
 - [ ] Verify Document page works for tampered / valid / unreachable-node scenarios
-- [ ] Dashboard shows the financial activity timeline
+- [x] Dashboard shows the financial activity timeline
 - [ ] Sidebar + routes registered; `npm run typecheck --workspace=apps/frontend` green
 - [ ] Frontend component/hook tests added; `npm run test:frontend` green
 

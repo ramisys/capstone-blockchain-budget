@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { dashboardController } from '../controllers/dashboardController.js';
+import { timelineController } from '../controllers/timelineController.js';
 import { authenticate } from '../middleware/authMiddleware.js';
 import { authorize } from '../middleware/rbacMiddleware.js';
 import { ROLES } from '../constants/roles.js';
@@ -9,6 +10,7 @@ import { dashboardChartsSchema } from '../validators/dashboardValidator.js';
 import { dashboardActivitiesSchema } from '../validators/dashboardValidator.js';
 import { dashboardNotificationsSchema } from '../validators/dashboardValidator.js';
 import { dashboardBlockchainSchema } from '../validators/dashboardValidator.js';
+import { timelineQuerySchema } from '../validators/dashboardValidator.js';
 
 const router = Router();
 
@@ -66,6 +68,15 @@ router.get('/notifications', validateRequest(dashboardNotificationsSchema), (req
  */
 router.get('/blockchain', validateRequest(dashboardBlockchainSchema), (req, res, next) =>
   dashboardController.getBlockchainStatus(req, res, next)
+);
+
+/**
+ * @route   GET /api/dashboard/timeline
+ * @desc    Get the merged financial activity timeline
+ * @access  Private (Administrator, Treasurer, BudgetOfficer, Auditor)
+ */
+router.get('/timeline', validateRequest(timelineQuerySchema, 'query'), (req, res, next) =>
+  timelineController.getTimeline(req, res, next)
 );
 
 export default router;

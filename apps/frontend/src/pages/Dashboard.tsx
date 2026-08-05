@@ -3,6 +3,7 @@ import { useAuth } from '../hooks/useAuth';
 import { Card, CardBody, CardHeader } from '../components/ui/Card';
 import { Spinner } from '../components/ui/Spinner';
 import { Alert } from '../components/ui/Alert';
+import { FinancialActivityTimeline } from '../components/dashboard/FinancialActivityTimeline';
 import { ResponsiveContainer, PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, Legend } from 'recharts';
 import apiClient from '../api/apiClient';
 
@@ -18,11 +19,6 @@ export function Dashboard() {
   const [chartsData, setChartsData] = useState(null);
   const [chartsLoading, setChartsLoading] = useState(true);
   const [chartsError, setChartsError] = useState(null);
-
-  // State for recent activities
-  const [activities, setActivities] = useState([]);
-  const [activitiesLoading, setActivitiesLoading] = useState(true);
-  const [activitiesError, setActivitiesError] = useState(null);
 
   // State for notifications
   const [notifications, setNotifications] = useState([]);
@@ -59,20 +55,6 @@ export function Dashboard() {
       setChartsError(err.response?.data?.message || 'Failed to fetch charts data');
     } finally {
       setChartsLoading(false);
-    }
-  };
-
-  // Fetch recent activities
-  const fetchActivities = async () => {
-    try {
-      setActivitiesLoading(true);
-      const response = await apiClient.get('/dashboard/activities');
-      setActivities(response.data.data.activities);
-      setActivitiesError(null);
-    } catch (err) {
-      setActivitiesError(err.response?.data?.message || 'Failed to fetch activities');
-    } finally {
-      setActivitiesLoading(false);
     }
   };
 
@@ -115,7 +97,6 @@ export function Dashboard() {
   useEffect(() => {
     fetchStats();
     fetchChartsData();
-    fetchActivities();
     fetchNotifications();
     fetchBlockchainStatus();
   }, []);
@@ -450,42 +431,12 @@ export function Dashboard() {
         </Card>
       </div>
 
-      {/* Recent Activities and Notifications */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-        {/* Recent Activities */}
-        <Card className="h-full">
-          <CardHeader className="pb-4">
-            <div className="d-flex justify-content-between align-items-center">
-              <h6 className="mb-0 text-sm font-semibold text-slate-500">Recent Activity</h6>
-              <a href="#" className="text-decoration-none text-muted fs-6">View All</a>
-            </div>
-          </CardHeader>
-          <CardBody className="p-0">
-            {activitiesLoading ? (
-              <Spinner size="sm" className="d-block mx-auto my-4" />
-            ) : activitiesError ? (
-              <Alert variant="danger">{activitiesError}</Alert>
-            ) : activities.length > 0 ? (
-              <div className="activity-list">
-                {activities.map((activity, index) => (
-                  <div key={activity.id} className="d-flex align-items-start mb-3">
-                    <div className="shrink-0 me-3">
-                      <div className="activity-dot bg-gray-500" />
-                    </div>
-                    <div className="grow">
-                      <div className="fw-medium">{activity.message}</div>
-                      <div className="small text-muted">
-                        {activity.user} · {new Date(activity.time).toLocaleString()}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-center text-muted py-4">No recent activity</p>
-            )}
-          </CardBody>
-        </Card>
+      {/* Financial Activity Timeline and Notifications */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        {/* Financial Activity Timeline */}
+        <div className="md:col-span-2">
+          <FinancialActivityTimeline />
+        </div>
 
         {/* Notifications */}
         <Card className="h-full">
@@ -495,7 +446,7 @@ export function Dashboard() {
               <a href="#" className="text-decoration-none text-muted fs-6">View All</a>
             </div>
           </CardHeader>
-          <CardBody className="p-0">
+          <CardBody className="p-4">
             {notificationsLoading ? (
               <Spinner size="sm" className="d-block mx-auto my-4" />
             ) : notificationsError ? (
@@ -503,7 +454,7 @@ export function Dashboard() {
             ) : notifications.length > 0 ? (
               <div className="notification-list">
                 {notifications.map((notification, index) => (
-                  <div key={notification.id} className="d-flex align-items-start mb-3">
+                  <div key={index} className="d-flex align-items-start mb-3">
                     <div className="shrink-0 me-3">
                       <div className={`notification-icon ${getTailwindColorFromType(notification.type)}`}>
                         <i className="bi bi-bell"></i>

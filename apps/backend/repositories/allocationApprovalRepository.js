@@ -41,6 +41,49 @@ class AllocationApprovalRepository {
       include: approvalInclude,
     });
   }
+
+  /**
+   * Find approval records for the financial activity timeline, newest first.
+   *
+   * The merged timeline is re-sorted and paginated in memory (matching the
+   * unified blockchain history), so this deliberately applies no DB-level
+   * limit — only the shared date-range filter.
+   *
+   * @param {Object} filters - Filter criteria (dateFrom, dateTo)
+   * @returns {Promise<Array>} Approval records with actor + allocation
+   */
+  async findTimeline(filters = {}) {
+    const where = {};
+
+    if (filters.dateFrom || filters.dateTo) {
+      where.createdAt = {};
+      if (filters.dateFrom) {
+        where.createdAt.gte = new Date(filters.dateFrom);
+      }
+      if (filters.dateTo) {
+        const endOfDay = new Date(filters.dateTo);
+        endOfDay.setHours(23, 59, 59, 999);
+        where.createdAt.lte = endOfDay;
+      }
+    }
+
+    return prisma.allocationApproval.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+      include: {
+        ...approvalInclude,
+        allocation: {
+          select: {
+            id: true,
+            allocationCode: true,
+            status: true,
+            allocatedAmount: true,
+            department: { select: { id: true, name: true } },
+          },
+        },
+      },
+    });
+  }
 }
 
 export const allocationApprovalRepository = new AllocationApprovalRepository();

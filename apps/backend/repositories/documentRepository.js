@@ -199,6 +199,41 @@ class DocumentRepository {
   }
 
   /**
+   * Find document activities for the financial activity timeline, newest first.
+   *
+   * The merged timeline is re-sorted and paginated in memory (matching the
+   * unified blockchain history), so this deliberately applies no DB-level
+   * limit — only the shared date-range filter.
+   *
+   * @param {Object} filters - Filter criteria (dateFrom, dateTo)
+   * @returns {Promise<Array>} Activity records with actor + document
+   */
+  async findRecentActivities(filters = {}) {
+    const where = {};
+
+    if (filters.dateFrom || filters.dateTo) {
+      where.createdAt = {};
+      if (filters.dateFrom) {
+        where.createdAt.gte = new Date(filters.dateFrom);
+      }
+      if (filters.dateTo) {
+        const endOfDay = new Date(filters.dateTo);
+        endOfDay.setHours(23, 59, 59, 999);
+        where.createdAt.lte = endOfDay;
+      }
+    }
+
+    return prisma.documentActivity.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+      include: {
+        actor: { select: { id: true, fullName: true, email: true, role: true } },
+        document: { select: { id: true, documentCode: true, title: true } },
+      },
+    });
+  }
+
+  /**
    * Update a document by ID.
    *
    * @param {string} id - Document ID
