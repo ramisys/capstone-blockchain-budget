@@ -18,6 +18,6 @@
     "build:frontend": "npm run build --workspace=apps/frontend",
     "blockchain:compile": "npm run compile --workspace=apps/contracts",
     "blockchain:node": "npm run node --workspace=apps/contracts",
-    "blockchain:deploy": "npm run deploy --workspace=apps/contracts"
+    "blockchain:deploy": "npx hardhat run apps/contracts/scripts/deploy.js --config apps/contracts/hardhat.config.js --network localhost"
   }
 }
