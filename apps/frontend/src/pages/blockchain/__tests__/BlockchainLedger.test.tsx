@@ -3,11 +3,12 @@ import React from 'react';
 import userEvent from '@testing-library/user-event';
 import { renderWithProviders, screen, waitFor, fireEvent } from '../../../test/test-utils';
 import { BlockchainLedger } from '../BlockchainLedger';
-import type { BlockchainStatus, BlockchainRecord } from '../../../types/blockchain';
+import type { BlockchainStatus, LedgerHistoryEntry } from '../../../types/blockchain';
 
 const {
   statusHook,
-  transactionsHook,
+  historyHook,
+  transactionDetailHook,
   verificationHook,
   verifyMutationHook,
   retryHook,
@@ -16,7 +17,8 @@ const {
   authHook,
 } = vi.hoisted(() => ({
   statusHook: vi.fn(),
-  transactionsHook: vi.fn(),
+  historyHook: vi.fn(),
+  transactionDetailHook: vi.fn(),
   verificationHook: vi.fn(),
   verifyMutationHook: vi.fn(),
   retryHook: vi.fn(),
@@ -27,7 +29,8 @@ const {
 
 vi.mock('../../../hooks/useBlockchain', () => ({
   useBlockchainStatus: statusHook,
-  useBlockchainTransactions: transactionsHook,
+  useBlockchainHistory: historyHook,
+  useBlockchainTransactionDetail: transactionDetailHook,
   useAllocationBlockchainVerification: verificationHook,
   useVerifyAllocation: verifyMutationHook,
   useRetryBlockchainRecord: retryHook,
@@ -52,54 +55,91 @@ const mockStatus: BlockchainStatus = {
   failedCount: 0,
 };
 
-const mockTransactions: BlockchainRecord[] = [
+const mockHistory: LedgerHistoryEntry[] = [
   {
     id: 'rec-1',
-    allocationId: 'alloc-1',
-    allocationCode: 'ALC-2026-0001',
-    contentHash: '0xabc',
+    recordType: 'Allocation',
+    code: 'ALC-2026-0001',
+    hash: '0xabc',
     txHash: '0xdeadbeef1234567890',
     blockNumber: 42,
     network: 'hardhat',
     status: 'Confirmed',
     confirmedAt: '2026-08-04T08:00:00.000Z',
-    createdBy: 'user-1',
     createdAt: '2026-08-04T08:00:00.000Z',
     updatedAt: '2026-08-04T08:00:00.000Z',
+    allocationId: 'alloc-1',
+    ref: {
+      id: 'alloc-1',
+      allocationCode: 'ALC-2026-0001',
+      allocatedAmount: 50000,
+      status: 'Approved',
+    },
   },
   {
     id: 'rec-2',
-    allocationId: 'alloc-2',
-    allocationCode: 'ALC-2026-0002',
-    contentHash: '0xdef',
+    recordType: 'Allocation',
+    code: 'ALC-2026-0002',
+    hash: '0xdef',
     txHash: null,
     blockNumber: null,
     network: 'hardhat',
     status: 'Pending',
     confirmedAt: null,
-    createdBy: 'user-2',
     createdAt: '2026-08-04T09:00:00.000Z',
     updatedAt: '2026-08-04T09:00:00.000Z',
+    allocationId: 'alloc-2',
+    ref: {
+      id: 'alloc-2',
+      allocationCode: 'ALC-2026-0002',
+      status: 'Pending',
+    },
+  },
+  {
+    id: 'audit-1',
+    recordType: 'Audit',
+    code: 'AUD-2026-0042',
+    hash: '0xabc123',
+    txHash: '0xfeedbeef1234567890',
+    blockNumber: 43,
+    network: 'hardhat',
+    status: 'Confirmed',
+    confirmedAt: '2026-08-04T10:00:00.000Z',
+    createdAt: '2026-08-04T10:00:00.000Z',
+    updatedAt: '2026-08-04T10:00:00.000Z',
+    ref: {
+      id: 'audit-1',
+      action: 'ALLOCATION_APPROVED',
+      result: 'Success',
+      actorEmail: 'admin@university.edu',
+      actorRole: 'Administrator',
+      resourceType: 'BudgetAllocation',
+      resourceCode: 'ALC-2026-0001',
+    },
   },
 ];
 
-const mockPagination = { page: 1, limit: 10, total: 2, totalPages: 1 };
+const mockPagination = { page: 1, limit: 10, total: 3, totalPages: 1 };
 
 const mockVerification = {
   verified: true,
   integrityOk: true,
   onChain: { exists: true, anchoredBy: '0xowner', anchoredAt: 1700000000, blockNumber: 42 },
-  record: mockTransactions[0],
+  record: mockHistory[0],
   message: 'Allocation verified on the blockchain ledger.',
 };
 
 function defaultMocks() {
   statusHook.mockReturnValue({ data: mockStatus, isLoading: false, error: null });
-  transactionsHook.mockReturnValue({
-    data: { transactions: mockTransactions, pagination: mockPagination },
+  historyHook.mockReturnValue({
+    data: { transactions: mockHistory, pagination: mockPagination },
     isLoading: false,
     isError: false,
     error: null,
+  });
+  transactionDetailHook.mockImplementation((id: string | undefined) => {
+    const entry = mockHistory.find((item) => item.id === id) ?? mockHistory[0];
+    return { data: entry, isLoading: false, isError: false, error: null };
   });
   verificationHook.mockReturnValue({
     data: mockVerification,
@@ -126,7 +166,7 @@ describe('BlockchainLedger page integration suite', () => {
     defaultMocks();
   });
 
-  it('renders the ledger header, status cards, connection badge, and transaction rows', () => {
+  it('renders the ledger header, status cards, connection badge, and unified history rows', () => {
     renderWithProviders(<BlockchainLedger />);
 
     expect(screen.getByRole('heading', { name: 'Blockchain Ledger' })).toBeInTheDocument();
@@ -140,6 +180,9 @@ describe('BlockchainLedger page integration suite', () => {
     expect(screen.getByText('0x1234567890abcdef')).toBeInTheDocument();
     expect(screen.getByText('ALC-2026-0001')).toBeInTheDocument();
     expect(screen.getByText('ALC-2026-0002')).toBeInTheDocument();
+    expect(screen.getByText('AUD-2026-0042')).toBeInTheDocument();
+    expect(screen.getAllByText('Allocation').length).toBeGreaterThan(0);
+    expect(screen.getByText('Audit Event')).toBeInTheDocument();
     expect(screen.getAllByText('Pending').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Confirmed').length).toBeGreaterThan(0);
   });
@@ -156,26 +199,26 @@ describe('BlockchainLedger page integration suite', () => {
     expect(screen.getByText('Disconnected')).toBeInTheDocument();
   });
 
-  it('reports a transactions load error instead of the table', () => {
-    transactionsHook.mockReturnValue({
+  it('reports a history load error instead of the table', () => {
+    historyHook.mockReturnValue({
       data: undefined,
       isLoading: false,
       isError: true,
-      error: new Error('Failed to load blockchain transactions'),
+      error: new Error('Failed to load blockchain ledger history'),
     });
 
     renderWithProviders(<BlockchainLedger />);
 
-    expect(screen.getByText('Failed to load blockchain transactions')).toBeInTheDocument();
+    expect(screen.getByText('Failed to load blockchain ledger history')).toBeInTheDocument();
     expect(screen.queryByText('ALC-2026-0001')).not.toBeInTheDocument();
   });
 
-  it('re-anchors a Pending record through the row menu and mutation hook', async () => {
+  it('re-anchors a Pending allocation through the row menu and mutation hook', async () => {
     retryMutateAsync.mockResolvedValue({});
 
     renderWithProviders(<BlockchainLedger />);
 
-    fireEvent.pointerDown(screen.getAllByLabelText('More actions')[1]);
+    fireEvent.pointerDown(screen.getAllByLabelText('More actions')[0]);
     const retryItem = await screen.findByText('Retry Anchor');
     fireEvent.click(retryItem);
 
@@ -192,36 +235,79 @@ describe('BlockchainLedger page integration suite', () => {
     expect(screen.getByText('Verified on the ledger')).toBeInTheDocument();
   });
 
-  it('wires the status filter into the transactions query', async () => {
+  it('opens the transaction detail drawer for a non-allocation entry', async () => {
+    renderWithProviders(<BlockchainLedger />);
+
+    const detailsButtons = screen.getAllByRole('button', { name: /Details/ });
+    fireEvent.click(detailsButtons[2]);
+
+    expect(await screen.findByText('Transaction Details')).toBeInTheDocument();
+    expect(transactionDetailHook).toHaveBeenCalledWith('audit-1', 'Audit');
+    expect(screen.getByText('Audit Event · AUD-2026-0042')).toBeInTheDocument();
+    expect(screen.getByText('ALLOCATION_APPROVED')).toBeInTheDocument();
+  });
+
+  it('wires the status filter into the history query', async () => {
     const user = userEvent.setup();
     renderWithProviders(<BlockchainLedger />);
 
-    await user.click(screen.getByRole('combobox'));
+    const selects = screen.getAllByRole('combobox');
+    await user.click(selects[1]);
     const pendingOption = await screen.findByRole('option', { name: 'Pending' });
     await user.click(pendingOption);
 
     await waitFor(() => {
-      expect(transactionsHook).toHaveBeenCalledWith(
-        { search: undefined, status: 'Pending' },
-        { page: 1, limit: 10 },
-        { sortBy: 'newest', sortOrder: 'desc' }
-      );
+      expect(historyHook).toHaveBeenCalledWith({
+        search: undefined,
+        status: 'Pending',
+        recordType: undefined,
+        page: 1,
+        limit: 10,
+        sortBy: 'newest',
+        sortOrder: 'desc',
+      });
     });
   });
 
-  it('wires the debounced search box into the transactions query', async () => {
+  it('wires the record type filter into the history query', async () => {
+    const user = userEvent.setup();
     renderWithProviders(<BlockchainLedger />);
 
-    fireEvent.change(screen.getByPlaceholderText('Search by allocation code...'), {
+    const selects = screen.getAllByRole('combobox');
+    await user.click(selects[0]);
+    const auditOption = await screen.findByRole('option', { name: 'Audit Event' });
+    await user.click(auditOption);
+
+    await waitFor(() => {
+      expect(historyHook).toHaveBeenCalledWith({
+        search: undefined,
+        status: undefined,
+        recordType: 'Audit',
+        page: 1,
+        limit: 10,
+        sortBy: 'newest',
+        sortOrder: 'desc',
+      });
+    });
+  });
+
+  it('wires the debounced search box into the history query', async () => {
+    renderWithProviders(<BlockchainLedger />);
+
+    fireEvent.change(screen.getByPlaceholderText('Search by code, title, or resource...'), {
       target: { value: 'ALC-2026' },
     });
 
     await waitFor(() => {
-      expect(transactionsHook).toHaveBeenCalledWith(
-        { search: 'ALC-2026', status: undefined },
-        { page: 1, limit: 10 },
-        { sortBy: 'newest', sortOrder: 'desc' }
-      );
+      expect(historyHook).toHaveBeenCalledWith({
+        search: 'ALC-2026',
+        status: undefined,
+        recordType: undefined,
+        page: 1,
+        limit: 10,
+        sortBy: 'newest',
+        sortOrder: 'desc',
+      });
     });
   });
 });

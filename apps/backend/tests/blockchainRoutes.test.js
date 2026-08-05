@@ -5,10 +5,12 @@ import blockchainRoutes from '../routes/blockchainRoutes.js';
 import { errorHandler } from '../middleware/errorHandler.js';
 import { userRepository } from '../repositories/userRepository.js';
 import { blockchainService } from '../services/blockchainService.js';
+import { blockchainHistoryService } from '../services/blockchainHistoryService.js';
 import { signToken } from '../utils/jwt.js';
 import { USER_STATUS } from '../constants/status.js';
 import { ROLES } from '../constants/roles.js';
 import { BLOCKCHAIN_RECORD_STATUS } from '../constants/blockchainStatus.js';
+import { LEDGER_RECORD_TYPES } from '../constants/ledgerTypes.js';
 import { disableAuditPersistence } from './auditTestConfig.js';
 
 disableAuditPersistence();
@@ -22,11 +24,17 @@ const originalServiceMethods = {
   verifyAllocation: blockchainService.verifyAllocation,
   retryRecord: blockchainService.retryRecord,
 };
+const originalHistoryMethods = {
+  getHistory: blockchainHistoryService.getHistory,
+  getTransactionDetail: blockchainHistoryService.getTransactionDetail,
+};
 
 let statusCalls = 0;
 let historyCalls = 0;
 let verifyCalls = 0;
 let retryCalls = 0;
+let unifiedHistoryCalls = 0;
+let detailCalls = 0;
 
 function makeUser(role) {
   return {
@@ -47,11 +55,15 @@ function resetMocks() {
   historyCalls = 0;
   verifyCalls = 0;
   retryCalls = 0;
+  unifiedHistoryCalls = 0;
+  detailCalls = 0;
   userRepository.findById = originalFindById;
   blockchainService.getBlockchainStatus = originalServiceMethods.getBlockchainStatus;
   blockchainService.getTransactionHistory = originalServiceMethods.getTransactionHistory;
   blockchainService.verifyAllocation = originalServiceMethods.verifyAllocation;
   blockchainService.retryRecord = originalServiceMethods.retryRecord;
+  blockchainHistoryService.getHistory = originalHistoryMethods.getHistory;
+  blockchainHistoryService.getTransactionDetail = originalHistoryMethods.getTransactionDetail;
 }
 
 function stubService() {
@@ -94,6 +106,41 @@ function stubService() {
       createdBy: actor?.id,
       createdAt: new Date(),
       updatedAt: new Date(),
+    };
+  };
+  blockchainHistoryService.getHistory = async () => {
+    unifiedHistoryCalls++;
+    return {
+      transactions: [
+        {
+          id: 'rec-1',
+          recordType: LEDGER_RECORD_TYPES.ALLOCATION,
+          code: 'ALC-2026-0001',
+          hash: '0xab',
+          txHash: '0xdeadbeef',
+          blockNumber: 42,
+          network: 'hardhat',
+          status: BLOCKCHAIN_RECORD_STATUS.CONFIRMED,
+          createdAt: new Date().toISOString(),
+          ref: { allocationCode: 'ALC-2026-0001' },
+        },
+      ],
+      pagination: { total: 1, page: 1, limit: 10, totalPages: 1 },
+    };
+  };
+  blockchainHistoryService.getTransactionDetail = async (id, recordType) => {
+    detailCalls++;
+    return {
+      id,
+      recordType: recordType ?? LEDGER_RECORD_TYPES.ALLOCATION,
+      code: 'ALC-2026-0001',
+      hash: '0xab',
+      txHash: '0xdeadbeef',
+      blockNumber: 42,
+      network: 'hardhat',
+      status: BLOCKCHAIN_RECORD_STATUS.CONFIRMED,
+      createdAt: new Date().toISOString(),
+      ref: { allocationCode: 'ALC-2026-0001' },
     };
   };
 }
@@ -234,6 +281,62 @@ async function runBlockchainRouteTests() {
       assert.equal(res.body.success, true);
       assert.equal(retryCalls, 1);
       assert.equal(res.body.data.record.status, BLOCKCHAIN_RECORD_STATUS.CONFIRMED);
+    });
+
+    await test('should return the unified ledger history for an Auditor', async () => {
+      userRepository.findById = async () => makeUser(ROLES.AUDITOR);
+      stubService();
+
+      const res = await request('/api/blockchain/history?recordType=Allocation', {
+        token: tokenFor(ROLES.AUDITOR),
+      });
+
+      assert.equal(res.status, 200);
+      assert.equal(res.body.success, true);
+      assert.equal(unifiedHistoryCalls, 1);
+      assert.equal(res.body.data.transactions[0].recordType, LEDGER_RECORD_TYPES.ALLOCATION);
+      assert.equal(res.body.data.pagination.total, 1);
+    });
+
+    await test('should reject an invalid recordType on history with 400', async () => {
+      userRepository.findById = async () => makeUser(ROLES.ADMINISTRATOR);
+      stubService();
+
+      const res = await request('/api/blockchain/history?recordType=Invalid', {
+        token: tokenFor(ROLES.ADMINISTRATOR),
+      });
+
+      assert.equal(res.status, 400);
+      assert.equal(res.body.success, false);
+      assert.equal(unifiedHistoryCalls, 0, 'getHistory should never be invoked on invalid input');
+    });
+
+    await test('should return transaction detail with its resolved recordType', async () => {
+      userRepository.findById = async () => makeUser(ROLES.ADMINISTRATOR);
+      stubService();
+
+      const res = await request(
+        `/api/blockchain/transactions/${VALID_UUID}?recordType=${LEDGER_RECORD_TYPES.DOCUMENT}`,
+        { token: tokenFor(ROLES.ADMINISTRATOR) }
+      );
+
+      assert.equal(res.status, 200);
+      assert.equal(res.body.success, true);
+      assert.equal(detailCalls, 1);
+      assert.equal(res.body.data.transaction.recordType, LEDGER_RECORD_TYPES.DOCUMENT);
+    });
+
+    await test('should reject a malformed transaction id param with 400', async () => {
+      userRepository.findById = async () => makeUser(ROLES.ADMINISTRATOR);
+      stubService();
+
+      const res = await request('/api/blockchain/transactions/not-a-uuid', {
+        token: tokenFor(ROLES.ADMINISTRATOR),
+      });
+
+      assert.equal(res.status, 400);
+      assert.equal(res.body.success, false);
+      assert.equal(detailCalls, 0);
     });
   } finally {
     await stopServer();

@@ -8,9 +8,16 @@ import {
   useAllocationBlockchainVerification,
   useVerifyAllocation,
   useRetryBlockchainRecord,
+  useBlockchainHistory,
+  useBlockchainTransactionDetail,
 } from '../useBlockchain';
 import { blockchainApi } from '../../services/blockchainService';
-import type { BlockchainStatus, BlockchainTransactionsResponse } from '../../types/blockchain';
+import type {
+  BlockchainHistoryResponse,
+  BlockchainStatus,
+  BlockchainTransactionDetail,
+  BlockchainTransactionsResponse,
+} from '../../types/blockchain';
 
 vi.mock('../../services/blockchainService', () => ({
   blockchainApi: {
@@ -19,6 +26,8 @@ vi.mock('../../services/blockchainService', () => ({
     getAllocationVerification: vi.fn(),
     verifyAllocation: vi.fn(),
     retryRecord: vi.fn(),
+    getHistory: vi.fn(),
+    getTransactionDetail: vi.fn(),
   },
 }));
 
@@ -65,6 +74,54 @@ const mockTransactions: BlockchainTransactionsResponse = {
     },
   ],
   pagination: { page: 1, limit: 10, total: 1, totalPages: 1 },
+};
+
+const mockHistory: BlockchainHistoryResponse = {
+  transactions: [
+    {
+      id: 'anchor-1',
+      recordType: 'Allocation',
+      code: 'ALC-2026-0001',
+      hash: '0xab',
+      txHash: '0xdeadbeef',
+      blockNumber: 42,
+      network: 'hardhat',
+      status: 'Confirmed',
+      confirmedAt: '2026-08-04T08:00:00.000Z',
+      createdAt: '2026-08-04T08:00:00.000Z',
+      updatedAt: '2026-08-04T08:00:00.000Z',
+      allocationId: 'alloc-1',
+      ref: {
+        id: 'alloc-1',
+        allocationCode: 'ALC-2026-0001',
+        allocatedAmount: 50000,
+        status: 'Approved',
+      },
+    },
+  ],
+  pagination: { page: 1, limit: 10, total: 1, totalPages: 1 },
+};
+
+const mockDetail: BlockchainTransactionDetail = {
+  id: 'anchor-1',
+  recordType: 'Allocation',
+  code: 'ALC-2026-0001',
+  hash: '0xab',
+  txHash: '0xdeadbeef',
+  blockNumber: 42,
+  network: 'hardhat',
+  status: 'Confirmed',
+  confirmedAt: '2026-08-04T08:00:00.000Z',
+  createdAt: '2026-08-04T08:00:00.000Z',
+  updatedAt: '2026-08-04T08:00:00.000Z',
+  allocationId: 'alloc-1',
+  ref: {
+    id: 'alloc-1',
+    allocationCode: 'ALC-2026-0001',
+    allocatedAmount: 50000,
+    status: 'Approved',
+    department: { id: 'dept-1', name: 'Finance', code: 'FIN' },
+  },
 };
 
 function createWrapper() {
@@ -228,6 +285,76 @@ describe('useBlockchain hook suite', () => {
       expect(blockchainApi.retryRecord).toHaveBeenCalledWith('alloc-1');
       expect(invalidateSpy).toHaveBeenCalled();
       expect(mockShowToast).toHaveBeenCalledWith('Blockchain record anchored successfully', 'success');
+    });
+  });
+
+  describe('useBlockchainHistory', () => {
+    it('fetches the unified history with the given params', async () => {
+      vi.mocked(blockchainApi.getHistory).mockResolvedValueOnce({
+        data: { data: mockHistory },
+      } as any);
+
+      const { wrapper } = createWrapper();
+      const { result } = renderHook(
+        () =>
+          useBlockchainHistory({
+            page: 1,
+            limit: 10,
+            recordType: 'Allocation',
+            sortBy: 'newest',
+            sortOrder: 'desc',
+          }),
+        { wrapper }
+      );
+
+      await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+      expect(blockchainApi.getHistory).toHaveBeenCalledWith({
+        page: 1,
+        limit: 10,
+        recordType: 'Allocation',
+        sortBy: 'newest',
+        sortOrder: 'desc',
+      });
+      expect(result.current.data?.transactions).toHaveLength(1);
+      expect(result.current.data?.transactions[0].recordType).toBe('Allocation');
+    });
+
+    it('does not fetch when disabled', () => {
+      const { wrapper } = createWrapper();
+      const { result } = renderHook(() => useBlockchainHistory({}, false), { wrapper });
+
+      expect(result.current.fetchStatus).toBe('idle');
+      expect(blockchainApi.getHistory).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('useBlockchainTransactionDetail', () => {
+    it('fetches a type-aware transaction detail', async () => {
+      vi.mocked(blockchainApi.getTransactionDetail).mockResolvedValueOnce({
+        data: { data: { transaction: mockDetail } },
+      } as any);
+
+      const { wrapper } = createWrapper();
+      const { result } = renderHook(() => useBlockchainTransactionDetail('anchor-1', 'Allocation'), {
+        wrapper,
+      });
+
+      await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+      expect(blockchainApi.getTransactionDetail).toHaveBeenCalledWith('anchor-1', 'Allocation');
+      expect(result.current.data?.recordType).toBe('Allocation');
+      expect(result.current.data?.ref?.allocatedAmount).toBe(50000);
+    });
+
+    it('does not fetch when id or recordType is missing', () => {
+      const { wrapper } = createWrapper();
+      const { result } = renderHook(() => useBlockchainTransactionDetail(undefined, undefined), {
+        wrapper,
+      });
+
+      expect(result.current.fetchStatus).toBe('idle');
+      expect(blockchainApi.getTransactionDetail).not.toHaveBeenCalled();
     });
   });
 });

@@ -9,13 +9,15 @@ import {
   TableCaption,
 } from '../ui/Table';
 import { Button } from '../ui/Button';
+import { Badge } from '../ui/Badge';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '../ui/DropdownMenu';
 import Pagination from '../ui/Pagination';
 import { BlockchainStatusBadge } from './BlockchainStatusBadge';
 import { BLOCKCHAIN_RECORD_STATUS } from '../../constants/blockchainStatus';
+import { LEDGER_RECORD_TYPE, LEDGER_RECORD_TYPE_LABELS, LEDGER_RECORD_TYPE_VARIANTS } from '../../constants/ledger';
 import { formatDateTime } from '../../utils/format';
-import { ExternalLink, Link2, MoreVertical, RefreshCw, ShieldCheck } from 'lucide-react';
-import type { BlockchainRecord } from '../../types/blockchain';
+import { ExternalLink, Eye, Link2, MoreVertical, RefreshCw, ShieldCheck } from 'lucide-react';
+import type { LedgerHistoryEntry } from '../../types/blockchain';
 import type { PaginationInfo } from '../../types/allocation';
 
 const shortHash = (value: string | null, length = 10): string => {
@@ -24,13 +26,19 @@ const shortHash = (value: string | null, length = 10): string => {
   return `${value.slice(0, length)}...${value.slice(-length)}`;
 };
 
+const isRetryable = (entry: LedgerHistoryEntry): boolean =>
+  entry.recordType === LEDGER_RECORD_TYPE.ALLOCATION &&
+  (entry.status === BLOCKCHAIN_RECORD_STATUS.PENDING ||
+    entry.status === BLOCKCHAIN_RECORD_STATUS.FAILED);
+
 interface BlockchainRecordTableProps {
-  records: BlockchainRecord[];
+  records: LedgerHistoryEntry[];
   pagination: PaginationInfo;
   canRetry: boolean;
   isRetrying: boolean;
-  onVerify: (record: BlockchainRecord) => void;
-  onRetry: (record: BlockchainRecord) => void;
+  onViewDetails: (record: LedgerHistoryEntry) => void;
+  onVerify: (record: LedgerHistoryEntry) => void;
+  onRetry: (record: LedgerHistoryEntry) => void;
   onPageChange: (page: number) => void;
 }
 
@@ -39,6 +47,7 @@ const BlockchainRecordTable: React.FC<BlockchainRecordTableProps> = ({
   pagination,
   canRetry,
   isRetrying,
+  onViewDetails,
   onVerify,
   onRetry,
   onPageChange,
@@ -48,15 +57,16 @@ const BlockchainRecordTable: React.FC<BlockchainRecordTableProps> = ({
       <div className="overflow-x-auto">
         <Table className="w-full">
           <TableCaption className="text-slate-600 font-medium mb-2">
-            Blockchain Transactions ({pagination.total} total)
+            Ledger History ({pagination.total} total)
           </TableCaption>
           <TableHeader className="bg-slate-50">
             <TableRow className="bg-slate-50/80 hover:bg-slate-50/80">
-              <TableHead className="px-6 py-3 min-w-36">Allocation Code</TableHead>
+              <TableHead className="px-6 py-3 min-w-32">Record Type</TableHead>
+              <TableHead className="px-6 py-3 min-w-36">Reference</TableHead>
               <TableHead className="px-6 py-3 min-w-24">Status</TableHead>
               <TableHead className="px-6 py-3 min-w-20">Block</TableHead>
               <TableHead className="px-6 py-3 min-w-40">Transaction Hash</TableHead>
-              <TableHead className="px-6 py-3 min-w-40">Confirmed At</TableHead>
+              <TableHead className="px-6 py-3 min-w-40">Created At</TableHead>
               <TableHead className="px-6 py-3 min-w-24">Network</TableHead>
               <TableHead className="px-6 py-3 min-w-40">Actions</TableHead>
             </TableRow>
@@ -65,19 +75,22 @@ const BlockchainRecordTable: React.FC<BlockchainRecordTableProps> = ({
           <TableBody className="bg-white divide-y divide-slate-100">
             {records.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="px-6 py-8 text-center text-slate-500">
-                  No blockchain records found
+                <TableCell colSpan={8} className="px-6 py-8 text-center text-slate-500">
+                  No ledger entries found
                 </TableCell>
               </TableRow>
             ) : (
               records.map((record) => {
-                const needsRetry =
-                  record.status === BLOCKCHAIN_RECORD_STATUS.PENDING ||
-                  record.status === BLOCKCHAIN_RECORD_STATUS.FAILED;
+                const retryable = isRetryable(record);
                 return (
-                  <TableRow key={record.id} className="hover:bg-slate-50">
+                  <TableRow key={`${record.recordType}-${record.id}`} className="hover:bg-slate-50">
+                    <TableCell className="px-6 py-4 text-sm">
+                      <Badge variant={LEDGER_RECORD_TYPE_VARIANTS[record.recordType]}>
+                        {LEDGER_RECORD_TYPE_LABELS[record.recordType] ?? record.recordType}
+                      </Badge>
+                    </TableCell>
                     <TableCell className="px-6 py-4 text-sm font-medium text-indigo-700 whitespace-nowrap">
-                      <span className="font-mono">{record.allocationCode}</span>
+                      <span className="font-mono">{record.code}</span>
                     </TableCell>
                     <TableCell className="px-6 py-4 text-sm">
                       <BlockchainStatusBadge status={record.status} />
@@ -105,26 +118,32 @@ const BlockchainRecordTable: React.FC<BlockchainRecordTableProps> = ({
                       </span>
                     </TableCell>
                     <TableCell className="px-6 py-4 text-sm text-slate-600 whitespace-nowrap">
-                      {record.confirmedAt ? formatDateTime(record.confirmedAt) : '—'}
+                      {record.createdAt ? formatDateTime(record.createdAt) : '—'}
                     </TableCell>
                     <TableCell className="px-6 py-4 text-sm text-slate-600">
                       {record.network || '—'}
                     </TableCell>
                     <TableCell className="px-6 py-4 text-sm font-medium whitespace-nowrap">
                       <div className="flex items-center gap-2">
-                        <Button variant="outline" size="sm" type="button" onClick={() => onVerify(record)}>
-                          <ShieldCheck className="w-3.5 h-3.5" />
-                          Verify
+                        <Button variant="outline" size="sm" type="button" onClick={() => onViewDetails(record)}>
+                          <Eye className="w-3.5 h-3.5" />
+                          Details
                         </Button>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger
-                            className="h-8 w-8 inline-flex items-center justify-center rounded-lg text-slate-500 hover:text-slate-700 hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-slate-300"
-                            aria-label="More actions"
-                          >
-                            <MoreVertical className="w-4 h-4" />
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent className="w-44">
-                            {needsRetry && canRetry && (
+                        {record.recordType === LEDGER_RECORD_TYPE.ALLOCATION && (
+                          <Button variant="outline" size="sm" type="button" onClick={() => onVerify(record)}>
+                            <ShieldCheck className="w-3.5 h-3.5" />
+                            Verify
+                          </Button>
+                        )}
+                        {retryable && canRetry && (
+                          <DropdownMenu>
+                            <DropdownMenuTrigger
+                              className="h-8 w-8 inline-flex items-center justify-center rounded-lg text-slate-500 hover:text-slate-700 hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-slate-300"
+                              aria-label="More actions"
+                            >
+                              <MoreVertical className="w-4 h-4" />
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent className="w-44">
                               <DropdownMenuItem
                                 onClick={() => onRetry(record)}
                                 disabled={isRetrying}
@@ -133,16 +152,9 @@ const BlockchainRecordTable: React.FC<BlockchainRecordTableProps> = ({
                                 <span>Retry Anchor</span>
                                 <RefreshCw className="w-4 h-4 text-slate-400" />
                               </DropdownMenuItem>
-                            )}
-                            <DropdownMenuItem
-                              onClick={() => onVerify(record)}
-                              className="flex items-center justify-between px-4 py-2 text-sm text-slate-700 hover:bg-slate-100"
-                            >
-                              <span>View Verification</span>
-                              <ShieldCheck className="w-4 h-4 text-slate-400" />
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        )}
                       </div>
                     </TableCell>
                   </TableRow>
@@ -160,7 +172,7 @@ const BlockchainRecordTable: React.FC<BlockchainRecordTableProps> = ({
           total={pagination.total}
           pageSize={pagination.limit}
           onPageChange={onPageChange}
-          label="transactions"
+          label="entries"
         />
       )}
     </div>

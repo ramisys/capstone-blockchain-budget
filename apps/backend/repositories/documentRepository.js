@@ -306,6 +306,35 @@ class DocumentRepository {
   }
 
   /**
+   * Find document versions carrying a blockchain anchor, with their owning
+   * document. Used by the unified blockchain history feed. Supports the shared
+   * history filters (search, status, date range) applied to the version's
+   * uploadedAt timestamp and blockchainStatus.
+   *
+   * @param {Object} filters - Filter criteria (search, status, dateFrom, dateTo)
+   * @returns {Promise<Array>} List of anchored document versions
+   */
+  async findVersionAnchors(filters = {}) {
+    const where = this.buildVersionAnchorWhere(filters);
+
+    return prisma.documentVersion.findMany({
+      where,
+      orderBy: { uploadedAt: 'desc' },
+      include: {
+        document: {
+          select: {
+            id: true,
+            documentCode: true,
+            title: true,
+            documentType: true,
+            status: true,
+          },
+        },
+      },
+    });
+  }
+
+  /**
    * Persist a document activity entry.
    *
    * @param {Object} data - Activity data
@@ -323,6 +352,44 @@ class DocumentRepository {
         actor: { select: { id: true, fullName: true, email: true, role: true } },
       },
     });
+  }
+
+  /**
+   * Build a Prisma where clause for document version anchor queries. Shared by
+   * findVersionAnchors so list/count stay consistent.
+   *
+   * @private
+   * @param {Object} filters - Filter criteria (search, status, dateFrom, dateTo)
+   * @returns {Object} Prisma where clause
+   */
+  buildVersionAnchorWhere(filters = {}) {
+    const where = {};
+
+    if (filters.status) {
+      where.blockchainStatus = filters.status;
+    }
+
+    if (filters.dateFrom || filters.dateTo) {
+      where.uploadedAt = {};
+      if (filters.dateFrom) {
+        where.uploadedAt.gte = new Date(filters.dateFrom);
+      }
+      if (filters.dateTo) {
+        const endOfDay = new Date(filters.dateTo);
+        endOfDay.setHours(23, 59, 59, 999);
+        where.uploadedAt.lte = endOfDay;
+      }
+    }
+
+    if (filters.search) {
+      where.OR = [
+        { originalFileName: { contains: filters.search } },
+        { document: { is: { documentCode: { contains: filters.search } } } },
+        { document: { is: { title: { contains: filters.search } } } },
+      ];
+    }
+
+    return where;
   }
 
   /**

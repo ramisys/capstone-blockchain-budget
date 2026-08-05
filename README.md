@@ -403,6 +403,8 @@ Completed in Phase 4.4 (available now):
 ### 🟢 Phase 6 – Audit Logs & Blockchain Integration (In Progress)
 - Immutable audit trail for all financial transactions
 - ✅ Blockchain-based transaction verification (Phase 4.4)
+- ✅ Persisted audit trail (`audit_logs` table + query API + on-chain anchoring via `AuditLedger`)
+- ✅ Unified blockchain history (allocations + documents + audit events in one type-aware ledger view, with a transaction detail drawer)
 - Smart contract integration for budget execution
 - Access logs and user activity tracking
 - Compliance reporting tools

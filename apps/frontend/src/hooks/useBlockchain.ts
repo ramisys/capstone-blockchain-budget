@@ -3,15 +3,21 @@ import type { AxiosResponse } from 'axios';
 import { blockchainApi } from '../services/blockchainService';
 import { useToast } from '../components/ui/Toast';
 import type {
+  BlockchainHistoryParams,
+  BlockchainHistoryResponse,
   BlockchainStatus,
+  BlockchainTransactionDetail,
   BlockchainTransactionsResponse,
   BlockchainVerification,
+  LedgerRecordType,
 } from '../types/blockchain';
 
 const QUERY_KEYS = {
   status: 'blockchainStatus',
   transactions: 'blockchainTransactions',
   verification: 'blockchainVerification',
+  history: 'blockchainHistory',
+  transactionDetail: 'blockchainTransactionDetail',
 };
 
 /**
@@ -49,6 +55,38 @@ export const useBlockchainTransactions = (
         sortOrder: ordering.sortOrder,
       }),
     select: (response) => response.data?.data,
+  });
+};
+
+/**
+ * Fetch the unified blockchain history across allocations, documents, and
+ * audit events with filtering and pagination.
+ */
+export const useBlockchainHistory = (
+  params: BlockchainHistoryParams = {},
+  enabled: boolean = true
+) => {
+  return useQuery<AxiosResponse, Error, BlockchainHistoryResponse>({
+    queryKey: [QUERY_KEYS.history, params],
+    queryFn: () => blockchainApi.getHistory(params),
+    enabled,
+    select: (response) => response.data?.data,
+  });
+};
+
+/**
+ * Fetch the type-aware detail for a single blockchain ledger entry.
+ */
+export const useBlockchainTransactionDetail = (
+  id: string | undefined,
+  recordType: LedgerRecordType | undefined
+) => {
+  return useQuery<AxiosResponse, Error, BlockchainTransactionDetail>({
+    queryKey: [QUERY_KEYS.transactionDetail, id, recordType],
+    queryFn: () => blockchainApi.getTransactionDetail(id!, recordType!),
+    enabled: !!id && !!recordType,
+    select: (response) => response.data?.data?.transaction,
+    staleTime: 60 * 1000,
   });
 };
 

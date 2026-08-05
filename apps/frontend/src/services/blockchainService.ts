@@ -1,11 +1,15 @@
 import type { AxiosResponse } from 'axios';
 import apiClient from '../api/apiClient';
 import type {
+  BlockchainHistoryParams,
+  BlockchainHistoryResponse,
   BlockchainListParams,
   BlockchainRecord,
   BlockchainStatus,
+  BlockchainTransactionDetail,
   BlockchainTransactionsResponse,
   BlockchainVerification,
+  LedgerRecordType,
 } from '../types/blockchain';
 
 interface ApiEnvelope<T> {
@@ -40,5 +44,20 @@ export const blockchainApi = {
   // Re-anchor a Pending/Failed record on the ledger
   retryRecord(id: string): Promise<AxiosResponse<ApiEnvelope<{ record: BlockchainRecord }>>> {
     return apiClient.post(`/blockchain/allocations/${id}/retry`);
+  },
+
+  // Get the unified, type-aware blockchain history (Allocation/Document/Audit)
+  getHistory(
+    params: BlockchainHistoryParams
+  ): Promise<AxiosResponse<ApiEnvelope<BlockchainHistoryResponse>>> {
+    return apiClient.get('/blockchain/history', { params });
+  },
+
+  // Get the detail of a single ledger entry (type-aware across sources)
+  getTransactionDetail(
+    id: string,
+    recordType: LedgerRecordType
+  ): Promise<AxiosResponse<ApiEnvelope<{ transaction: BlockchainTransactionDetail }>>> {
+    return apiClient.get(`/blockchain/transactions/${id}`, { params: { recordType } });
   },
 };

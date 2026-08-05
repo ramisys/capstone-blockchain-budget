@@ -163,6 +163,9 @@ class AuditLogRepository {
     if (filters.anchorStatus) {
       where.anchorStatus = filters.anchorStatus;
     }
+    if (filters.hasEventHash) {
+      where.eventHash = { not: null };
+    }
 
     if (filters.dateFrom || filters.dateTo) {
       where.createdAt = {};

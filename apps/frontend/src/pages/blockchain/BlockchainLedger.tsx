@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
   useBlockchainStatus,
-  useBlockchainTransactions,
+  useBlockchainHistory,
   useRetryBlockchainRecord,
 } from '../../hooks/useBlockchain';
 import { useListControls } from '../../hooks/useListControls';
@@ -19,12 +19,20 @@ import {
 } from '../../components/ui/Select';
 import { BlockchainRecordTable } from '../../components/blockchain/BlockchainRecordTable';
 import { BlockchainVerificationCard } from '../../components/blockchain/BlockchainVerificationCard';
+import { BlockchainTransactionDetail } from '../../components/blockchain/BlockchainTransactionDetail';
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from '../../components/ui/Dialog';
 import { ROLES } from '../../constants/roles';
 import { BLOCKCHAIN_RECORD_STATUS_LIST, BLOCKCHAIN_RECORD_STATUS_LABELS } from '../../constants/blockchainStatus';
+import { LEDGER_RECORD_TYPE_LIST, LEDGER_RECORD_TYPE_LABELS } from '../../constants/ledger';
 import { formatNumber, formatDateTime } from '../../utils/format';
 import { Box, ExternalLink, Link2, Loader2, ShieldCheck, Wifi, WifiOff, Layers, Clock, XCircle } from 'lucide-react';
-import type { BlockchainRecord } from '../../types/blockchain';
+import type {
+  BlockchainRecordStatus,
+  LedgerHistoryEntry,
+  LedgerRecordType,
+} from '../../types/blockchain';
+
+const ALL = '';
 
 const RETRY_ROLES = [ROLES.ADMINISTRATOR, ROLES.TREASURER, ROLES.BUDGET_OFFICER];
 
@@ -66,8 +74,13 @@ export function BlockchainLedger() {
     sortOrder,
   } = useListControls({ initialSortBy: 'newest' });
 
-  const [statusFilter, setStatusFilter] = useState<string>('');
-  const [selectedRecord, setSelectedRecord] = useState<BlockchainRecord | null>(null);
+  const [statusFilter, setStatusFilter] = useState<BlockchainRecordStatus | ''>('');
+  const [recordTypeFilter, setRecordTypeFilter] = useState<LedgerRecordType | ''>('');
+  const [selectedEntry, setSelectedEntry] = useState<LedgerHistoryEntry | null>(null);
+  const [detailSelection, setDetailSelection] = useState<{
+    id: string;
+    recordType: LedgerRecordType;
+  } | null>(null);
 
   const {
     data: statusData,
@@ -76,28 +89,34 @@ export function BlockchainLedger() {
   } = useBlockchainStatus();
 
   const {
-    data: transactionsData,
-    isLoading: isTransactionsLoading,
-    isError: isTransactionsError,
-    error: transactionsError,
-  } = useBlockchainTransactions(
-    {
-      search: debouncedSearch || undefined,
-      status: statusFilter || undefined,
-    },
-    { page, limit: pageSize },
-    { sortBy, sortOrder }
-  );
+    data: historyData,
+    isLoading: isHistoryLoading,
+    isError: isHistoryError,
+    error: historyError,
+  } = useBlockchainHistory({
+    search: debouncedSearch || undefined,
+    status: statusFilter || undefined,
+    recordType: recordTypeFilter || undefined,
+    page,
+    limit: pageSize,
+    sortBy,
+    sortOrder,
+  });
 
   const { mutateAsync: retryRecord, isPending: isRetrying } = useRetryBlockchainRecord();
 
-  const records = transactionsData?.transactions ?? [];
-  const pagination = transactionsData?.pagination ?? { total: 0, page: 1, limit: 10, totalPages: 0 };
+  const records = historyData?.transactions ?? [];
+  const pagination = historyData?.pagination ?? { total: 0, page: 1, limit: 10, totalPages: 0 };
 
-  const handleRetry = (record: BlockchainRecord) => {
-    retryRecord(record.allocationId).catch(() => {
+  const handleRetry = (entry: LedgerHistoryEntry) => {
+    if (!entry.allocationId) return;
+    retryRecord(entry.allocationId).catch(() => {
       // Error toast is handled by the mutation hook.
     });
+  };
+
+  const openDetail = (entry: LedgerHistoryEntry) => {
+    setDetailSelection({ id: entry.id, recordType: entry.recordType });
   };
 
   return (
@@ -108,7 +127,7 @@ export function BlockchainLedger() {
           <div>
             <h1 className="text-2xl font-bold text-slate-900 mb-1">Blockchain Ledger</h1>
             <p className="text-slate-500">
-              Immutable on-chain anchors for budget allocations, with integrity verification
+              Unified immutable ledger history across allocations, documents, and audit events
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -215,19 +234,35 @@ export function BlockchainLedger() {
             <SearchInput
               value={search}
               onChange={setSearch}
-              placeholder="Search by allocation code..."
+              placeholder="Search by code, title, or resource..."
               className="w-full sm:max-w-md"
             />
             <div className="flex items-center gap-3">
               <Select
+                value={recordTypeFilter}
+                onValueChange={(value) => setRecordTypeFilter(value as LedgerRecordType | '')}
+              >
+                <SelectTrigger className="w-44">
+                  <SelectValue placeholder="All Types" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={ALL}>All Types</SelectItem>
+                  {LEDGER_RECORD_TYPE_LIST.map((type) => (
+                    <SelectItem key={type} value={type}>
+                      {LEDGER_RECORD_TYPE_LABELS[type] ?? type}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select
                 value={statusFilter}
-                onValueChange={setStatusFilter}
+                onValueChange={(value) => setStatusFilter(value as BlockchainRecordStatus | '')}
               >
                 <SelectTrigger className="w-44">
                   <SelectValue placeholder="All Statuses" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All Statuses</SelectItem>
+                  <SelectItem value={ALL}>All Statuses</SelectItem>
                   {BLOCKCHAIN_RECORD_STATUS_LIST.map((status) => (
                     <SelectItem key={status} value={status}>
                       {BLOCKCHAIN_RECORD_STATUS_LABELS[status] ?? status}
@@ -239,9 +274,9 @@ export function BlockchainLedger() {
             </div>
           </div>
 
-          {isTransactionsError ? (
+          {isHistoryError ? (
             <Card className="p-6 text-sm text-red-600">
-              {(transactionsError as Error).message || 'Failed to load blockchain transactions'}
+              {(historyError as Error).message || 'Failed to load blockchain ledger history'}
             </Card>
           ) : (
             <Card className="p-0 overflow-hidden">
@@ -250,14 +285,15 @@ export function BlockchainLedger() {
                 pagination={pagination}
                 canRetry={canRetry}
                 isRetrying={isRetrying}
-                onVerify={setSelectedRecord}
+                onViewDetails={openDetail}
+                onVerify={setSelectedEntry}
                 onRetry={handleRetry}
                 onPageChange={setPage}
               />
-              {isTransactionsLoading && records.length === 0 && (
+              {isHistoryLoading && records.length === 0 && (
                 <div className="p-8 text-center text-sm text-slate-500">
                   <Loader2 className="w-5 h-5 animate-spin mx-auto mb-2" />
-                  Loading transactions...
+                  Loading ledger history...
                 </div>
               )}
             </Card>
@@ -266,7 +302,7 @@ export function BlockchainLedger() {
       </div>
 
       {/* Verification Dialog */}
-      <Dialog open={selectedRecord !== null} onOpenChange={(open) => !open && setSelectedRecord(null)}>
+      <Dialog open={selectedEntry !== null} onOpenChange={(open) => !open && setSelectedEntry(null)}>
         <DialogContent className="w-full max-w-2xl p-0 gap-0 rounded-2xl shadow-2xl border border-slate-200/90 bg-white overflow-hidden max-h-[90vh] flex flex-col">
           <div className="px-7 py-5 border-b border-slate-100 bg-white flex items-center gap-3 shrink-0">
             <div className="w-9 h-9 rounded-xl bg-indigo-50 flex items-center justify-center text-indigo-600 shrink-0">
@@ -277,28 +313,36 @@ export function BlockchainLedger() {
                 Blockchain Verification
               </DialogTitle>
               <DialogDescription className="text-sm text-slate-500 mt-1">
-                {selectedRecord?.allocationCode
-                  ? `Integrity check for allocation ${selectedRecord.allocationCode}`
+                {selectedEntry?.code
+                  ? `Integrity check for allocation ${selectedEntry.code}`
                   : 'Allocation ledger verification'}
               </DialogDescription>
             </div>
           </div>
           <div className="flex-1 min-h-0 overflow-y-auto px-7 py-6">
-            {selectedRecord && (
+            {selectedEntry && selectedEntry.allocationId && (
               <BlockchainVerificationCard
-                allocationId={selectedRecord.allocationId}
-                allocationCode={selectedRecord.allocationCode}
+                allocationId={selectedEntry.allocationId}
+                allocationCode={selectedEntry.code}
                 bare
               />
             )}
           </div>
           <div className="px-7 py-4 bg-slate-50/70 border-t border-slate-100 shrink-0 flex justify-end">
-            <Button variant="outline" type="button" onClick={() => setSelectedRecord(null)}>
+            <Button variant="outline" type="button" onClick={() => setSelectedEntry(null)}>
               Close
             </Button>
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Transaction Detail Drawer */}
+      <BlockchainTransactionDetail
+        open={detailSelection !== null}
+        onOpenChange={(open) => !open && setDetailSelection(null)}
+        transactionId={detailSelection?.id ?? null}
+        recordType={detailSelection?.recordType ?? null}
+      />
     </div>
   );
 }

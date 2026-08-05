@@ -400,6 +400,11 @@ contract AuditLedger {
 - **Tasks:** `blockchainHistoryService` union query; `GET /blockchain/history` + `GET /blockchain/transactions/:id`; frontend `BlockchainTransactionDetail` drawer + type filter on `BlockchainRecordTable`; hooks/types.
 - **Dependencies:** M3 (for audit entries).
 - **Output:** Blockchain Ledger shows a unified type-aware history; detail drawer opens with anchor + explorer data.
+- **Status:** ✅ Complete (2026-08-06).
+  - New: `constants/ledgerTypes.js` (`LEDGER_RECORD_TYPES`: Allocation/Document/Audit); `services/blockchainHistoryService.js` — `getHistory(filters, pagination, ordering)` merges allocation anchors, document version anchors, and audit events (no per-source limit; merged + sorted + paginated in memory, `MAX_LIMIT` 100, normalizes each to `{ id, recordType, code, hash, txHash, txExplorerUrl, blockNumber, network, status, confirmedAt, createdAt, ref }`) and `getTransactionDetail(id, recordType)` routes by type, 404 `AppError` when missing.
+  - Extended: `repositories/documentRepository.js` (`findVersionAnchors` + `buildVersionAnchorWhere`), `repositories/auditLogRepository.js` (`hasEventHash` filter — only applied to the audit source), `validators/blockchainValidator.js` (`blockchainHistoryQuerySchema`, `transactionIdParamSchema`, `transactionDetailQuerySchema`), `controllers/blockchainController.js` (`getHistory`, `getTransactionDetail`), `routes/blockchainRoutes.js` (`GET /blockchain/history`, `GET /blockchain/transactions/:id`).
+  - New backend tests: `tests/blockchainHistoryService.test.js` (12) + `tests/blockchainRoutes.test.js` extended (10); added to `package.json` test list; `npm run test:backend` green.
+  - Frontend: `src/constants/ledger.ts` (record-type values/labels/variants); `src/types/blockchain.ts` (`LedgerHistoryEntry`, `LedgerHistoryRef`, `BlockchainHistoryParams/Response`, `BlockchainTransactionDetail`); `blockchainService.getHistory`/`getTransactionDetail`; `useBlockchainHistory` + `useBlockchainTransactionDetail` hooks; `BlockchainRecordTable` now renders unified entries with a **Record Type** column + `Details` (all rows) / `Verify` (Allocation only) / `Retry Anchor` (Allocation Pending/Failed, role-gated) actions; new `components/blockchain/BlockchainTransactionDetail.tsx` type-aware drawer; `BlockchainLedger` page switched to the unified history feed with a Record Type filter and the detail drawer; hook/table/page tests green, `typecheck` + `build:frontend` pass.
 
 ### M5 — Financial activity timeline
 - **Objective:** merged chronological feed on the dashboard.
@@ -431,6 +436,7 @@ apps/contracts/
 apps/backend/
   prisma/schema.prisma                             EXTEND (AuditLog, AuditResult, AuditAnchorStatus)
   constants/auditAnchorStatus.js                   NEW
+  constants/ledgerTypes.js                         NEW (LEDGER_RECORD_TYPES)
   constants/auditActions.js                        EXTEND (new actions if any)
   config/blockchainAbi.js                          EXTEND (AUDIT_LEDGER_ABI)
   config/blockchain.js                             EXTEND (audit methods)
@@ -468,11 +474,14 @@ apps/frontend/src/
   types/audit.ts, types/timeline.ts, types/verification.ts       NEW
   types/blockchain.ts                                            EXTEND
   constants/auditActions.ts, auditResult.ts, auditAnchorStatus.ts NEW
+  constants/ledger.ts                                                NEW (record types)
   services/auditLogService.ts, verificationService.ts            NEW
   services/blockchainService.ts, dashboardService.ts             EXTEND
   hooks/useAuditLogs.ts, useAuditLogSummary.ts, useAuditLogDetail.ts,
-        useRetryAuditAnchor.ts, useBlockchainHistory.ts,
-        useFinancialTimeline.ts, useFileVerification.ts          NEW
+        useRetryAuditAnchor.ts, useFinancialTimeline.ts,
+        useFileVerification.ts                                  NEW
+  hooks/useBlockchain.ts                                         EXTEND (useBlockchainHistory,
+                                                                    useBlockchainTransactionDetail)
   pages/audit/AuditLogs.tsx                                      NEW
   pages/verification/VerifyDocument.tsx                          NEW
   pages/blockchain/BlockchainLedger.tsx                          EXTEND
@@ -498,8 +507,8 @@ apps/frontend/src/
 - [x] `AuditLedger.sol` compiled, tested, deployed; `contracts.json` has `auditLedgerAddress`
 - [x] Provider + env support audit ledger; anchor + verify + status methods working
 - [x] Audit events anchored on-chain (Confirmed) with scheduler auto-retry + manual retry endpoint
-- [ ] `GET /api/blockchain/history` returns unified Allocation/Document/Audit history with correct pagination/filtering
-- [ ] `GET /api/blockchain/transactions/:id` returns full detail incl. explorer links
+- [x] `GET /api/blockchain/history` returns unified Allocation/Document/Audit history with correct pagination/filtering
+- [x] `GET /api/blockchain/transactions/:id` returns full detail incl. explorer links
 - [ ] `GET /api/dashboard/timeline` returns merged financial activity feed
 - [ ] `POST /api/verification/documents` verifies external files (tamper + inconclusive + verified cases)
 - [ ] All new endpoints follow `authenticate → authorize → validateRequest`
@@ -507,7 +516,7 @@ apps/frontend/src/
 
 **Frontend**
 - [ ] Audit Logs page: table, filters, pagination, detail drawer with anchor status + explorer links
-- [ ] Blockchain Ledger shows unified type-aware history + transaction detail drawer
+- [x] Blockchain Ledger shows unified type-aware history + transaction detail drawer
 - [ ] Verify Document page works for tampered / valid / unreachable-node scenarios
 - [ ] Dashboard shows the financial activity timeline
 - [ ] Sidebar + routes registered; `npm run typecheck --workspace=apps/frontend` green
