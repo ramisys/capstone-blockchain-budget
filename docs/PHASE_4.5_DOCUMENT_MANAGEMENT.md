@@ -31,12 +31,12 @@ Provide a centralized, versioned, tamper-evident repository for the supporting d
 
 | # | Feature | Requirement |
 |---|---------|-------------|
-| FR-1 | **Document upload** | Single multipart upload per version. Supports progress feedback, cancellation, and resume-free retry (idempotent by client-generated upload token). |
+| FR-1 | **Document upload** | Single multipart upload per version; one-pass streaming write + SHA-256 with the size cap enforced mid-stream, uploads rate-limited. Progress feedback, cancellation, and client idempotency tokens are **deferred** (duplicate detection by hash covers accidental re-uploads). |
 | FR-2 | **Document storage** | Bytes stored outside the DB (content-addressed object store / filesystem), metadata + hashes in MySQL. Never store blobs in the database. |
-| FR-3 | **Metadata management** | Title, description, document type, fiscal year, linked allocation/department, tags; editable while the document is `Active`, recorded in activity log. |
+| FR-3 | **Metadata management** | Title, description, document type, fiscal year, linked allocation/department; editable while the document is `Active`, recorded in activity log. `tags` field is **deferred**. |
 | FR-4 | **File validation** | Extension + **magic-byte MIME sniffing** (not the client-supplied header), size limit, reject executable/script/archive types, require extension to match detected MIME. |
 | FR-5 | **Preview & download** | Authenticated download (with `Content-Disposition: attachment`); preview endpoint for images/PDFs via `inline` content type + auth. No anonymous access. |
-| FR-6 | **Search & filtering** | Full-text-ish search over code, title, file name, description, linked allocation code; filters: type, status, fiscal year, department, uploader, date range, blockchain status. Paginated + sortable. |
+| FR-6 | **Search & filtering** | Case-insensitive `contains` search over document code, title, description, and linked allocation code (file-name search **deferred**). Backend filters: type, status, blockchain status, fiscal year, department, allocation, uploader, date range (UI exposes type, status, blockchain status, fiscal year, department — allocation/uploader/date-range **deferred** in UI). Paginated + sortable. |
 | FR-7 | **Versioning** | Replace = create new `DocumentVersion`; previous version kept immutable and auditable; a single version is always `current`; optional replace reason. |
 | FR-8 | **Access control** | RBAC enforcement at both route and service layer; owner-scoped restrictions (e.g., BudgetOfficer edits own documents only). |
 | FR-9 | **Blockchain hash verification** | On-demand verify per document/version: recompute hash, compare to DB, confirm anchor on-chain via `verify(bytes32)`. |
