@@ -1,32 +1,36 @@
+import { lazy, Suspense } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { DashboardLayout } from '../components/layout/DashboardLayout';
 import { ProtectedRoute } from '../components/guards/ProtectedRoute';
 import { PublicRoute } from '../components/guards/PublicRoute';
-import { Login } from '../pages/Login';
-import { Dashboard } from '../pages/Dashboard';
-import { Profile } from '../pages/Profile';
-import { Forbidden } from '../pages/Forbidden';
-import { NotFound } from '../pages/NotFound';
-import { UserList } from '../components/user/UserList';
-import { UserForm } from '../components/user/UserForm';
-import { UserDetail } from '../components/user/UserDetail';
-import { FiscalYearManagement } from '../pages/fiscal-years/FiscalYearManagement';
-import { FundSourceManagement } from '../pages/fund-sources/FundSourceManagement';
-import { DepartmentManagement } from '../pages/departments/DepartmentManagement';
-import { BudgetCategoryManagement } from '../pages/budget-categories/BudgetCategoryManagement';
-import { BudgetProgramManagement } from '../pages/budget-programs/BudgetProgramManagement';
-import { BudgetAllocationOverview } from '../pages/budget-allocation/BudgetAllocationOverview';
-import { AllocationDashboard } from '../pages/budget-allocation/AllocationDashboard';
-import { AllocationList } from '../pages/budget-allocation/AllocationList';
-import { BlockchainLedger } from '../pages/blockchain/BlockchainLedger';
-import { DocumentList } from '../pages/documents/DocumentList';
-import { DocumentUpload } from '../pages/documents/DocumentUpload';
-import { DocumentDetail } from '../pages/documents/DocumentDetail';
+import { PageSpinner } from '../components/ui/Spinner';
 import { ROLES } from '../constants/roles';
+
+const Login = lazy(() => import('../pages/Login').then((m) => ({ default: m.Login })));
+const Dashboard = lazy(() => import('../pages/Dashboard').then((m) => ({ default: m.Dashboard })));
+const Profile = lazy(() => import('../pages/Profile').then((m) => ({ default: m.Profile })));
+const Forbidden = lazy(() => import('../pages/Forbidden').then((m) => ({ default: m.Forbidden })));
+const NotFound = lazy(() => import('../pages/NotFound').then((m) => ({ default: m.NotFound })));
+const UserList = lazy(() => import('../components/user/UserList').then((m) => ({ default: m.UserList })));
+const UserForm = lazy(() => import('../components/user/UserForm').then((m) => ({ default: m.UserForm })));
+const UserDetail = lazy(() => import('../components/user/UserDetail').then((m) => ({ default: m.UserDetail })));
+const FiscalYearManagement = lazy(() => import('../pages/fiscal-years/FiscalYearManagement').then((m) => ({ default: m.FiscalYearManagement })));
+const FundSourceManagement = lazy(() => import('../pages/fund-sources/FundSourceManagement').then((m) => ({ default: m.FundSourceManagement })));
+const DepartmentManagement = lazy(() => import('../pages/departments/DepartmentManagement').then((m) => ({ default: m.DepartmentManagement })));
+const BudgetCategoryManagement = lazy(() => import('../pages/budget-categories/BudgetCategoryManagement').then((m) => ({ default: m.BudgetCategoryManagement })));
+const BudgetProgramManagement = lazy(() => import('../pages/budget-programs/BudgetProgramManagement').then((m) => ({ default: m.BudgetProgramManagement })));
+const BudgetAllocationOverview = lazy(() => import('../pages/budget-allocation/BudgetAllocationOverview').then((m) => ({ default: m.BudgetAllocationOverview })));
+const AllocationDashboard = lazy(() => import('../pages/budget-allocation/AllocationDashboard').then((m) => ({ default: m.AllocationDashboard })));
+const AllocationList = lazy(() => import('../pages/budget-allocation/AllocationList').then((m) => ({ default: m.AllocationList })));
+const BlockchainLedger = lazy(() => import('../pages/blockchain/BlockchainLedger').then((m) => ({ default: m.BlockchainLedger })));
+const DocumentList = lazy(() => import('../pages/documents/DocumentList').then((m) => ({ default: m.DocumentList })));
+const DocumentUpload = lazy(() => import('../pages/documents/DocumentUpload').then((m) => ({ default: m.DocumentUpload })));
+const DocumentDetail = lazy(() => import('../pages/documents/DocumentDetail').then((m) => ({ default: m.DocumentDetail })));
 
 export function AppRoutes() {
   return (
-    <Routes>
+    <Suspense fallback={<PageSpinner />}>
+      <Routes>
       <Route
         path="/login"
         element={
@@ -162,6 +166,7 @@ export function AppRoutes() {
       <Route path="/404" element={<NotFound />} />
       <Route path="*" element={<NotFound />} />
       <Route path="/" element={<Navigate to="/dashboard" replace />} />
-    </Routes>
+      </Routes>
+    </Suspense>
   );
 }
