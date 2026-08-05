@@ -5,6 +5,7 @@ import { documentRepository } from '../repositories/documentRepository.js';
 const originalTransaction = prisma.$transaction;
 const originalFindVersions = prisma.documentVersion.findMany;
 const originalFindActivities = prisma.documentActivity.findMany;
+const originalUpdateVersion = prisma.documentVersion.update;
 
 let passedTests = 0;
 let totalTests = 0;
@@ -95,6 +96,7 @@ function resetMocks() {
   prisma.$transaction = originalTransaction;
   prisma.documentVersion.findMany = originalFindVersions;
   prisma.documentActivity.findMany = originalFindActivities;
+  prisma.documentVersion.update = originalUpdateVersion;
 }
 
 async function runRepositoryTests() {
@@ -296,6 +298,44 @@ async function runRepositoryTests() {
 
     assert.equal(where.documentId, 'doc-1');
     assert.equal(result.length, 2);
+  });
+
+  console.log('\n6. updateVersion / findUnconfirmedVersions - blockchain fields:');
+  await test('updates a version\'s blockchain anchor fields', async () => {
+    let args = null;
+    prisma.documentVersion.update = async (updateArgs) => {
+      args = updateArgs;
+      return { id: 'ver-1', ...updateArgs.data };
+    };
+
+    const result = await documentRepository.updateVersion('ver-1', {
+      txHash: '0xabc',
+      blockNumber: 42n,
+      status: 'Confirmed',
+      confirmedAt: new Date('2026-08-05T00:00:00Z'),
+      network: 'hardhat',
+    });
+
+    assert.equal(args.where.id, 'ver-1');
+    assert.equal(args.data.txHash, '0xabc');
+    assert.equal(args.data.blockNumber, 42n);
+    assert.equal(result.status, 'Confirmed');
+  });
+
+  await test('finds unconfirmed versions oldest first', async () => {
+    let where = null;
+    let orderBy = null;
+    prisma.documentVersion.findMany = async (args) => {
+      where = args.where;
+      orderBy = args.orderBy;
+      return [{ id: 'ver-1' }];
+    };
+
+    const result = await documentRepository.findUnconfirmedVersions();
+
+    assert.deepEqual(where.blockchainStatus, { in: ['Pending', 'Failed'] });
+    assert.deepEqual(orderBy, { uploadedAt: 'asc' });
+    assert.equal(result.length, 1);
   });
 
   console.log(`\n✨ Document Repository Tests Completed: ${passedTests}/${totalTests} Passed!\n`);

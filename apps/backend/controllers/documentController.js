@@ -1,4 +1,5 @@
 import { documentService } from '../services/documentService.js';
+import { documentBlockchainService } from '../services/documentBlockchainService.js';
 import { formatSuccessResponse } from '../utils/responseFormatter.js';
 import { HTTP_STATUS } from '../constants/httpStatus.js';
 import { auditLogger } from '../utils/auditLogger.js';
@@ -194,6 +195,46 @@ class DocumentController {
       return res
         .status(HTTP_STATUS.OK)
         .json(formatSuccessResponse('Document activities retrieved successfully', { activities }));
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Verify a document version's integrity and on-chain anchor.
+   * @param {import('express').Request} req
+   * @param {import('express').Response} res
+   * @param {import('express').NextFunction} next
+   */
+  async verifyDocument(req, res, next) {
+    try {
+      const { id } = req.params;
+      const result = await documentBlockchainService.verifyDocument(id, req.query.version, req.user);
+      return res
+        .status(HTTP_STATUS.OK)
+        .json(formatSuccessResponse('Document verification completed', result));
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Re-anchor a Pending/Failed document version on the ledger.
+   * @param {import('express').Request} req
+   * @param {import('express').Response} res
+   * @param {import('express').NextFunction} next
+   */
+  async retryDocument(req, res, next) {
+    try {
+      const { id } = req.params;
+      const version = await documentBlockchainService.retryDocumentVersion(
+        id,
+        req.query.version,
+        req.user
+      );
+      return res
+        .status(HTTP_STATUS.OK)
+        .json(formatSuccessResponse('Document anchored successfully', { version }));
     } catch (error) {
       next(error);
     }

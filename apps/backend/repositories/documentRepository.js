@@ -261,6 +261,38 @@ class DocumentRepository {
   }
 
   /**
+   * Update a document version's blockchain anchor fields.
+   *
+   * @param {string} id - Version ID
+   * @param {Object} data - Fields to update (txHash, blockNumber, status, network, confirmedAt)
+   * @returns {Promise<Object>} Updated version with uploader details
+   */
+  async updateVersion(id, data) {
+    return prisma.documentVersion.update({
+      where: { id },
+      data,
+      include: versionInclude,
+    });
+  }
+
+  /**
+   * Find all document versions whose anchor has not been confirmed yet
+   * (Pending or Failed status), oldest first. Used by the blockchain scheduler
+   * to re-attempt anchoring in the background.
+   *
+   * @returns {Promise<Array>} List of unconfirmed versions
+   */
+  async findUnconfirmedVersions() {
+    return prisma.documentVersion.findMany({
+      where: {
+        blockchainStatus: { in: ['Pending', 'Failed'] },
+      },
+      orderBy: { uploadedAt: 'asc' },
+      include: versionInclude,
+    });
+  }
+
+  /**
    * Look up a version by its content hash (used for duplicate detection).
    *
    * @param {string} sha256Hash - SHA-256 hex digest

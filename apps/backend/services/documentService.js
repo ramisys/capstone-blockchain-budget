@@ -4,6 +4,8 @@ import { fiscalYearRepository } from '../repositories/fiscalYearRepository.js';
 import { departmentRepository } from '../repositories/departmentRepository.js';
 import { allocationRepository } from '../repositories/allocationRepository.js';
 import { documentStorage } from './documentStorageService.js';
+import { documentBlockchainService } from './documentBlockchainService.js';
+import { blockchainProvider } from '../config/blockchain.js';
 import { config } from '../config/env.js';
 import { AppError } from '../errors/appError.js';
 import { ForbiddenError, ValidationError } from '../errors/apiError.js';
@@ -125,7 +127,13 @@ class DocumentService {
         },
       });
 
-      return this.serialize(document);
+      // Fail-soft anchor: an unreachable/unconfigured ledger never fails the
+      // upload; the version stays Pending/Failed and is retried later.
+      const anchoredVersion = await documentBlockchainService
+        .anchorVersion(document.currentVersion, userId)
+        .catch(() => document.currentVersion);
+
+      return this.serialize({ ...document, currentVersion: anchoredVersion });
     } catch (error) {
       if (blobStored && !documentCreated) {
         await documentStorage.removeBlob(file.storageKey).catch(() => {});
@@ -373,9 +381,15 @@ class DocumentService {
         },
       });
 
+      // Fail-soft anchor: an unreachable/unconfigured ledger never fails the
+      // replacement; the new version stays Pending/Failed and is retried later.
+      const anchoredVersion = await documentBlockchainService
+        .anchorVersion(version, actor.id)
+        .catch(() => version);
+
       return {
-        document: this.serialize(document),
-        version: this.serializeVersion(version),
+        document: this.serialize({ ...document, currentVersion: anchoredVersion }),
+        version: this.serializeVersion(anchoredVersion),
       };
     } catch (error) {
       if (blobStored && !versionCreated) {
@@ -609,7 +623,8 @@ class DocumentService {
   }
 
   /**
-   * Normalize a document version for API responses (BigInt -> number).
+   * Normalize a document version for API responses (BigInt -> number, plus a
+   * block explorer link when a transaction hash is present).
    *
    * @private
    * @param {Object|null} version - Version from Prisma
@@ -620,6 +635,8 @@ class DocumentService {
     return {
       ...version,
       fileSizeBytes: toNumber(version.fileSizeBytes),
+      blockNumber: version.blockNumber != null ? Number(version.blockNumber) : null,
+      txExplorerUrl: blockchainProvider.getExplorerTxUrl(version.txHash),
     };
   }
 }

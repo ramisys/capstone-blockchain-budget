@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { documentService } from '../services/documentService.js';
+import { documentBlockchainService } from '../services/documentBlockchainService.js';
 import { documentRepository } from '../repositories/documentRepository.js';
 import { fiscalYearRepository } from '../repositories/fiscalYearRepository.js';
 import { departmentRepository } from '../repositories/departmentRepository.js';
@@ -38,6 +39,9 @@ const originals = {
     openReadStream: documentStorage.openReadStream,
     removeBlob: documentStorage.removeBlob,
   },
+  documentBlockchainService: {
+    anchorVersion: documentBlockchainService.anchorVersion,
+  },
 };
 
 function resetMocks() {
@@ -51,11 +55,14 @@ function resetMocks() {
             ? departmentRepository
             : ownerName === 'allocationRepository'
               ? allocationRepository
-              : documentStorage;
+              : ownerName === 'documentBlockchainService'
+                ? documentBlockchainService
+                : documentStorage;
     for (const [method, original] of Object.entries(methods)) {
       owner[method] = original;
     }
   }
+  documentBlockchainService.anchorVersion = async (version) => version;
 }
 
 const fiscalYear = {
@@ -307,6 +314,30 @@ async function runServiceTests() {
       () => documentService.uploadDocument(null, { title: 'Invoice', documentType: 'Invoice' }, 'user-1'),
       (err) => err instanceof ValidationError
     );
+  });
+
+  await test('reflects a Confirmed anchor in the returned document', async () => {
+    documentStorage.storeStream = async (stream) => {
+      stream.resume();
+      return { sha256Hash: 'k'.repeat(64), sizeBytes: 10 };
+    };
+    documentRepository.findVersionByHash = async () => null;
+    documentRepository.createDocumentWithVersion = async () => makeDocument();
+    documentRepository.createActivity = async () => ({});
+    documentBlockchainService.anchorVersion = async (version) => ({
+      ...version,
+      blockchainStatus: 'Confirmed',
+      txHash: '0xabc',
+    });
+
+    const document = await documentService.uploadDocument(
+      uploadFile,
+      { title: 'Invoice', documentType: 'Invoice' },
+      'user-1'
+    );
+
+    assert.equal(document.currentVersion.blockchainStatus, 'Confirmed');
+    assert.equal(document.currentVersion.txHash, '0xabc');
   });
 
   await test('does not try to remove the blob when the storage write itself fails', async () => {
@@ -680,6 +711,35 @@ async function runServiceTests() {
       () => documentService.replaceDocument('doc-1', null, {}, { id: 'user-1', role: ROLES.BUDGET_OFFICER }),
       (err) => err instanceof ValidationError
     );
+  });
+
+  await test('reflects a Confirmed anchor in the returned version', async () => {
+    documentRepository.findById = async () => makeDocument();
+    documentStorage.storeStream = async (stream) => {
+      stream.resume();
+      return { sha256Hash: 'l'.repeat(64), sizeBytes: 10 };
+    };
+    documentRepository.findVersionByHash = async () => null;
+    documentRepository.replaceCurrentVersion = async () => ({
+      document: makeDocument({ currentVersionId: 'ver-2' }),
+      version: { id: 'ver-2', versionNumber: 2, fileSizeBytes: 10n, blockchainStatus: 'Pending' },
+    });
+    documentRepository.createActivity = async () => ({});
+    documentBlockchainService.anchorVersion = async (version) => ({
+      ...version,
+      blockchainStatus: 'Confirmed',
+      txHash: '0xdef',
+    });
+
+    const result = await documentService.replaceDocument(
+      'doc-1',
+      uploadFile,
+      {},
+      { id: 'user-1', role: ROLES.BUDGET_OFFICER }
+    );
+
+    assert.equal(result.version.blockchainStatus, 'Confirmed');
+    assert.equal(result.document.currentVersion.blockchainStatus, 'Confirmed');
   });
 
   console.log('\n7. versions / activities:');

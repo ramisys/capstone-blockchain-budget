@@ -32,6 +32,12 @@ const WRITE_ROLES = [
   ROLES.BUDGET_OFFICER,
 ];
 
+const RETRY_ROLES = [
+  ROLES.ADMINISTRATOR,
+  ROLES.TREASURER,
+  ROLES.BUDGET_OFFICER,
+];
+
 /**
  * @route   GET /api/documents
  * @description Get documents with filtering, pagination, and sorting
@@ -91,6 +97,32 @@ router.get(
   authorize(...READ_ROLES),
   validateRequest(documentIdParamSchema, 'params'),
   (req, res, next) => documentController.getDocumentActivities(req, res, next)
+);
+
+/**
+ * @route   GET /api/documents/:id/verify
+ * @description Verify a document version's integrity and on-chain anchor
+ * @access  Private (Admin, Treasurer, BudgetOfficer, Auditor)
+ */
+router.get(
+  '/:id/verify',
+  authorize(...READ_ROLES),
+  validateRequest(documentIdParamSchema, 'params'),
+  validateRequest(documentVersionQuerySchema, 'query'),
+  (req, res, next) => documentController.verifyDocument(req, res, next)
+);
+
+/**
+ * @route   POST /api/documents/:id/retry
+ * @description Re-anchor a Pending/Failed document version on the ledger
+ * @access  Private (Admin, Treasurer, BudgetOfficer)
+ */
+router.post(
+  '/:id/retry',
+  authorize(...RETRY_ROLES),
+  validateRequest(documentIdParamSchema, 'params'),
+  validateRequest(documentVersionQuerySchema, 'query'),
+  (req, res, next) => documentController.retryDocument(req, res, next)
 );
 
 /**

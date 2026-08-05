@@ -1,6 +1,8 @@
 import { blockchainProvider } from '../config/blockchain.js';
 import { blockchainRepository } from '../repositories/blockchainRepository.js';
+import { documentRepository } from '../repositories/documentRepository.js';
 import { blockchainService } from './blockchainService.js';
+import { documentBlockchainService } from './documentBlockchainService.js';
 import { logger } from '../utils/logger.js';
 
 const SYSTEM_ACTOR = {
@@ -16,8 +18,8 @@ export class BlockchainScheduler {
   }
 
   /**
-   * Scan for and retry unconfirmed (Pending / Failed) blockchain records if the
-   * blockchain provider is configured.
+   * Scan for and retry unconfirmed (Pending / Failed) blockchain records and
+   * document version anchors if the blockchain provider is configured.
    *
    * Safeguarded against concurrent overlapping runs. Individual record failures
    * are caught so batch reconciliation continues fail-soft.
@@ -41,10 +43,13 @@ export class BlockchainScheduler {
 
     try {
       const unconfirmed = await blockchainRepository.findUnconfirmed();
-      processed = unconfirmed.length;
+      const unconfirmedVersions = await documentRepository.findUnconfirmedVersions();
+      processed = unconfirmed.length + unconfirmedVersions.length;
 
       if (processed > 0) {
-        logger.logEvent(`Blockchain scheduler starting reconciliation for ${processed} unconfirmed record(s)...`);
+        logger.logEvent(
+          `Blockchain scheduler starting reconciliation for ${processed} unconfirmed record(s)...`
+        );
 
         for (const record of unconfirmed) {
           try {
@@ -54,6 +59,20 @@ export class BlockchainScheduler {
             failed++;
             logger.logEvent(
               `Blockchain scheduler auto-retry failed for allocation ${record.allocationCode}: ${
+                error?.message || String(error)
+              }`
+            );
+          }
+        }
+
+        for (const version of unconfirmedVersions) {
+          try {
+            await documentBlockchainService.retryVersion(version, SYSTEM_ACTOR);
+            succeeded++;
+          } catch (error) {
+            failed++;
+            logger.logEvent(
+              `Blockchain scheduler auto-retry failed for document version ${version.id}: ${
                 error?.message || String(error)
               }`
             );

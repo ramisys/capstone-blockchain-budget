@@ -6,6 +6,7 @@ import documentRoutes from '../routes/documentRoutes.js';
 import { errorHandler } from '../middleware/errorHandler.js';
 import { userRepository } from '../repositories/userRepository.js';
 import { documentService } from '../services/documentService.js';
+import { documentBlockchainService } from '../services/documentBlockchainService.js';
 import { signToken } from '../utils/jwt.js';
 import { USER_STATUS } from '../constants/status.js';
 import { ROLES } from '../constants/roles.js';
@@ -28,6 +29,11 @@ const originalServiceMethods = {
   getPreviewFile: documentService.getPreviewFile,
 };
 
+const originalBlockchainServiceMethods = {
+  verifyDocument: documentBlockchainService.verifyDocument,
+  retryDocumentVersion: documentBlockchainService.retryDocumentVersion,
+};
+
 const calls = {
   list: 0,
   get: 0,
@@ -39,6 +45,8 @@ const calls = {
   activity: 0,
   download: 0,
   preview: 0,
+  verify: 0,
+  retry: 0,
 };
 
 const documentFixture = {
@@ -140,6 +148,28 @@ function stubService() {
       mimeType: 'application/pdf',
     };
   };
+  documentBlockchainService.verifyDocument = async (_id, versionNumber) => {
+    calls.verify++;
+    return {
+      verified: true,
+      integrityOk: true,
+      onChain: { exists: true, anchoredBy: '0xabc', anchoredAt: 1710000000, blockNumber: 1 },
+      inconclusive: false,
+      message: 'Document verified on the blockchain ledger.',
+      documentCode: documentFixture.documentCode,
+      version: { ...documentFixture.currentVersion, versionNumber: versionNumber || 1 },
+    };
+  };
+  documentBlockchainService.retryDocumentVersion = async (_id, versionNumber) => {
+    calls.retry++;
+    return {
+      id: 'ver-2',
+      versionNumber: versionNumber || 1,
+      blockchainStatus: 'Confirmed',
+      txHash: '0xretryhash',
+      fileSizeBytes: 10,
+    };
+  };
 }
 
 function resetMocks() {
@@ -149,6 +179,9 @@ function resetMocks() {
   userRepository.findById = originalFindById;
   for (const [method, original] of Object.entries(originalServiceMethods)) {
     documentService[method] = original;
+  }
+  for (const [method, original] of Object.entries(originalBlockchainServiceMethods)) {
+    documentBlockchainService[method] = original;
   }
 }
 
@@ -292,6 +325,19 @@ async function runDocumentRouteTests() {
 
       assert.equal(res.status, 403);
       assert.equal(calls.replace, 0, 'replaceDocument should never be invoked for an Auditor');
+    });
+
+    await test('rejects an Auditor retry with 403 and never reaches the service', async () => {
+      userRepository.findById = async () => makeUser(ROLES.AUDITOR);
+      stubService();
+
+      const res = await request(`/api/documents/${VALID_UUID}/retry`, {
+        method: 'POST',
+        token: tokenFor(ROLES.AUDITOR),
+      });
+
+      assert.equal(res.status, 403);
+      assert.equal(calls.retry, 0, 'retryDocumentVersion should never be invoked for an Auditor');
     });
 
     await test('allows an Auditor to read the document list', async () => {
@@ -473,6 +519,47 @@ async function runDocumentRouteTests() {
       assert.equal(res.status, 200);
       assert.equal(calls.activity, 1);
       assert.equal(res.body.data.activities[0].action, 'REPLACE');
+    });
+
+    await test('verifies a document as an Auditor', async () => {
+      userRepository.findById = async () => makeUser(ROLES.AUDITOR);
+      stubService();
+
+      const res = await request(`/api/documents/${VALID_UUID}/verify`, {
+        token: tokenFor(ROLES.AUDITOR),
+      });
+
+      assert.equal(res.status, 200);
+      assert.equal(calls.verify, 1);
+      assert.equal(res.body.data.verified, true);
+      assert.equal(res.body.data.integrityOk, true);
+      assert.equal(res.body.data.onChain.exists, true);
+    });
+
+    await test('retries a pending anchor as a Budget Officer', async () => {
+      userRepository.findById = async () => makeUser(ROLES.BUDGET_OFFICER);
+      stubService();
+
+      const res = await request(`/api/documents/${VALID_UUID}/retry`, {
+        method: 'POST',
+        token: tokenFor(ROLES.BUDGET_OFFICER),
+      });
+
+      assert.equal(res.status, 200);
+      assert.equal(calls.retry, 1);
+      assert.equal(res.body.data.version.blockchainStatus, 'Confirmed');
+    });
+
+    await test('rejects a verify request with an invalid version query', async () => {
+      userRepository.findById = async () => makeUser(ROLES.AUDITOR);
+      stubService();
+
+      const res = await request(`/api/documents/${VALID_UUID}/verify?version=abc`, {
+        token: tokenFor(ROLES.AUDITOR),
+      });
+
+      assert.equal(res.status, 400);
+      assert.equal(calls.verify, 0);
     });
 
     console.log('\n3. Download / preview:');
