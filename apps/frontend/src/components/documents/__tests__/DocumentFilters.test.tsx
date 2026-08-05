@@ -16,6 +16,16 @@ const mockDepartments = [
   { id: 'dept-2', code: 'MKT', name: 'Marketing' },
 ];
 
+const mockAllocations = [
+  { id: 'alloc-1', allocationCode: 'ALC-2026-0001' },
+  { id: 'alloc-2', allocationCode: 'ALC-2026-0002' },
+];
+
+const mockUploaders = [
+  { id: 'user-1', fullName: 'Admin User' },
+  { id: 'user-2', fullName: 'Budget Officer' },
+];
+
 function selectOption(trigger: HTMLElement, optionText: string | RegExp) {
   fireEvent.keyDown(trigger, { key: 'ArrowDown' });
   const option = screen.getByRole('option', { name: optionText });
@@ -30,6 +40,8 @@ describe('DocumentFilters component suite', () => {
     hasActiveFilters: false,
     fiscalYears: mockFiscalYears,
     departments: mockDepartments,
+    allocations: mockAllocations,
+    uploaders: mockUploaders,
     loading: false,
   };
 
@@ -42,6 +54,10 @@ describe('DocumentFilters component suite', () => {
     expect(screen.getByText('Blockchain Status')).toBeInTheDocument();
     expect(screen.getByText('Fiscal Year')).toBeInTheDocument();
     expect(screen.getByText('Department')).toBeInTheDocument();
+    expect(screen.getByText('Allocation')).toBeInTheDocument();
+    expect(screen.getByText('Uploader')).toBeInTheDocument();
+    expect(screen.getByLabelText('From Date')).toBeInTheDocument();
+    expect(screen.getByLabelText('To Date')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Reset Filters/ })).toBeInTheDocument();
   });
 
@@ -105,5 +121,49 @@ describe('DocumentFilters component suite', () => {
     selectOption(screen.getAllByRole('combobox')[4], /ENG — Engineering/);
 
     expect(onChange).toHaveBeenCalledWith('departmentId', 'dept-1');
+  });
+
+  it('selects an allocation filter', () => {
+    const onChange = vi.fn();
+    renderWithProviders(<DocumentFilters {...defaultProps} onChange={onChange} />);
+
+    selectOption(screen.getAllByRole('combobox')[5], /ALC-2026-0002/);
+
+    expect(onChange).toHaveBeenCalledWith('allocationId', 'alloc-2');
+  });
+
+  it('selects an uploader filter', () => {
+    const onChange = vi.fn();
+    renderWithProviders(<DocumentFilters {...defaultProps} onChange={onChange} />);
+
+    selectOption(screen.getAllByRole('combobox')[6], 'Budget Officer');
+
+    expect(onChange).toHaveBeenCalledWith('uploadedBy', 'user-2');
+  });
+
+  it('hides the uploader filter when no uploader options are available', () => {
+    renderWithProviders(<DocumentFilters {...defaultProps} uploaders={[]} />);
+
+    expect(screen.queryByText('Uploader')).not.toBeInTheDocument();
+  });
+
+  it('sets the from-date filter', () => {
+    const onChange = vi.fn();
+    renderWithProviders(<DocumentFilters {...defaultProps} onChange={onChange} />);
+
+    fireEvent.change(screen.getByLabelText('From Date'), { target: { value: '2026-01-01' } });
+
+    expect(onChange).toHaveBeenCalledWith('dateFrom', '2026-01-01');
+  });
+
+  it('clears the to-date filter when emptied', () => {
+    const onChange = vi.fn();
+    renderWithProviders(
+      <DocumentFilters {...defaultProps} filters={{ dateTo: '2026-12-31' }} onChange={onChange} />
+    );
+
+    fireEvent.change(screen.getByLabelText('To Date'), { target: { value: '' } });
+
+    expect(onChange).toHaveBeenCalledWith('dateTo', undefined);
   });
 });

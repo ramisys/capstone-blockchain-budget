@@ -370,12 +370,14 @@ class DocumentRepository {
       }
     }
 
-    // Fuzzy search across code, title, description, and linked allocation code
+    // Fuzzy search across code, title, description, current file name, and
+    // linked allocation code
     if (filters.search) {
       where.OR = [
         { documentCode: { contains: filters.search } },
         { title: { contains: filters.search } },
         { description: { contains: filters.search } },
+        { currentVersion: { is: { originalFileName: { contains: filters.search } } } },
         { allocation: { is: { allocationCode: { contains: filters.search } } } },
       ];
     }

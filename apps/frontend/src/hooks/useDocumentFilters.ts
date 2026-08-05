@@ -8,6 +8,10 @@ export interface DocumentFilters {
   blockchainStatus?: BlockchainRecordStatus;
   fiscalYearId?: string;
   departmentId?: string;
+  allocationId?: string;
+  uploadedBy?: string;
+  dateFrom?: string;
+  dateTo?: string;
 }
 
 export type DocumentFilterKey = keyof DocumentFilters;

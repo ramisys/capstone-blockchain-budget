@@ -53,4 +53,30 @@ describe('useDocumentFilters hook suite', () => {
     expect(result.current.filters).toEqual({});
     expect(result.current.hasActiveFilters).toBe(false);
   });
+
+  it('supports allocation and uploader filters', () => {
+    const { result } = renderHook(() => useDocumentFilters());
+
+    act(() => {
+      result.current.setFilter('allocationId', 'alloc-1');
+      result.current.setFilter('uploadedBy', 'user-1');
+    });
+
+    expect(result.current.filters.allocationId).toBe('alloc-1');
+    expect(result.current.filters.uploadedBy).toBe('user-1');
+    expect(result.current.hasActiveFilters).toBe(true);
+  });
+
+  it('supports date-range filters', () => {
+    const { result } = renderHook(() => useDocumentFilters());
+
+    act(() => {
+      result.current.setFilter('dateFrom', '2026-01-01');
+      result.current.setFilter('dateTo', '2026-12-31');
+    });
+
+    expect(result.current.filters.dateFrom).toBe('2026-01-01');
+    expect(result.current.filters.dateTo).toBe('2026-12-31');
+    expect(result.current.filtersKey).toBe('{"dateFrom":"2026-01-01","dateTo":"2026-12-31"}');
+  });
 });

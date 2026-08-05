@@ -4,6 +4,7 @@ import { useListControls } from '../../hooks/useListControls';
 import { useDocumentFilters } from '../../hooks/useDocumentFilters';
 import { useDocuments, useArchiveDocument } from '../../hooks/useDocuments';
 import { useDocumentOptions } from '../../hooks/useDocumentOptions';
+import { useDocumentUploaders } from '../../hooks/useDocumentUploaders';
 import { useAuth } from '../../hooks/useAuth';
 import { useToast } from '../../components/ui/Toast';
 import { DocumentTable } from '../../components/documents/DocumentTable';
@@ -60,7 +61,8 @@ export function DocumentList() {
     { sortBy, sortOrder },
   );
 
-  const { fiscalYears, departments, isLoading: optionsLoading } = useDocumentOptions();
+  const { fiscalYears, departments, allocations, isLoading: optionsLoading } = useDocumentOptions();
+  const { uploaders, isLoading: uploadersLoading } = useDocumentUploaders();
 
   const { mutateAsync: archiveDocument, isPending: isArchiving } = useArchiveDocument();
 
@@ -144,7 +146,9 @@ export function DocumentList() {
           hasActiveFilters={hasActiveFilters}
           fiscalYears={fiscalYears}
           departments={departments}
-          loading={optionsLoading}
+          allocations={allocations}
+          uploaders={uploaders}
+          loading={optionsLoading || uploadersLoading}
         />
 
         {/* Table */}

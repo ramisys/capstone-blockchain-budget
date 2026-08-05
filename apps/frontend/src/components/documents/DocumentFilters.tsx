@@ -52,6 +52,27 @@ function FilterSelect({
   );
 }
 
+interface FilterDateInputProps {
+  label: string;
+  value: string | undefined;
+  onChange: (value: string | undefined) => void;
+}
+
+function FilterDateInput({ label, value, onChange }: FilterDateInputProps) {
+  return (
+    <div className="space-y-1.5">
+      <Label className="text-xs font-semibold text-slate-600">{label}</Label>
+      <input
+        type="date"
+        aria-label={label}
+        value={value ?? ''}
+        onChange={(event) => onChange(event.target.value || undefined)}
+        className="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 shadow-sm transition-all duration-200 focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-500/20 disabled:cursor-not-allowed disabled:opacity-60"
+      />
+    </div>
+  );
+}
+
 interface DocumentFiltersProps {
   filters: DocumentFilters;
   onChange: (key: DocumentFilterKey, value: string | undefined) => void;
@@ -59,6 +80,8 @@ interface DocumentFiltersProps {
   hasActiveFilters: boolean;
   fiscalYears?: Array<{ id: string; code: string; name?: string }>;
   departments?: Array<{ id: string; code: string; name: string }>;
+  allocations?: Array<{ id: string; allocationCode: string }>;
+  uploaders?: Array<{ id: string; fullName: string }>;
   loading?: boolean;
 }
 
@@ -73,6 +96,8 @@ const DocumentFilters: React.FC<DocumentFiltersProps> = ({
   hasActiveFilters,
   fiscalYears = [],
   departments = [],
+  allocations = [],
+  uploaders = [],
   loading = false,
 }) => {
   return (
@@ -145,6 +170,40 @@ const DocumentFilters: React.FC<DocumentFiltersProps> = ({
           onChange={(value) => onChange('departmentId', value)}
           placeholder="All departments"
           loading={loading}
+        />
+        <FilterSelect
+          label="Allocation"
+          value={filters.allocationId}
+          options={allocations.map((allocation) => ({
+            id: allocation.id,
+            code: allocation.allocationCode,
+          }))}
+          onChange={(value) => onChange('allocationId', value)}
+          placeholder="All allocations"
+          loading={loading}
+        />
+        {uploaders.length > 0 && (
+          <FilterSelect
+            label="Uploader"
+            value={filters.uploadedBy}
+            options={uploaders.map((uploader) => ({
+              id: uploader.id,
+              name: uploader.fullName,
+            }))}
+            onChange={(value) => onChange('uploadedBy', value)}
+            placeholder="All uploaders"
+            loading={loading}
+          />
+        )}
+        <FilterDateInput
+          label="From Date"
+          value={filters.dateFrom}
+          onChange={(value) => onChange('dateFrom', value)}
+        />
+        <FilterDateInput
+          label="To Date"
+          value={filters.dateTo}
+          onChange={(value) => onChange('dateTo', value)}
         />
       </div>
     </Card>

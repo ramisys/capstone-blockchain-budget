@@ -195,13 +195,16 @@ async function runRepositoryTests() {
     assert.equal(where.createdAt.lte.getSeconds(), 59);
   });
 
-  await test('builds a fuzzy search across code, title, description, and allocation code', () => {
+  await test('builds a fuzzy search across code, title, description, file name, and allocation code', () => {
     const where = documentRepository.buildWhere({ search: 'PR-2026' });
     assert.ok(Array.isArray(where.OR));
     assert.deepEqual(where.OR[0], { documentCode: { contains: 'PR-2026' } });
     assert.deepEqual(where.OR[1], { title: { contains: 'PR-2026' } });
     assert.deepEqual(where.OR[2], { description: { contains: 'PR-2026' } });
     assert.deepEqual(where.OR[3], {
+      currentVersion: { is: { originalFileName: { contains: 'PR-2026' } } },
+    });
+    assert.deepEqual(where.OR[4], {
       allocation: { is: { allocationCode: { contains: 'PR-2026' } } },
     });
   });
