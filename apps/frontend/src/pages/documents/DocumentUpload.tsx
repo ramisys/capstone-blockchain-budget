@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { ROLES } from '../../constants/roles';
@@ -15,11 +15,6 @@ export function DocumentUpload() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const canUpload = Boolean(user && WRITE_ROLES.includes(user.role as (typeof WRITE_ROLES)[number]));
-
-  useEffect(() => {
-    if (!canUpload) return;
-    // The dialog handles its own open/close lifecycle.
-  }, [canUpload]);
 
   if (!canUpload) {
     return <Forbidden />;
