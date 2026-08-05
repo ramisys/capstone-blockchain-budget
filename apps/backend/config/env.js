@@ -73,6 +73,18 @@ function validateStorageEnv() {
 
 validateStorageEnv();
 
+/**
+ * Validate audit log persistence configuration at startup.
+ */
+function validateAuditLogEnv() {
+  const enabled = process.env.AUDIT_LOG_DB_ENABLED;
+  if (enabled !== undefined && !['true', 'false'].includes(enabled)) {
+    throw new Error(`AUDIT_LOG_DB_ENABLED must be 'true' or 'false' (got '${enabled}').`);
+  }
+}
+
+validateAuditLogEnv();
+
 export const config = {
   port: process.env.PORT || 5000,
   nodeEnv: process.env.NODE_ENV || 'development',
@@ -113,5 +125,8 @@ export const config = {
     root: process.env.STORAGE_ROOT || 'storage/documents',
     maxFileSizeBytes: parseInt(process.env.MAX_FILE_SIZE_BYTES, 10) || 25 * 1024 * 1024,
     maxVersions: parseInt(process.env.MAX_DOCUMENT_VERSIONS, 10) || 50,
+  },
+  auditLog: {
+    persistEnabled: (process.env.AUDIT_LOG_DB_ENABLED ?? 'true') === 'true',
   },
 };

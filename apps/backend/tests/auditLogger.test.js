@@ -9,8 +9,13 @@ import {
 import { logger } from '../utils/logger.js';
 import { auditRoute } from '../middleware/auditMiddleware.js';
 import { AUDIT_ACTIONS, AUDIT_RESULTS } from '../constants/auditActions.js';
+import { disableAuditPersistence } from './auditTestConfig.js';
 
 console.log('Running Audit Logger Tests...\n');
+
+// Disable DB persistence: these tests assert on the synchronous return value
+// and must not touch the database (the suite has no live DB dependency).
+disableAuditPersistence();
 
 // 1. sanitizeData tests
 console.log('1. sanitizeData:');

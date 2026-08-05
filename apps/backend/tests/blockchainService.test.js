@@ -6,6 +6,9 @@ import { blockchainProvider } from '../config/blockchain.js';
 import { config } from '../config/env.js';
 import { BLOCKCHAIN_RECORD_STATUS } from '../constants/blockchainStatus.js';
 import { computeAllocationContentHash } from '../utils/hashUtils.js';
+import { disableAuditPersistence } from './auditTestConfig.js';
+
+disableAuditPersistence();
 
 const SAMPLE_ALLOCATION = {
   id: 'alloc-1',

@@ -5,6 +5,9 @@ import { blockchainRepository } from '../repositories/blockchainRepository.js';
 import { documentRepository } from '../repositories/documentRepository.js';
 import { blockchainService } from '../services/blockchainService.js';
 import { documentBlockchainService } from '../services/documentBlockchainService.js';
+import { disableAuditPersistence } from './auditTestConfig.js';
+
+disableAuditPersistence();
 
 const originalMethods = {
   isConfigured: blockchainProvider.isConfigured,

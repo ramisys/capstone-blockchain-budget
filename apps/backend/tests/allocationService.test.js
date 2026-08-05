@@ -19,6 +19,9 @@ import { FISCAL_YEAR_STATUS } from '../constants/fiscalYearStatus.js';
 import { USER_STATUS } from '../constants/status.js';
 import { ROLES } from '../constants/roles.js';
 import { ALLOCATION_STATUS } from '../constants/allocationStatus.js';
+import { disableAuditPersistence } from './auditTestConfig.js';
+
+disableAuditPersistence();
 
 const repositoryMethods = {
   allocationRepository: {

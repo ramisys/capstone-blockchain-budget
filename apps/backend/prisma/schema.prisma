@@ -46,6 +46,17 @@ enum BlockchainRecordStatus {
   Failed
 }
 
+enum AuditResult {
+  Success
+  Failure
+}
+
+enum AuditAnchorStatus {
+  Pending
+  Confirmed
+  Failed
+}
+
 enum DocumentType {
   PurchaseRequest
   PurchaseOrder
@@ -371,4 +382,34 @@ model DocumentActivity {
   @@index([documentId, createdAt])
   @@index([actorId])
   @@map("document_activities")
+}
+
+model AuditLog {
+  id           String             @id @default(uuid())
+  action       String             @db.VarChar(100)
+  result       AuditResult        @default(Success)
+  actorId      String?
+  actorEmail   String?            @db.VarChar(255)
+  actorName    String?            @db.VarChar(255)
+  actorRole    String?            @db.VarChar(50)
+  ip           String?            @db.VarChar(45)
+  resourceType String?            @db.VarChar(100)
+  resourceId   String?
+  resourceCode String?            @db.VarChar(255)
+  details      Json?
+  eventHash    String?            @unique
+  anchorStatus AuditAnchorStatus  @default(Pending)
+  txHash       String?            @unique
+  blockNumber  BigInt?
+  network      String?
+  confirmedAt  DateTime?
+  createdAt    DateTime           @default(now())
+
+  @@index([action])
+  @@index([result])
+  @@index([actorId])
+  @@index([resourceType, resourceId])
+  @@index([anchorStatus])
+  @@index([createdAt])
+  @@map("audit_logs")
 }

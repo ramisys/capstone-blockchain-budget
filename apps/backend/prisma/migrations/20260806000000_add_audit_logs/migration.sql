@@ -1,0 +1,32 @@
+-- CreateTable
+CREATE TABLE `audit_logs` (
+    `id` VARCHAR(191) NOT NULL,
+    `action` VARCHAR(100) NOT NULL,
+    `result` ENUM('Success', 'Failure') NOT NULL DEFAULT 'Success',
+    `actorId` VARCHAR(191) NULL,
+    `actorEmail` VARCHAR(255) NULL,
+    `actorName` VARCHAR(255) NULL,
+    `actorRole` VARCHAR(50) NULL,
+    `ip` VARCHAR(45) NULL,
+    `resourceType` VARCHAR(100) NULL,
+    `resourceId` VARCHAR(191) NULL,
+    `resourceCode` VARCHAR(255) NULL,
+    `details` JSON NULL,
+    `eventHash` VARCHAR(191) NULL,
+    `anchorStatus` ENUM('Pending', 'Confirmed', 'Failed') NOT NULL DEFAULT 'Pending',
+    `txHash` VARCHAR(191) NULL,
+    `blockNumber` BIGINT NULL,
+    `network` VARCHAR(191) NULL,
+    `confirmedAt` DATETIME(3) NULL,
+    `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+
+    UNIQUE INDEX `audit_logs_eventHash_key`(`eventHash`),
+    UNIQUE INDEX `audit_logs_txHash_key`(`txHash`),
+    INDEX `audit_logs_action_idx`(`action`),
+    INDEX `audit_logs_result_idx`(`result`),
+    INDEX `audit_logs_actorId_idx`(`actorId`),
+    INDEX `audit_logs_resourceType_resourceId_idx`(`resourceType`, `resourceId`),
+    INDEX `audit_logs_anchorStatus_idx`(`anchorStatus`),
+    INDEX `audit_logs_createdAt_idx`(`createdAt`),
+    PRIMARY KEY (`id`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;

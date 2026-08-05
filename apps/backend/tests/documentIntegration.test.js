@@ -18,6 +18,9 @@ import { ROLES } from '../constants/roles.js';
 import { FISCAL_YEAR_STATUS } from '../constants/fiscalYearStatus.js';
 import { DOCUMENT_STATUS } from '../constants/documentStatus.js';
 import { BLOCKCHAIN_RECORD_STATUS } from '../constants/blockchainStatus.js';
+import { disableAuditPersistence } from './auditTestConfig.js';
+
+disableAuditPersistence();
 
 const VALID_UUID = '00000000-0000-4000-8000-000000000000';
 const PDF_BYTES = Buffer.from('%PDF-1.4 integration test payload');

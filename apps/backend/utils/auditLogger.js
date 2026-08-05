@@ -1,4 +1,5 @@
 import { AUDIT_RESULTS } from '../constants/auditActions.js';
+import { persistAuditEntry } from './auditPersistence.js';
 
 const SENSITIVE_KEYS = new Set([
   'password',
@@ -156,6 +157,10 @@ export const auditLogger = {
     } else {
       console.log(logMessage);
     }
+
+    // Fire-and-forget DB persistence. Never awaited so the request path is not
+    // slowed down, and it can never throw into the caller.
+    void persistAuditEntry(auditEntry);
 
     return auditEntry;
   },

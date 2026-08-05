@@ -11,6 +11,9 @@ import { AppError } from '../errors/appError.js';
 import { HTTP_STATUS } from '../constants/httpStatus.js';
 import { BLOCKCHAIN_RECORD_STATUS } from '../constants/blockchainStatus.js';
 import { DOCUMENT_ACTIVITY_ACTIONS } from '../constants/documentActivityActions.js';
+import { disableAuditPersistence } from './auditTestConfig.js';
+
+disableAuditPersistence();
 
 const SYSTEM_ACTOR = { id: 'system-scheduler', role: 'System' };
 

@@ -17,6 +17,9 @@ import { USER_STATUS } from '../constants/status.js';
 import { ROLES } from '../constants/roles.js';
 import { DOCUMENT_STATUS } from '../constants/documentStatus.js';
 import { DOCUMENT_ACTIVITY_ACTIONS } from '../constants/documentActivityActions.js';
+import { disableAuditPersistence } from './auditTestConfig.js';
+
+disableAuditPersistence();
 
 const originals = {
   documentRepository: {
