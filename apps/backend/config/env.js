@@ -51,6 +51,28 @@ function validateBlockchainEnv() {
 
 validateBlockchainEnv();
 
+/**
+ * Validate storage configuration parameters at startup when set.
+ */
+function validateStorageEnv() {
+  const driver = process.env.STORAGE_DRIVER || 'local';
+  if (!['local', 's3'].includes(driver)) {
+    throw new Error(`STORAGE_DRIVER must be either 'local' or 's3' (got '${driver}').`);
+  }
+
+  const maxFileSizeBytes = parseInt(process.env.MAX_FILE_SIZE_BYTES, 10) || 25 * 1024 * 1024;
+  if (maxFileSizeBytes <= 0) {
+    throw new Error('MAX_FILE_SIZE_BYTES must be a positive integer.');
+  }
+
+  const maxVersions = parseInt(process.env.MAX_DOCUMENT_VERSIONS, 10) || 50;
+  if (maxVersions <= 0) {
+    throw new Error('MAX_DOCUMENT_VERSIONS must be a positive integer.');
+  }
+}
+
+validateStorageEnv();
+
 export const config = {
   port: process.env.PORT || 5000,
   nodeEnv: process.env.NODE_ENV || 'development',
@@ -83,5 +105,11 @@ export const config = {
     privateKey: process.env.BLOCKCHAIN_PRIVATE_KEY || null,
     rpcTimeoutMs: parseInt(process.env.BLOCKCHAIN_RPC_TIMEOUT_MS, 10) || 5000,
     explorerUrl: process.env.BLOCKCHAIN_EXPLORER_URL || null,
+  },
+  storage: {
+    driver: process.env.STORAGE_DRIVER || 'local',
+    root: process.env.STORAGE_ROOT || 'storage/documents',
+    maxFileSizeBytes: parseInt(process.env.MAX_FILE_SIZE_BYTES, 10) || 25 * 1024 * 1024,
+    maxVersions: parseInt(process.env.MAX_DOCUMENT_VERSIONS, 10) || 50,
   },
 };

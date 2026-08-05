@@ -46,6 +46,24 @@ enum BlockchainRecordStatus {
   Failed
 }
 
+enum DocumentType {
+  PurchaseRequest
+  PurchaseOrder
+  Quotation
+  Receipt
+  Invoice
+  DisbursementVoucher
+  LiquidationReport
+  BudgetProposal
+  Contract
+  Other
+}
+
+enum DocumentStatus {
+  Active
+  Archived
+}
+
 model FiscalYear {
   id           String           @id @default(uuid())
   code         String           @unique
@@ -59,6 +77,7 @@ model FiscalYear {
   updatedAt    DateTime         @updatedAt
 
   allocations BudgetAllocation[]
+  documents   ManagedDocument[]
 
   @@index([code])
   @@index([startDate, endDate])
@@ -92,6 +111,7 @@ model Department {
   updatedAt      DateTime           @updatedAt
   budgetPrograms BudgetProgram[]    @relation("DepartmentBudgetProgram")
   allocations    BudgetAllocation[]
+  documents      ManagedDocument[]
 
   @@index([code])
   @@index([name])
@@ -166,6 +186,7 @@ model BudgetAllocation {
 
   approvals AllocationApproval[]
   records   BlockchainRecord[]
+  documents ManagedDocument[]
 
   @@index([allocationCode])
   @@index([fiscalYearId])
@@ -236,6 +257,10 @@ model User {
   reviewedAllocations BudgetAllocation[]   @relation("AllocationReviewer")
   approvalRecords     AllocationApproval[]
   refreshTokens       RefreshToken[]
+  uploadedDocuments   ManagedDocument[]    @relation("DocumentUploader")
+  archivedDocuments   ManagedDocument[]    @relation("DocumentArchiver")
+  uploadedVersions    DocumentVersion[]    @relation("DocumentVersionUploader")
+  documentActivities  DocumentActivity[]   @relation("DocumentActivityActor")
 
   @@map("users")
 }
@@ -254,4 +279,96 @@ model RefreshToken {
   @@index([userId])
   @@index([expiresAt])
   @@map("refresh_tokens")
+}
+
+model ManagedDocument {
+  id               String         @id @default(uuid())
+  documentCode     String         @unique
+  title            String         @db.VarChar(200)
+  description      String?        @db.VarChar(1000)
+  documentType     DocumentType
+  fiscalYearId     String?
+  departmentId     String?
+  allocationId     String?
+  status           DocumentStatus @default(Active)
+  currentVersionId String?        @unique
+  uploadedBy       String
+  archivedBy       String?
+  archivedAt       DateTime?
+  deletedAt        DateTime?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  fiscalYear     FiscalYear?       @relation(fields: [fiscalYearId], references: [id])
+  department     Department?       @relation(fields: [departmentId], references: [id])
+  allocation     BudgetAllocation? @relation(fields: [allocationId], references: [id])
+  currentVersion DocumentVersion?  @relation("DocumentCurrentVersion", fields: [currentVersionId], references: [id])
+  uploader       User              @relation("DocumentUploader", fields: [uploadedBy], references: [id])
+  archiver       User?             @relation("DocumentArchiver", fields: [archivedBy], references: [id])
+
+  versions   DocumentVersion[]
+  activities DocumentActivity[]
+
+  @@index([documentCode])
+  @@index([allocationId])
+  @@index([fiscalYearId])
+  @@index([departmentId])
+  @@index([documentType])
+  @@index([status])
+  @@index([uploadedBy])
+  @@index([createdAt])
+  @@index([deletedAt])
+  @@map("managed_documents")
+}
+
+model DocumentVersion {
+  id               String                 @id @default(uuid())
+  documentId       String
+  versionNumber    Int
+  originalFileName String                 @db.VarChar(255)
+  storageKey       String                 @unique
+  mimeType         String                 @db.VarChar(100)
+  fileSizeBytes    BigInt
+  fileExtension    String                 @db.VarChar(10)
+  sha256Hash       String                 @unique
+  blockchainStatus BlockchainRecordStatus @default(Pending)
+  txHash           String?                @unique
+  blockNumber      BigInt?
+  network          String?
+  confirmedAt      DateTime?
+  replaceReason    String?                @db.VarChar(500)
+  uploadedBy       String
+  uploadedAt       DateTime               @default(now())
+  createdAt        DateTime               @default(now())
+
+  document ManagedDocument  @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  uploader User             @relation("DocumentVersionUploader", fields: [uploadedBy], references: [id])
+  currentOf ManagedDocument? @relation("DocumentCurrentVersion")
+
+  activities DocumentActivity[]
+
+  @@unique([documentId, versionNumber])
+  @@index([documentId])
+  @@index([sha256Hash])
+  @@index([blockchainStatus])
+  @@index([uploadedAt])
+  @@map("document_versions")
+}
+
+model DocumentActivity {
+  id         String   @id @default(uuid())
+  documentId String
+  versionId  String?
+  actorId    String
+  action     String   @db.VarChar(50)
+  details    Json?
+  createdAt  DateTime @default(now())
+
+  document ManagedDocument  @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  version  DocumentVersion? @relation(fields: [versionId], references: [id])
+  actor    User             @relation("DocumentActivityActor", fields: [actorId], references: [id])
+
+  @@index([documentId, createdAt])
+  @@index([actorId])
+  @@map("document_activities")
 }

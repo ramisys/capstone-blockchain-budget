@@ -21,6 +21,9 @@ dist/
 build/
 coverage/
 
+# Uploaded document storage (Phase 4.5)
+apps/backend/storage/
+
 # OS specific files
 .DS_Store
 Thumbs.db
