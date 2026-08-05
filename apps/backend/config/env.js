@@ -94,6 +94,8 @@ export const config = {
     loginMax: parseInt(process.env.LOGIN_RATE_LIMIT_MAX, 10) || 5,
     sensitiveWindowMs: parseInt(process.env.SENSITIVE_RATE_LIMIT_WINDOW_MS, 10) || 60 * 60 * 1000,
     sensitiveMax: parseInt(process.env.SENSITIVE_RATE_LIMIT_MAX, 10) || 10,
+    uploadWindowMs: parseInt(process.env.UPLOAD_RATE_LIMIT_WINDOW_MS, 10) || 15 * 60 * 1000,
+    uploadMax: parseInt(process.env.UPLOAD_RATE_LIMIT_MAX, 10) || 20,
   },
   blockchain: {
     rpcUrl: process.env.BLOCKCHAIN_RPC_URL || null,

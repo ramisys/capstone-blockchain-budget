@@ -61,3 +61,18 @@ export const sensitiveRouteLimiter = rateLimit({
   legacyHeaders: false,
   handler: createRateLimitHandler('Sensitive Route Limiter'),
 });
+
+/**
+ * 4. Document Upload Rate Limiter
+ * Applied to the multipart upload endpoints (POST /api/documents and
+ * POST /api/documents/:id/replace). Uploads are far more expensive than regular
+ * JSON requests, so a stricter per-IP cap prevents disk-exhaustion DoS on the
+ * upload temp directory. Limits each IP to 20 uploads per 15-minute window.
+ */
+export const uploadLimiter = rateLimit({
+  windowMs: config.rateLimit.uploadWindowMs,
+  max: config.rateLimit.uploadMax,
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  handler: createRateLimitHandler('Document Upload Limiter'),
+});

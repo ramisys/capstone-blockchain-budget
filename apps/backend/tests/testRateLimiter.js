@@ -1,7 +1,12 @@
 import rateLimit from 'express-rate-limit';
 import { formatErrorResponse } from '../utils/responseFormatter.js';
 import { HTTP_STATUS } from '../constants/httpStatus.js';
-import { authLoginLimiter, globalLimiter, sensitiveRouteLimiter } from '../middleware/rateLimiter.js';
+import {
+  authLoginLimiter,
+  globalLimiter,
+  sensitiveRouteLimiter,
+  uploadLimiter,
+} from '../middleware/rateLimiter.js';
 
 async function runRateLimiterTests() {
   console.log('🧪 Starting Rate Limiter Middleware Tests...\n');
@@ -10,7 +15,8 @@ async function runRateLimiterTests() {
   console.log('1. Middleware Export Verification:');
   console.log(`   - globalLimiter defined: ${typeof globalLimiter === 'function' ? '✅ PASSED' : '❌ FAILED'}`);
   console.log(`   - authLoginLimiter defined: ${typeof authLoginLimiter === 'function' ? '✅ PASSED' : '❌ FAILED'}`);
-  console.log(`   - sensitiveRouteLimiter defined: ${typeof sensitiveRouteLimiter === 'function' ? '✅ PASSED' : '❌ FAILED'}\n`);
+  console.log(`   - sensitiveRouteLimiter defined: ${typeof sensitiveRouteLimiter === 'function' ? '✅ PASSED' : '❌ FAILED'}`);
+  console.log(`   - uploadLimiter defined: ${typeof uploadLimiter === 'function' ? '✅ PASSED' : '❌ FAILED'}\n`);
 
   // 2. Test Custom Rate Limit Handler & HTTP 429 Payload Standard
   console.log('2. Rate Limit Response & Header Format:');

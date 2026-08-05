@@ -4,6 +4,7 @@ import { authenticate } from '../middleware/authMiddleware.js';
 import { authorize } from '../middleware/rbacMiddleware.js';
 import { validateRequest } from '../validators/validateRequest.js';
 import { uploadMiddleware, validateUploadedFile } from '../middleware/uploadMiddleware.js';
+import { uploadLimiter } from '../middleware/rateLimiter.js';
 import {
   createDocumentSchema,
   updateDocumentSchema,
@@ -145,6 +146,7 @@ router.get(
 router.post(
   '/',
   authorize(...WRITE_ROLES),
+  uploadLimiter,
   uploadMiddleware('file'),
   validateUploadedFile,
   validateRequest(createDocumentSchema),
@@ -160,6 +162,7 @@ router.post(
   '/:id/replace',
   authorize(...WRITE_ROLES),
   validateRequest(documentIdParamSchema, 'params'),
+  uploadLimiter,
   uploadMiddleware('file'),
   validateUploadedFile,
   validateRequest(replaceDocumentSchema),

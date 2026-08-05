@@ -1,5 +1,8 @@
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
+import crypto from 'node:crypto';
+import { Readable } from 'node:stream';
+import { documentStorage } from '../services/documentStorageService.js';
 
 const prisma = new PrismaClient();
 
@@ -370,11 +373,147 @@ async function seedAllocations({ active, users }) {
   return allocations;
 }
 
+const SEED_DOCUMENTS = (currentYear) => [
+  {
+    documentCode: `DOC-${currentYear}-0001`,
+    title: 'Purchase Request - Engineering Infrastructure',
+    description: 'Request to procure building materials for the engineering building upgrade',
+    documentType: 'PurchaseRequest',
+    allocationCode: `BA-${currentYear}-001`,
+    departmentCode: 'DEPT-ENG',
+    content: `Purchase Request\n\nReference: ${currentYear} Engineering Infrastructure Upgrade\nPurpose: Procurement of building materials\nPrepared by the Budget Officer\n`,
+  },
+  {
+    documentCode: `DOC-${currentYear}-0002`,
+    title: 'Quotation - IT Systems Modernization',
+    description: 'Supplier quotation for hardware and software for online learning platforms',
+    documentType: 'Quotation',
+    allocationCode: `BA-${currentYear}-002`,
+    departmentCode: 'DEPT-IT',
+    content: `Quotation\n\nReference: ${currentYear} IT Systems Modernization\nSupplier quotation received and reviewed\n`,
+  },
+  {
+    documentCode: `DOC-${currentYear}-0003`,
+    title: 'Faculty Development Budget Proposal',
+    description: 'Proposal for faculty development and instructional materials funding',
+    documentType: 'BudgetProposal',
+    allocationCode: `BA-${currentYear}-003`,
+    departmentCode: 'DEPT-CAS',
+    content: `Budget Proposal\n\nReference: ${currentYear} Faculty Development\nProposed programs and estimated instructional material costs\n`,
+  },
+  {
+    documentCode: `DOC-${currentYear}-0004`,
+    title: 'Receipt - Laboratory Equipment Maintenance',
+    description: 'Official receipt for laboratory equipment maintenance services',
+    documentType: 'Receipt',
+    allocationCode: `BA-${currentYear}-004`,
+    departmentCode: 'DEPT-ENG',
+    content: `Receipt\n\nReference: ${currentYear} Laboratory Equipment Maintenance\nOfficial receipt attached as liquidation evidence\n`,
+  },
+];
+
+async function seedDocuments({ allocations, users }) {
+  const currentYear = new Date().getFullYear();
+  const uploader = users.find((user) => user.role === 'BudgetOfficer');
+  const seeded = [];
+
+  for (const seedDoc of SEED_DOCUMENTS(currentYear)) {
+    try {
+      const existing = await prisma.managedDocument.findUnique({
+        where: { documentCode: seedDoc.documentCode },
+      });
+      if (existing) {
+        seeded.push(existing);
+        continue;
+      }
+
+      const allocation = allocations.find(
+        (item) => item.allocationCode === seedDoc.allocationCode
+      );
+      const department = await prisma.department.findUnique({
+        where: { code: seedDoc.departmentCode },
+      });
+
+      const content = Buffer.from(seedDoc.content, 'utf8');
+      const sha256Hash = crypto.createHash('sha256').update(content).digest('hex');
+      const storageKey = `seed-${seedDoc.documentCode}.txt`;
+
+      // Fail-soft storage: if the storage root is not writable, skip this
+      // document instead of aborting the whole seed.
+      let stored;
+      try {
+        stored = await documentStorage.storeStream(Readable.from([content]), storageKey);
+      } catch (storageError) {
+        console.warn(
+          `   - Skipped ${seedDoc.documentCode}: could not store seed blob (${storageError.message || storageError})`
+        );
+        continue;
+      }
+
+      const document = await prisma.managedDocument.create({
+        data: {
+          documentCode: seedDoc.documentCode,
+          title: seedDoc.title,
+          description: seedDoc.description,
+          documentType: seedDoc.documentType,
+          fiscalYearId: allocation.fiscalYearId,
+          departmentId: department?.id ?? null,
+          allocationId: allocation.id,
+          uploadedBy: uploader.id,
+        },
+      });
+
+      const version = await prisma.documentVersion.create({
+        data: {
+          documentId: document.id,
+          versionNumber: 1,
+          originalFileName: `${seedDoc.documentCode}.txt`,
+          storageKey,
+          mimeType: 'text/plain',
+          fileSizeBytes: stored.sizeBytes,
+          fileExtension: 'txt',
+          sha256Hash,
+          blockchainStatus: 'Pending',
+          uploadedBy: uploader.id,
+        },
+      });
+
+      await prisma.managedDocument.update({
+        where: { id: document.id },
+        data: { currentVersionId: version.id },
+      });
+
+      await prisma.documentActivity.create({
+        data: {
+          documentId: document.id,
+          versionId: version.id,
+          actorId: uploader.id,
+          action: 'UPLOAD',
+          details: {
+            documentCode: document.documentCode,
+            versionNumber: 1,
+            fileSizeBytes: stored.sizeBytes,
+            sha256Hash,
+            documentType: seedDoc.documentType,
+          },
+        },
+      });
+
+      seeded.push(document);
+    } catch (error) {
+      console.warn(`   - Skipped ${seedDoc.documentCode}: ${error.message || error}`);
+    }
+  }
+
+  return seeded;
+}
+
 async function main() {
   const users = await seedUsers();
   const { active } = await seedFiscalYears();
   const { departments, fundSources, budgetCategories, programs } = await seedMasterData();
   const allocations = await seedAllocations({ active, users });
+  const documents = await seedDocuments({ allocations, users });
 
   console.log('=======================================================');
   console.log('🌱 Prisma Seed Completed Successfully!');
@@ -393,6 +532,10 @@ async function main() {
     console.log(
       `   - ${allocation.allocationCode} (${allocation.status}) ₱${allocation.allocatedAmount}`
     );
+  }
+  console.log(`📄 Documents seeded: ${documents.length}`);
+  for (const document of documents) {
+    console.log(`   - ${document.documentCode} (${document.documentType}) "${document.title}"`);
   }
   console.log('=======================================================');
   console.log('🔑 Default credentials:');
