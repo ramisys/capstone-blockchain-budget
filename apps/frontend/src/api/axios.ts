@@ -4,11 +4,13 @@ import axios, {
   type InternalAxiosRequestConfig,
 } from 'axios';
 
+// No default Content-Type: axios infers it per request. Plain object bodies get
+// `application/json`, and FormData bodies get `multipart/form-data` with the
+// browser-generated boundary. Forcing `application/json` here would make axios
+// serialize FormData uploads to JSON (dropping the File), so multipart routes
+// would see an empty body.
 const apiClient = axios.create({
   baseURL: '/api',
-  headers: {
-    'Content-Type': 'application/json',
-  },
   timeout: 30000,
 });
 
