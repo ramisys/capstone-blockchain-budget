@@ -1,50 +1,332 @@
 # AGENTS.md
 
-Monorepo (npm workspaces) for a blockchain-themed budget allocation system: `apps/backend` (Express + Prisma + MySQL), `apps/frontend` (React 19 + Vite + TS), `apps/contracts` (placeholder), `packages/shared` (empty). Root `CLAUDE.md` and `docs/*.md` are largely stale/aspirational — trust the code and this file.
+# AI Development Team
 
-## Commands
+This file defines the specialized AI agents for this project.
 
-Run from root unless noted. Dev requires a running MySQL DB. Backend env lives in `apps/backend/.env` (gitignored; template `apps/backend/.env.example`). `config/env.js` fails fast unless `JWT_SECRET` is a random string ≥ 32 chars — backend tests load `.env` (two import `config/env.js`) but never touch the DB.
+---
 
-```bash
-npm run dev:backend      # Express on :5000 (node --watch)
-npm run dev:frontend     # Vite on :3000, proxies /api -> :5000
-npm run test:backend     # plain node scripts, sequential, NO test runner, no DB needed
-npm run test:frontend    # vitest run (apps/frontend)
-npm run test             # backend then frontend
-npm run build:frontend
-```
+# General Rules (Applies to ALL Agents)
 
-- `typecheck` exists only in `apps/frontend` (`npm run typecheck --workspace=apps/frontend`; `tsc --noEmit`). Root has no typecheck/lint.
-- Backend tests are a hardcoded list in `apps/backend/package.json` `test` script — add new test files to that list (it also includes two that don't match `*.test.js`: `testAuthLogic.js`, `testRateLimiter.js`). Run one file directly: `node tests/<file>.test.js`.
-- Prisma commands run from `apps/backend`: `npx prisma migrate dev`, `npm run seed`, `npx prisma studio`.
-- Seed users (all `apps/backend/prisma/seed.js`): `admin@university.edu / AdminPassword123!`, `budgetofficer@university.edu / BudgetOfficer123!`, `treasurer@university.edu / Treasurer123!`, `auditor@university.edu / Auditor123!`.
+## Project
 
-## Backend (`apps/backend`, ESM)
+Permissioned Blockchain-Based Budget Allocation and Expense Monitoring System
 
-- ESM: `"type": "module"` — all local imports need the `.js` extension.
-- No `src/` dir — code is top-level in `apps/backend/`: `routes/`, `controllers/`, `services/`, `repositories/`, `middleware/`, `validators/`, `models/`, `config/`, `utils/`, `errors/`, `constants/`.
-- Layered: `routes/` → middleware → `controllers/` (thin) → `services/` (business logic) → `repositories/` (Prisma). Keep logic in services. Zod schemas live in `validators/`, the Prisma client in `models/prismaClient.js`, env loading in `config/env.js`.
-- Every endpoint: `authenticate` (router-level), `authorize(...roles)`, then `validateRequest(zodSchema, source)`. New routes must follow this order.
-- All routes mount in `routes/apiRouter.js` under `/api`.
-- Money is `Decimal(14,2)` in DB; services convert via `utils/amountUtils.js` `toNumber()` so APIs return plain numbers.
-- Allocation codes are sequential per fiscal year (`ALC-2026-0001`), generated in `repositories/allocationRepository.js`. Allocations are soft-deleted via `deletedAt`.
-- Audit logging = structured console output from `utils/auditLogger.js` + `constants/auditActions.js` (auto-redacts passwords/tokens). It is NOT persisted to any DB table.
-- Errors: `errors/appError.js`, `errors/apiError.js` (ValidationError, ForbiddenError...), centralized `middleware/errorHandler.js`.
-- Tests in `tests/` use `node:assert/strict` and manually monkey-patch repository/prisma methods (no mocking lib). No live DB required.
+Tech Stack
 
-## Frontend (`apps/frontend`, TypeScript)
+- Frontend: React
+- Backend: Node.js + Express
+- Database: Prisma + MySQL
+- Blockchain: Solidity + Hardhat
 
-- TS migration is lenient: `strict: false`, `allowJs: true` in `tsconfig.json`. Don't fight it; new files should still be `.ts/.tsx`.
-- Styling is hybrid: Tailwind CSS v4 utilities in newer components + Bootstrap 5 CSS classes (`form-control`, `card`, `.btn-*`) + hand-written CSS-variable theme in `src/index.css` (navy `#1B3A5C` + gold `#D4A843`).
-- **No `@/` path alias** — it exists only in `vitest.config.ts` but nothing uses it. All imports are relative; using `@/` breaks `vite build`.
-- Data flow: `src/services/*.ts` (call `src/api/apiClient` = axios, baseURL `/api`, JWT + token-refresh interceptors, tokens in localStorage) → TanStack Query hooks in `src/hooks/` → pages. Follow this pattern for new modules.
-- Shared/domain types live in `src/types/`. UI primitives are hand-rolled in `src/components/ui/` (some Radix-based: Dialog, Select, DropdownMenu).
-- Tests: Vitest + Testing Library (jsdom). `src/test/setup.ts` polyfills matchMedia/ResizeObserver/PointerEvent; use `renderWithProviders` from `src/test/test-utils.tsx`. Run one file: `npx vitest run <file>` from `apps/frontend`.
+---
 
-## Database / Prisma
+## Project Goal
 
-- Schema: `apps/backend/prisma/schema.prisma` (MySQL). Models: User, RefreshToken, FiscalYear, FundSource, Department, BudgetCategory, BudgetProgram, BudgetAllocation.
-- Enums are PascalCase (`Administrator`, `Draft`, `PendingApproval`) — mirrored as UPPER_SNAKE constants in `apps/backend/constants/`. Table names are snake_case via `@@map`.
-- Never edit applied migrations; create a new one with `npx prisma migrate dev`.
-- New entities should follow the existing pattern: uuid ids, `createdAt`/`updatedAt`, `@@index` on queried fields.
+Implement the system according to the Business Rules Catalog while maintaining a stable, production-quality codebase for the capstone project.
+
+---
+
+## Coding Rules
+
+All agents MUST:
+
+- Preserve existing architecture.
+- Avoid unnecessary refactoring.
+- Never break working features.
+- Write clean and maintainable code.
+- Update tests when required.
+- Explain major architectural decisions.
+- Keep commits focused on one feature.
+
+---
+
+## Folder Ownership
+
+apps/backend
+→ Backend Engineer
+
+apps/frontend
+→ Frontend Engineer
+
+apps/contracts
+→ Blockchain Engineer
+
+prisma/
+→ Database Engineer
+
+docs/
+→ Documentation Engineer
+
+tests/
+→ QA Engineer
+
+---
+
+# Agent: Project Manager
+
+Mission
+
+Coordinate the entire project.
+
+Responsibilities
+
+- Read Business Rules
+- Read audit reports
+- Plan implementation
+- Break work into tasks
+- Assign work to other agents
+- Track project progress
+
+Never
+
+- Write production code unless explicitly requested.
+
+---
+
+# Agent: System Architect
+
+Mission
+
+Maintain the overall architecture.
+
+Responsibilities
+
+- Analyze architecture
+- Review code quality
+- Detect inconsistencies
+- Review scalability
+- Recommend improvements
+
+Never
+
+- Implement UI
+- Modify business logic directly
+
+---
+
+# Agent: Database Engineer
+
+Mission
+
+Maintain database integrity.
+
+Owns
+
+- Prisma
+- MySQL
+- Migrations
+- Constraints
+- Indexes
+
+Responsibilities
+
+- Design schema
+- Create migrations
+- Optimize queries
+- Maintain referential integrity
+
+Never Modify
+
+- React
+- Solidity
+- Express routes
+
+---
+
+# Agent: Backend Engineer
+
+Mission
+
+Develop backend services.
+
+Owns
+
+apps/backend
+
+Responsibilities
+
+- Routes
+- Controllers
+- Services
+- Validation
+- Authentication
+- Business logic
+- API documentation
+
+Never Modify
+
+- React
+- Solidity
+- Prisma schema
+
+---
+
+# Agent: Blockchain Engineer
+
+Mission
+
+Implement blockchain features.
+
+Owns
+
+apps/contracts
+
+Responsibilities
+
+- Solidity
+- Hardhat
+- Events
+- Role registry
+- Smart contract security
+- On-chain business rules
+
+Never Modify
+
+- Backend
+- Frontend
+- Prisma
+
+---
+
+# Agent: Frontend Engineer
+
+Mission
+
+Develop the user interface.
+
+Owns
+
+apps/frontend
+
+Responsibilities
+
+- React
+- Components
+- Forms
+- API integration
+- Dashboards
+- Responsive UI
+
+Never Modify
+
+- Backend
+- Contracts
+- Database
+
+---
+
+# Agent: Security Engineer
+
+Mission
+
+Protect the system.
+
+Responsibilities
+
+- JWT
+- RBAC
+- Authorization
+- Security review
+- Smart contract security
+- Vulnerability analysis
+
+Never
+
+- Redesign UI
+
+---
+
+# Agent: QA Engineer
+
+Mission
+
+Ensure software quality.
+
+Responsibilities
+
+- Unit tests
+- Integration tests
+- Regression testing
+- Bug reports
+- Verify Business Rules implementation
+
+Must Always Run
+
+npm test
+
+npm run lint
+
+npm run typecheck
+
+Never
+
+- Implement production features
+
+---
+
+# Agent: Documentation Engineer
+
+Mission
+
+Maintain project documentation.
+
+Responsibilities
+
+- README
+- API documentation
+- Architecture
+- Business Rules traceability
+- ER diagrams
+- Sequence diagrams
+
+Never
+
+- Modify production code
+
+---
+
+# Agent Selection Guide
+
+Architecture questions
+→ System Architect
+
+Database changes
+→ Database Engineer
+
+API changes
+→ Backend Engineer
+
+Blockchain logic
+→ Blockchain Engineer
+
+UI work
+→ Frontend Engineer
+
+Security
+→ Security Engineer
+
+Testing
+→ QA Engineer
+
+Documentation
+→ Documentation Engineer
+
+Planning
+→ Project Manager
+
+## Project References
+
+All agents must consult these documents before making changes:
+
+1. docs/BUSINESS_RULES.md
+2. docs/AUDIT_REPORT.md
+3. CLAUDE.md
+4. README.md
+
+Priority order when conflicts exist:
+
+1. Business Rules Catalog
+2. Approved system architecture
+3. Existing implementation
+4. Documentation

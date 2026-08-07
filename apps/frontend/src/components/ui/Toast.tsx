@@ -31,7 +31,12 @@ export function ToastProvider({ children }) {
     <ToastContext.Provider value={{ addToast, removeToast, showSuccess, showError, showInfo, showToast }}>
       {children}
       {createPortal(
-        <div className="fixed top-5 right-5 z-10000 flex flex-col gap-3 max-w-sm w-full pointer-events-none px-4 sm:px-0">
+        <div
+          className="fixed top-5 right-5 z-10000 flex flex-col gap-3 max-w-sm w-full pointer-events-none px-4 sm:px-0"
+          role="status"
+          aria-live="polite"
+          aria-atomic="false"
+        >
           {toasts.map((toast) => (
             <ToastItem key={toast.id} toast={toast} onClose={() => removeToast(toast.id)} />
           ))}
@@ -71,7 +76,6 @@ function ToastItem({ toast, onClose }) {
           ? 'bg-red-900/90 text-red-100 border-red-700/50 backdrop-blur-md'
           : 'bg-slate-900/90 text-slate-100 border-slate-700/50 backdrop-blur-md'
       }`}
-      role="alert"
     >
       <div className="flex items-center gap-3">
         {isSuccess && <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />}
