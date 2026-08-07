@@ -370,13 +370,13 @@ export function UserList() {
             <table className="w-full text-left border-collapse m-0">
               <thead>
                 <tr className="bg-slate-50/90 border-b border-slate-200 text-xs font-semibold text-slate-500 uppercase tracking-wider sticky top-0 backdrop-blur-md">
-                  <th className="py-3.5 px-5">Avatar</th>
-                  <th className="py-3.5 px-5">Name</th>
-                  <th className="py-3.5 px-5">Email</th>
-                  <th className="py-3.5 px-5">Role</th>
-                  <th className="py-3.5 px-5">Status</th>
-                  <th className="py-3.5 px-5">Created Date</th>
-                  <th className="py-3.5 px-5 text-right">Actions</th>
+                  <th scope="col" className="py-3.5 px-5">Avatar</th>
+                  <th scope="col" className="py-3.5 px-5">Name</th>
+                  <th scope="col" className="py-3.5 px-5">Email</th>
+                  <th scope="col" className="py-3.5 px-5">Role</th>
+                  <th scope="col" className="py-3.5 px-5">Status</th>
+                  <th scope="col" className="py-3.5 px-5">Created Date</th>
+                  <th scope="col" className="py-3.5 px-5 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-sm">

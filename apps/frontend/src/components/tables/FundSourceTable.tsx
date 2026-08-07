@@ -4,6 +4,7 @@ import {
   TableHeader,
   TableBody,
   TableRow,
+  TableHead,
   TableCell,
   TableCaption,
 } from '../ui/Table';
@@ -78,21 +79,21 @@ const FundSourceTable: React.FC<FundSourceTableProps> = ({
       </TableCaption>
           <TableHeader className="bg-slate-50">
             <TableRow>
-              <TableCell className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">
+              <TableHead className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">
                 <SortableHeader label="Fund Source Code" sortKey="code" sortBy={sortBy} sortOrder={sortOrder} onSort={onSort} />
-              </TableCell>
-              <TableCell className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">
+              </TableHead>
+              <TableHead className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">
                 <SortableHeader label="Fund Source Name" sortKey="name" sortBy={sortBy} sortOrder={sortOrder} onSort={onSort} />
-              </TableCell>
-              <TableCell className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">
+              </TableHead>
+              <TableHead className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">
                 Description
-              </TableCell>
-              <TableCell className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">
+              </TableHead>
+              <TableHead className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">
                 <SortableHeader label="Status" sortKey="status" sortBy={sortBy} sortOrder={sortOrder} onSort={onSort} />
-              </TableCell>
-              <TableCell className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">
+              </TableHead>
+              <TableHead className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">
                 Actions
-              </TableCell>
+              </TableHead>
             </TableRow>
           </TableHeader>
 
