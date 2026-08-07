@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
-import { yupResolver } from '@hookform/resolvers/yup';
-import * as yup from 'yup';
+import { zodResolver } from '@hookform/resolvers/zod';
+import * as z from 'zod';
 import {
   ArrowLeft,
   User,
@@ -14,9 +14,7 @@ import {
   Check,
   X,
   UserPlus,
-  Loader2,
   AlertCircle,
-  CheckCircle2,
   Sliders,
   UserCheck,
   KeyRound,
@@ -25,48 +23,103 @@ import {
 import { Button } from '../ui/Button';
 import { Alert } from '../ui/Alert';
 import { Card } from '../ui/Card';
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '../ui/Select';
+import { useToast } from '../ui/Toast';
 import { useAuth } from '../../hooks/useAuth';
+import { useUserById, useCreateUser, useUpdateUser } from '../../hooks/useUsers';
 import { ROLES, ROLE_LABELS } from '../../constants/roles';
 import { USER_STATUS } from '../../constants/status';
-import api from '../../api/apiClient';
+
+interface UserFormValues {
+  fullName: string;
+  email: string;
+  password?: string;
+  role: string;
+  status: string;
+}
+
+const ROLE_VALUES = Object.values(ROLES) as [string, ...string[]];
+const STATUS_VALUES = Object.values(USER_STATUS) as [string, ...string[]];
+
+// Mirrors apps/backend/validators/userValidator.js so weak passwords are caught
+// here rather than coming back as a 400 from the server.
+const passwordSchema = z
+  .string()
+  .min(8, 'Password must be at least 8 characters')
+  .regex(/[a-z]/, 'Password must contain at least one lowercase letter')
+  .regex(/[A-Z]/, 'Password must contain at least one uppercase letter')
+  .regex(/\d/, 'Password must contain at least one number');
+
+function buildUserFormSchema(isEditMode: boolean): z.ZodType<UserFormValues> {
+  return z.object({
+    fullName: z.string().trim().min(2, 'Full name must be at least 2 characters'),
+    email: z
+      .string()
+      .trim()
+      .min(1, 'Email Address is required')
+      .email('Please enter a valid email address'),
+    // In edit mode the password is only submitted when "Change Password" is
+    // ticked, so an untouched empty field must not trip the rules.
+    password: isEditMode
+      ? z.preprocess(
+          (value) => (value === '' || value === null ? undefined : value),
+          passwordSchema.optional(),
+        )
+      : passwordSchema,
+    role: z.enum(ROLE_VALUES, { errorMap: () => ({ message: 'Role is required' }) }),
+    status: z.enum(STATUS_VALUES, { errorMap: () => ({ message: 'Status is required' }) }),
+  }) as z.ZodType<UserFormValues>;
+}
 
 export function UserForm() {
   const navigate = useNavigate();
   const { id } = useParams();
   const { user } = useAuth();
-  const [loading, setLoading] = useState(false);
-  const [initialData, setInitialData] = useState(null);
-  const [error, setError] = useState(null);
+  const { showSuccess, showError } = useToast();
+
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
   const [enablePasswordEdit, setEnablePasswordEdit] = useState(false);
 
-  // Check if user is admin
+  const isEditMode = Boolean(id);
   const isAdmin = user?.role === ROLES.ADMINISTRATOR;
 
-  // Form validation schema
-  const validationSchema = yup.object({
-    fullName: yup.string().required('Full Name is required'),
-    email: yup.string().email('Please enter a valid email address').required('Email Address is required'),
-    password: id
-      ? yup.string().min(8, 'Password must be at least 8 characters').notRequired()
-      : yup.string().min(8, 'Password must be at least 8 characters').required('Password is required'),
-    role: yup.string().required('Role is required'),
-    status: yup.string().required('Status is required'),
-  });
+  const {
+    data: existingUser,
+    isLoading: isLoadingUser,
+    isError: isUserError,
+    error: userError,
+  } = useUserById(id);
+
+  const { mutateAsync: createUser, isPending: isCreating } = useCreateUser();
+  const { mutateAsync: updateUser, isPending: isUpdating } = useUpdateUser();
+
+  const validationSchema = useMemo(() => buildUserFormSchema(isEditMode), [isEditMode]);
 
   const {
     register,
     handleSubmit,
-    formState: { errors },
+    formState: { errors, isSubmitting },
     reset,
     setValue,
     watch,
-  } = useForm({
-    resolver: yupResolver(validationSchema),
+  } = useForm<UserFormValues>({
+    resolver: zodResolver(validationSchema),
     mode: 'onBlur',
+    defaultValues: {
+      fullName: '',
+      email: '',
+      password: '',
+      role: '',
+      status: '',
+    },
   });
 
+  const loading = (isEditMode && isLoadingUser) || isCreating || isUpdating || isSubmitting;
+
   const passwordValue = watch('password') || '';
+  const roleValue = watch('role');
+  const statusValue = watch('status');
 
   // Password requirement live evaluation
   const passwordRequirements = [
@@ -89,101 +142,102 @@ export function UserForm() {
 
   const strength = getPasswordStrength();
 
-  // Fetch user data for edit mode
+  // Populate the form once the user being edited has loaded
   useEffect(() => {
-    if (id) {
-      const fetchUserData = async () => {
-        try {
-          setLoading(true);
-          const response = await api.get(`/users/${id}`);
-          setInitialData(response.data.data.user);
-
-          // Set form values
-          reset({
-            fullName: response.data.data.user.fullName,
-            email: response.data.data.user.email,
-            role: response.data.data.user.role,
-            status: response.data.data.user.status,
-          });
-        } catch (err) {
-          setError(err.response?.data?.message || 'Failed to fetch user details.');
-        } finally {
-          setLoading(false);
-        }
-      };
-
-      fetchUserData();
+    if (existingUser) {
+      reset({
+        fullName: existingUser.fullName,
+        email: existingUser.email,
+        role: existingUser.role,
+        status: existingUser.status,
+        password: '',
+      });
     }
-  }, [id, reset, setValue]);
+  }, [existingUser, reset]);
 
-  const onSubmit = async (data) => {
-    if (!isAdmin) {
-      setError('Access Denied: Admin privileges required.');
-      return;
-    }
+  const onSubmit = async (data: UserFormValues) => {
+    setSubmitError(null);
 
-    setLoading(true);
-    setError(null);
+    const payload = {
+      fullName: data.fullName,
+      email: data.email,
+      role: data.role,
+      status: data.status,
+    };
 
     try {
       if (id) {
-        // Update existing user
-        await api.put(`/users/${id}`, {
-          fullName: data.fullName,
-          email: data.email,
-          role: data.role,
-          status: data.status,
-          // Only include password if it was provided
-          ...(enablePasswordEdit && data.password ? { password: data.password } : {}),
+        await updateUser({
+          id,
+          data: {
+            ...payload,
+            // Only include password if the admin opted in and supplied one
+            ...(enablePasswordEdit && data.password ? { password: data.password } : {}),
+          },
         });
-
-        // Redirect with toast notification
-        navigate('/users', {
-          state: { toastMessage: 'User updated successfully.' },
-        });
+        showSuccess('User updated successfully.');
       } else {
-        // Create new user
-        await api.post('/users', {
-          fullName: data.fullName,
-          email: data.email,
-          password: data.password,
-          role: data.role,
-          status: data.status,
-        });
-
-        // Redirect with toast notification
-        navigate('/users', {
-          state: { toastMessage: 'User created successfully.' },
-        });
+        await createUser({ ...payload, password: data.password });
+        showSuccess('User created successfully.');
       }
-    } catch (err) {
-      setError(err.response?.data?.message || 'Operation failed. Please try again.');
-    } finally {
-      setLoading(false);
+
+      navigate('/users');
+    } catch (err: any) {
+      const message = err.response?.data?.message || 'Operation failed. Please try again.';
+      setSubmitError(message);
+      showError(message);
+    }
+  };
+
+  const handlePasswordToggle = (checked: boolean) => {
+    setEnablePasswordEdit(checked);
+    if (!checked) {
+      // Drop any partially typed password so it cannot block submission
+      setValue('password', '', { shouldValidate: false });
     }
   };
 
   if (!isAdmin) {
     return (
       <div className="max-w-4xl mx-auto p-6">
-        <Alert variant="danger" icon={<AlertCircle className="w-5 h-5 text-red-600" />}>
+        <Alert variant="danger" icon={<AlertCircle className="w-5 h-5" />}>
           Access Denied: Admin privileges required.
         </Alert>
       </div>
     );
   }
 
-  const pageTitle = id ? 'Edit User' : 'Add New User';
-  const pageSubtitle = id
+  const pageTitle = isEditMode ? 'Edit User' : 'Add New User';
+  const pageSubtitle = isEditMode
     ? 'Update user account details and permissions.'
     : 'Create a new user account and assign system permissions.';
-  const submitButtonText = id
-    ? loading
+  const isSaving = isCreating || isUpdating || isSubmitting;
+  const submitButtonText = isEditMode
+    ? isSaving
       ? 'Updating User...'
       : 'Update User'
-    : loading
+    : isSaving
     ? 'Creating User...'
     : 'Create User';
+
+  const inputClassName = (hasError: boolean, extra = '') =>
+    `w-full pl-10 ${extra || 'pr-3.5'} py-2.5 text-sm border rounded-xl transition-all focus:outline-none focus:ring-2 disabled:opacity-60 disabled:bg-slate-50 ${
+      hasError
+        ? 'border-red-500 bg-red-50/20 text-slate-900 focus:ring-red-500/20'
+        : 'border-slate-300 bg-white text-slate-900 hover:border-slate-400 focus:ring-[var(--color-primary)]/20'
+    }`;
+
+  const fieldError = (fieldId: string, message?: string) =>
+    message ? (
+      <div
+        id={`${fieldId}-error`}
+        className="flex items-center gap-1 text-xs text-red-600 mt-1.5 font-medium"
+        role="alert"
+      >
+        <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+        <span>{message}</span>
+      </div>
+    ) : null;
 
   return (
     <div className="min-h-screen bg-slate-50/50 py-8 px-4 sm:px-6 lg:px-8">
@@ -193,7 +247,7 @@ export function UserForm() {
           <button
             type="button"
             onClick={() => navigate('/users')}
-            className="inline-flex items-center text-xs font-semibold uppercase tracking-wider text-slate-500 hover:text-indigo-600 transition-colors group focus:outline-none focus:ring-2 focus:ring-indigo-500/20 rounded-md px-1.5 py-1 -ml-1.5"
+            className="inline-flex items-center text-xs font-semibold uppercase tracking-wider text-slate-500 hover:text-[var(--color-primary)] transition-colors group focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/20 rounded-md px-1.5 py-1 -ml-1.5"
             aria-label="Back to User Management"
           >
             <ArrowLeft className="w-4 h-4 mr-1.5 transition-transform group-hover:-translate-x-1" />
@@ -206,10 +260,17 @@ export function UserForm() {
           </div>
         </div>
 
+        {/* Failed to load the user being edited */}
+        {isUserError && (
+          <Alert variant="danger">
+            {(userError as any)?.response?.data?.message || 'Failed to fetch user details.'}
+          </Alert>
+        )}
+
         {/* Global Error Notification */}
-        {error && (
+        {submitError && (
           <Alert variant="danger" className="animate-in fade-in slide-in-from-top-2 duration-200">
-            {error}
+            {submitError}
           </Alert>
         )}
 
@@ -221,7 +282,7 @@ export function UserForm() {
               <div className="border-b border-slate-100 pb-3 flex items-center justify-between">
                 <div>
                   <h2 className="text-base font-semibold text-slate-900 flex items-center gap-2">
-                    <User className="w-4 h-4 text-indigo-600" />
+                    <User className="w-4 h-4 text-[var(--color-primary)]" />
                     Personal Information
                   </h2>
                   <p className="text-xs text-slate-500 mt-0.5">
@@ -245,22 +306,13 @@ export function UserForm() {
                       type="text"
                       disabled={loading}
                       {...register('fullName')}
-                      className={`w-full pl-10 pr-3.5 py-2.5 text-sm border rounded-xl transition-all focus:outline-none focus:ring-2 disabled:opacity-60 disabled:bg-slate-50 ${
-                        errors.fullName
-                          ? 'border-red-500 bg-red-50/20 text-slate-900 focus:ring-red-500/20'
-                          : 'border-slate-300 bg-white text-slate-900 hover:border-slate-400 focus:ring-indigo-500/20'
-                      }`}
+                      className={inputClassName(Boolean(errors.fullName))}
                       placeholder="Enter full name"
                       aria-invalid={!!errors.fullName}
                       aria-describedby={errors.fullName ? 'fullName-error' : undefined}
                     />
                   </div>
-                  {errors.fullName && (
-                    <div id="fullName-error" className="flex items-center gap-1 text-xs text-red-600 mt-1.5 font-medium" role="alert">
-                      <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-                      <span>{errors.fullName.message}</span>
-                    </div>
-                  )}
+                  {fieldError('fullName', errors.fullName?.message)}
                 </div>
 
                 {/* Email Address */}
@@ -277,22 +329,13 @@ export function UserForm() {
                       type="email"
                       disabled={loading}
                       {...register('email')}
-                      className={`w-full pl-10 pr-3.5 py-2.5 text-sm border rounded-xl transition-all focus:outline-none focus:ring-2 disabled:opacity-60 disabled:bg-slate-50 ${
-                        errors.email
-                          ? 'border-red-500 bg-red-50/20 text-slate-900 focus:ring-red-500/20'
-                          : 'border-slate-300 bg-white text-slate-900 hover:border-slate-400 focus:ring-indigo-500/20'
-                      }`}
+                      className={inputClassName(Boolean(errors.email))}
                       placeholder="Enter email address"
                       aria-invalid={!!errors.email}
                       aria-describedby={errors.email ? 'email-error' : undefined}
                     />
                   </div>
-                  {errors.email && (
-                    <div id="email-error" className="flex items-center gap-1 text-xs text-red-600 mt-1.5 font-medium" role="alert">
-                      <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-                      <span>{errors.email.message}</span>
-                    </div>
-                  )}
+                  {fieldError('email', errors.email?.message)}
                 </div>
               </div>
             </div>
@@ -301,7 +344,7 @@ export function UserForm() {
             <div className="space-y-5">
               <div className="border-b border-slate-100 pb-3">
                 <h2 className="text-base font-semibold text-slate-900 flex items-center gap-2">
-                  <Lock className="w-4 h-4 text-indigo-600" />
+                  <Lock className="w-4 h-4 text-[var(--color-primary)]" />
                   Security
                 </h2>
                 <p className="text-xs text-slate-500 mt-0.5">
@@ -309,7 +352,7 @@ export function UserForm() {
                 </p>
               </div>
 
-              {!id ? (
+              {!isEditMode ? (
                 /* Create Mode Password Field */
                 <div className="space-y-3">
                   <div>
@@ -325,11 +368,7 @@ export function UserForm() {
                         type={showPassword ? 'text' : 'password'}
                         disabled={loading}
                         {...register('password')}
-                        className={`w-full pl-10 pr-11 py-2.5 text-sm border rounded-xl transition-all focus:outline-none focus:ring-2 disabled:opacity-60 disabled:bg-slate-50 ${
-                          errors.password
-                            ? 'border-red-500 bg-red-50/20 text-slate-900 focus:ring-red-500/20'
-                            : 'border-slate-300 bg-white text-slate-900 hover:border-slate-400 focus:ring-indigo-500/20'
-                        }`}
+                        className={inputClassName(Boolean(errors.password), 'pr-11')}
                         placeholder="Create a secure password"
                         aria-invalid={!!errors.password}
                         aria-describedby={errors.password ? 'password-error' : undefined}
@@ -343,12 +382,7 @@ export function UserForm() {
                         {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                       </button>
                     </div>
-                    {errors.password && (
-                      <div id="password-error" className="flex items-center gap-1 text-xs text-red-600 mt-1.5 font-medium" role="alert">
-                        <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-                        <span>{errors.password.message}</span>
-                      </div>
-                    )}
+                    {fieldError('password', errors.password?.message)}
                   </div>
 
                   {/* Password Strength Meter & Live Requirements */}
@@ -390,32 +424,38 @@ export function UserForm() {
                     <input
                       type="checkbox"
                       checked={enablePasswordEdit}
-                      onChange={(e) => setEnablePasswordEdit(e.target.checked)}
-                      className="h-4 w-4 text-indigo-600 focus:ring-indigo-500/20 border-slate-300 rounded transition"
+                      onChange={(e) => handlePasswordToggle(e.target.checked)}
+                      className="h-4 w-4 accent-[var(--color-primary)] focus:ring-[var(--color-primary)]/20 border-slate-300 rounded transition"
                     />
                     <span className="ml-2.5">Change Password</span>
                   </label>
 
                   {enablePasswordEdit && (
-                    <div className="relative rounded-xl shadow-xs">
-                      <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
-                        <KeyRound className="w-4 h-4" />
+                    <div>
+                      <div className="relative rounded-xl shadow-xs">
+                        <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                          <KeyRound className="w-4 h-4" />
+                        </div>
+                        <input
+                          id="password"
+                          type={showPassword ? 'text' : 'password'}
+                          disabled={loading}
+                          {...register('password')}
+                          className={inputClassName(Boolean(errors.password), 'pr-11')}
+                          placeholder="Enter new password"
+                          aria-invalid={!!errors.password}
+                          aria-describedby={errors.password ? 'password-error' : undefined}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword(!showPassword)}
+                          className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-slate-600 focus:outline-none"
+                          aria-label={showPassword ? 'Hide password' : 'Show password'}
+                        >
+                          {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
                       </div>
-                      <input
-                        type={showPassword ? 'text' : 'password'}
-                        disabled={loading}
-                        {...register('password')}
-                        className="w-full pl-10 pr-11 py-2.5 text-sm border border-slate-300 rounded-xl transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500/20 hover:border-slate-400 bg-white text-slate-900"
-                        placeholder="Enter new password"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowPassword(!showPassword)}
-                        className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-slate-600 focus:outline-none"
-                        aria-label={showPassword ? 'Hide password' : 'Show password'}
-                      >
-                        {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                      </button>
+                      {fieldError('password', errors.password?.message)}
                     </div>
                   )}
                 </div>
@@ -426,7 +466,7 @@ export function UserForm() {
             <div className="space-y-5">
               <div className="border-b border-slate-100 pb-3">
                 <h2 className="text-base font-semibold text-slate-900 flex items-center gap-2">
-                  <Sliders className="w-4 h-4 text-indigo-600" />
+                  <Sliders className="w-4 h-4 text-[var(--color-primary)]" />
                   Account Settings
                 </h2>
                 <p className="text-xs text-slate-500 mt-0.5">
@@ -445,36 +485,31 @@ export function UserForm() {
                   <label htmlFor="role" className="block text-xs font-semibold uppercase tracking-wider text-slate-700 mb-1.5">
                     Role <span className="text-red-500">*</span>
                   </label>
-                  <div className="relative rounded-xl shadow-xs">
-                    <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
-                      <Shield className="w-4 h-4" />
-                    </div>
-                    <select
+                  <Select
+                    value={roleValue ?? ''}
+                    onValueChange={(value) => setValue('role', value, { shouldValidate: true })}
+                    disabled={loading}
+                  >
+                    <SelectTrigger
                       id="role"
-                      disabled={loading}
-                      {...register('role')}
-                      className={`w-full pl-10 pr-8 py-2.5 text-sm border rounded-xl transition-all focus:outline-none focus:ring-2 cursor-pointer disabled:opacity-60 disabled:bg-slate-50 ${
-                        errors.role
-                          ? 'border-red-500 bg-red-50/20 text-slate-900 focus:ring-red-500/20'
-                          : 'border-slate-300 bg-white text-slate-900 hover:border-slate-400 focus:ring-indigo-500/20'
-                      }`}
                       aria-invalid={!!errors.role}
                       aria-describedby={errors.role ? 'role-error' : undefined}
+                      className={errors.role ? 'border-red-500 bg-red-50/20 focus:ring-red-500/20' : ''}
                     >
-                      <option value="">Select a role</option>
-                      {Object.entries(ROLES).map(([key, value]) => (
-                        <option key={key} value={value}>
-                          {ROLE_LABELS[value] || key}
-                        </option>
+                      <span className="flex items-center gap-2.5 min-w-0">
+                        <Shield className="w-4 h-4 text-slate-400 shrink-0" />
+                        <SelectValue placeholder="Select a role" />
+                      </span>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Object.values(ROLES).map((value) => (
+                        <SelectItem key={value} value={value}>
+                          {ROLE_LABELS[value] || value}
+                        </SelectItem>
                       ))}
-                    </select>
-                  </div>
-                  {errors.role && (
-                    <div id="role-error" className="flex items-center gap-1 text-xs text-red-600 mt-1.5 font-medium" role="alert">
-                      <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-                      <span>{errors.role.message}</span>
-                    </div>
-                  )}
+                    </SelectContent>
+                  </Select>
+                  {fieldError('role', errors.role?.message)}
                 </div>
 
                 {/* Status Selector */}
@@ -482,36 +517,31 @@ export function UserForm() {
                   <label htmlFor="status" className="block text-xs font-semibold uppercase tracking-wider text-slate-700 mb-1.5">
                     Status <span className="text-red-500">*</span>
                   </label>
-                  <div className="relative rounded-xl shadow-xs">
-                    <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
-                      <UserCheck className="w-4 h-4" />
-                    </div>
-                    <select
+                  <Select
+                    value={statusValue ?? ''}
+                    onValueChange={(value) => setValue('status', value, { shouldValidate: true })}
+                    disabled={loading}
+                  >
+                    <SelectTrigger
                       id="status"
-                      disabled={loading}
-                      {...register('status')}
-                      className={`w-full pl-10 pr-8 py-2.5 text-sm border rounded-xl transition-all focus:outline-none focus:ring-2 cursor-pointer disabled:opacity-60 disabled:bg-slate-50 ${
-                        errors.status
-                          ? 'border-red-500 bg-red-50/20 text-slate-900 focus:ring-red-500/20'
-                          : 'border-slate-300 bg-white text-slate-900 hover:border-slate-400 focus:ring-indigo-500/20'
-                      }`}
                       aria-invalid={!!errors.status}
                       aria-describedby={errors.status ? 'status-error' : undefined}
+                      className={errors.status ? 'border-red-500 bg-red-50/20 focus:ring-red-500/20' : ''}
                     >
-                      <option value="">Select a status</option>
-                      {Object.entries(USER_STATUS).map(([key, value]) => (
-                        <option key={key} value={value}>
-                          {value === USER_STATUS.ACTIVE ? '🟢 Active' : '🔴 Inactive'}
-                        </option>
+                      <span className="flex items-center gap-2.5 min-w-0">
+                        <UserCheck className="w-4 h-4 text-slate-400 shrink-0" />
+                        <SelectValue placeholder="Select a status" />
+                      </span>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Object.values(USER_STATUS).map((value) => (
+                        <SelectItem key={value} value={value}>
+                          {value}
+                        </SelectItem>
                       ))}
-                    </select>
-                  </div>
-                  {errors.status && (
-                    <div id="status-error" className="flex items-center gap-1 text-xs text-red-600 mt-1.5 font-medium" role="alert">
-                      <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-                      <span>{errors.status.message}</span>
-                    </div>
-                  )}
+                    </SelectContent>
+                  </Select>
+                  {fieldError('status', errors.status?.message)}
                 </div>
               </div>
             </div>
@@ -530,11 +560,11 @@ export function UserForm() {
               <Button
                 variant="primary"
                 type="submit"
-                loading={loading}
+                loading={isSaving}
                 disabled={loading}
-                className="w-full sm:w-auto shadow-sm hover:shadow-md hover:shadow-indigo-500/20 transition-all"
+                className="w-full sm:w-auto shadow-sm hover:shadow-md transition-all"
               >
-                {!loading && <UserPlus className="w-4 h-4 mr-1.5" />}
+                {!isSaving && <UserPlus className="w-4 h-4 mr-1.5" />}
                 {submitButtonText}
               </Button>
             </div>

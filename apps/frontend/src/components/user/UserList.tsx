@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import {
   Plus,
   Search,
@@ -42,7 +42,6 @@ function formatDate(dateString) {
 
 export function UserList() {
   const navigate = useNavigate();
-  const location = useLocation();
   const { user } = useAuth();
   const { showSuccess, showError } = useToast();
 
@@ -75,14 +74,6 @@ export function UserList() {
   });
 
   const isAdmin = user?.role === ROLES.ADMINISTRATOR;
-
-  // Handle location state toast
-  useEffect(() => {
-    if (location.state?.toastMessage) {
-      showSuccess(location.state.toastMessage);
-      window.history.replaceState({}, document.title);
-    }
-  }, [location.state, showSuccess]);
 
   // Debounce search input (300ms)
   useEffect(() => {
