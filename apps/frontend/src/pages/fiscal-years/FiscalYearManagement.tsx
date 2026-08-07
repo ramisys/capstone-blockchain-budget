@@ -133,7 +133,7 @@ export function FiscalYearManagement() {
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
           <Card className="p-4">
             <div className="flex items-center justify-between">
               <div>
@@ -159,22 +159,6 @@ export function FiscalYearManagement() {
               <div className="w-10 h-10 bg-green-50 rounded-full flex items-center justify-center">
                 <svg className="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                </svg>
-              </div>
-            </div>
-          </Card>
-
-          <Card className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-sm font-medium text-slate-500">Current Year</h3>
-                <p className="text-xl font-bold text-slate-900">
-                  {new Date().getFullYear().toString().slice(-2)}
-                </p>
-              </div>
-              <div className="w-10 h-10 bg-purple-50 rounded-full flex items-center justify-center">
-                <svg className="w-5 h-5 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3" />
                 </svg>
               </div>
             </div>
