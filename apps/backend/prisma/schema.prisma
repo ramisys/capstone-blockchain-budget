@@ -320,7 +320,6 @@ model ManagedDocument {
   versions   DocumentVersion[]
   activities DocumentActivity[]
 
-  @@index([documentCode])
   @@index([allocationId])
   @@index([fiscalYearId])
   @@index([departmentId])
@@ -360,7 +359,6 @@ model DocumentVersion {
 
   @@unique([documentId, versionNumber])
   @@index([documentId])
-  @@index([sha256Hash])
   @@index([blockchainStatus])
   @@index([uploadedAt])
   @@map("document_versions")

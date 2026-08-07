@@ -153,6 +153,11 @@ const PROGRAMS = [
   },
 ];
 
+// Each allocation carries the approval history that produced its status. The
+// header fields (submittedAt / reviewedAt / reviewedBy / rejectionReason) are
+// never written by hand — deriveWorkflow() replays these steps using the same
+// rules as allocationService.performTransition(), so the detail header and the
+// approval history can never disagree.
 const ALLOCATIONS = (currentYear) => [
   {
     allocationCode: `BA-${currentYear}-001`,
@@ -164,6 +169,7 @@ const ALLOCATIONS = (currentYear) => [
     allocatedAmount: 1500000,
     description: 'Engineering building infrastructure upgrade',
     status: 'Draft',
+    workflow: [],
   },
   {
     allocationCode: `BA-${currentYear}-002`,
@@ -175,6 +181,14 @@ const ALLOCATIONS = (currentYear) => [
     allocatedAmount: 800000,
     description: 'IT systems modernization for online learning',
     status: 'PendingApproval',
+    workflow: [
+      {
+        action: 'Submitted',
+        actorRole: 'BudgetOfficer',
+        daysAgo: 6,
+        comment: 'Submitted for Treasurer review ahead of the procurement cut-off.',
+      },
+    ],
   },
   {
     allocationCode: `BA-${currentYear}-003`,
@@ -186,6 +200,20 @@ const ALLOCATIONS = (currentYear) => [
     allocatedAmount: 2000000,
     description: 'Faculty development and instructional materials',
     status: 'Approved',
+    workflow: [
+      {
+        action: 'Submitted',
+        actorRole: 'BudgetOfficer',
+        daysAgo: 10,
+        comment: 'Supporting budget proposal attached.',
+      },
+      {
+        action: 'Approved',
+        actorRole: 'Treasurer',
+        daysAgo: 8,
+        comment: 'Within the fiscal year ceiling. Released for execution.',
+      },
+    ],
   },
   {
     allocationCode: `BA-${currentYear}-004`,
@@ -197,6 +225,20 @@ const ALLOCATIONS = (currentYear) => [
     allocatedAmount: 250000,
     description: 'Laboratory equipment maintenance',
     status: 'Draft',
+    workflow: [
+      {
+        action: 'Submitted',
+        actorRole: 'BudgetOfficer',
+        daysAgo: 15,
+        comment: null,
+      },
+      {
+        action: 'Returned',
+        actorRole: 'Treasurer',
+        daysAgo: 14,
+        comment: 'Returned for revision — attach the maintenance service quotation.',
+      },
+    ],
   },
   {
     allocationCode: `BA-${currentYear}-005`,
@@ -208,8 +250,84 @@ const ALLOCATIONS = (currentYear) => [
     allocatedAmount: 100000,
     description: 'Cultural activities funding (deferred)',
     status: 'Rejected',
+    workflow: [
+      {
+        action: 'Submitted',
+        actorRole: 'BudgetOfficer',
+        daysAgo: 12,
+        comment: null,
+      },
+      {
+        action: 'Rejected',
+        actorRole: 'Treasurer',
+        daysAgo: 9,
+        comment: 'Deferred to the next fiscal year — trust fund balance is committed.',
+      },
+    ],
   },
 ];
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * Replay an allocation's approval steps to derive its persisted workflow
+ * fields, mirroring allocationService.performTransition() exactly:
+ *
+ * - Submitted -> PendingApproval, stamps submittedAt, clears rejectionReason
+ * - Approved / Rejected -> stamps reviewedBy + reviewedAt (Rejected also
+ *   persists the reason)
+ * - Returned -> back to Draft, leaving the earlier stamps in place
+ *
+ * @param {Array<Object>} workflow - Ordered approval steps
+ * @param {Object} usersByRole - Seeded users keyed by role
+ * @returns {{fields: Object, entries: Array<Object>, finalStatus: string}}
+ */
+function deriveWorkflow(workflow, usersByRole) {
+  const fields = {
+    submittedAt: null,
+    reviewedAt: null,
+    reviewedBy: null,
+    rejectionReason: null,
+  };
+  const entries = [];
+  let status = 'Draft';
+
+  for (const step of workflow) {
+    const actor = usersByRole[step.actorRole];
+    if (!actor) {
+      throw new Error(`Seed workflow references a missing role: ${step.actorRole}`);
+    }
+    const createdAt = new Date(Date.now() - step.daysAgo * DAY_MS);
+
+    if (step.action === 'Submitted') {
+      status = 'PendingApproval';
+      fields.submittedAt = createdAt;
+      fields.rejectionReason = null;
+    } else if (step.action === 'Approved') {
+      status = 'Approved';
+      fields.reviewedAt = createdAt;
+      fields.reviewedBy = actor.id;
+    } else if (step.action === 'Rejected') {
+      status = 'Rejected';
+      fields.reviewedAt = createdAt;
+      fields.reviewedBy = actor.id;
+      fields.rejectionReason = step.comment;
+    } else if (step.action === 'Returned') {
+      status = 'Draft';
+    } else {
+      throw new Error(`Unknown seed workflow action: ${step.action}`);
+    }
+
+    entries.push({
+      action: step.action,
+      comment: step.comment || null,
+      actorId: actor.id,
+      createdAt,
+    });
+  }
+
+  return { fields, entries, finalStatus: status };
+}
 
 async function seedUsers() {
   const users = [];
@@ -324,9 +442,21 @@ async function seedMasterData() {
 async function seedAllocations({ active, users }) {
   const currentYear = new Date().getFullYear();
   const creator = users.find((user) => user.role === 'BudgetOfficer');
+  const usersByRole = Object.fromEntries(users.map((user) => [user.role, user]));
   const allocations = [];
 
   for (const allocation of ALLOCATIONS(currentYear)) {
+    const { fields, entries, finalStatus } = deriveWorkflow(allocation.workflow, usersByRole);
+
+    // Guard against the declared status drifting away from the history that is
+    // supposed to have produced it.
+    if (finalStatus !== allocation.status) {
+      throw new Error(
+        `${allocation.allocationCode}: approval history ends in ${finalStatus} `
+          + `but the seed declares ${allocation.status}`
+      );
+    }
+
     const department = await prisma.department.findUnique({
       where: { code: allocation.departmentCode },
     });
@@ -342,6 +472,8 @@ async function seedAllocations({ active, users }) {
 
     const record = await prisma.budgetAllocation.upsert({
       where: { allocationCode: allocation.allocationCode },
+      // The workflow fields are restated on update so a re-run overwrites any
+      // state left behind by manual testing rather than compounding it.
       update: {
         fiscalYearId: active.id,
         departmentId: department.id,
@@ -353,6 +485,7 @@ async function seedAllocations({ active, users }) {
         status: allocation.status,
         createdBy: creator.id,
         deletedAt: null,
+        ...fields,
       },
       create: {
         allocationCode: allocation.allocationCode,
@@ -365,8 +498,19 @@ async function seedAllocations({ active, users }) {
         description: allocation.description,
         status: allocation.status,
         createdBy: creator.id,
+        ...fields,
       },
     });
+
+    // allocation_approvals has no natural key, so clear and rewrite the history
+    // to keep the seed idempotent.
+    await prisma.allocationApproval.deleteMany({ where: { allocationId: record.id } });
+    for (const entry of entries) {
+      await prisma.allocationApproval.create({
+        data: { ...entry, allocationId: record.id },
+      });
+    }
+
     allocations.push(record);
   }
 
