@@ -9,29 +9,29 @@ export function Badge({ variant = 'primary', children, className = '', ...props 
       case 'admin':
       case 'danger':
       case 'red':
-        return 'bg-red-50 text-red-700 border-red-200/80 hover:bg-red-100/80';
+        return 'bg-[var(--color-error-bg)] text-[var(--color-error)] border-[var(--color-error)]/20';
       case 'treasurer':
       case 'primary':
       case 'blue':
-        return 'bg-blue-50 text-blue-700 border-blue-200/80 hover:bg-blue-100/80';
+        return 'bg-[var(--color-primary-bg)] text-[var(--color-primary)] border-[var(--color-primary)]/20';
       case 'budget_officer':
       case 'budgetofficer':
       case 'purple':
-        return 'bg-purple-50 text-purple-700 border-purple-200/80 hover:bg-purple-100/80';
+        return 'bg-[var(--color-secondary-bg)] text-[var(--color-secondary)] border-[var(--color-secondary)]/20';
       case 'auditor':
       case 'warning':
       case 'orange':
-        return 'bg-amber-50 text-amber-700 border-amber-200/80 hover:bg-amber-100/80';
+        return 'bg-[var(--color-warning-bg)] text-[var(--color-warning)] border-[var(--color-warning)]/20';
       case 'active':
       case 'success':
       case 'green':
-        return 'bg-emerald-50 text-emerald-700 border-emerald-200/80 hover:bg-emerald-100/80';
+        return 'bg-[var(--color-success-bg)] text-[var(--color-success)] border-[var(--color-success)]/20';
       case 'inactive':
       case 'secondary':
       case 'gray':
-        return 'bg-slate-100 text-slate-600 border-slate-200 hover:bg-slate-200/60';
+        return 'bg-[var(--color-bg)] text-[var(--color-text-secondary)] border-[var(--color-border)]';
       default:
-        return 'bg-slate-100 text-slate-800 border-slate-200';
+        return 'bg-[var(--color-bg)] text-[var(--color-text-primary)] border-[var(--color-border)]';
     }
   };
 
@@ -83,7 +83,9 @@ export function StatusBadge({ status, className = '' }) {
     <Badge variant={isActive ? 'active' : 'inactive'} className={className}>
       <span
         className={`w-1.5 h-1.5 rounded-full ${
-          isActive ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'
+          isActive
+            ? 'bg-[var(--color-success)] animate-pulse'
+            : 'bg-[var(--color-text-muted)]'
         }`}
       />
       {status || 'Unknown'}

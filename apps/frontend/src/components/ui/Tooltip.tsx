@@ -14,7 +14,7 @@ export function Tooltip({ text, children, position = 'top' }) {
       {children}
       {visible && (
         <div
-          className={`absolute z-30 px-2.5 py-1 text-xs font-medium text-white bg-slate-900 rounded-lg shadow-md whitespace-nowrap pointer-events-none transition-all duration-200 transform ${
+          className={`absolute z-30 px-2.5 py-1 text-xs font-medium text-[var(--color-text-inverse)] bg-[var(--color-primary-dark)] rounded-lg shadow-md whitespace-nowrap pointer-events-none transition-all duration-200 transform ${
             position === 'top'
               ? '-top-9 left-1/2 -translate-x-1/2'
               : position === 'bottom'
@@ -27,7 +27,7 @@ export function Tooltip({ text, children, position = 'top' }) {
         >
           {text}
           <div
-            className={`absolute w-2 h-2 bg-slate-900 rotate-45 ${
+            className={`absolute w-2 h-2 bg-[var(--color-primary-dark)] rotate-45 ${
               position === 'top'
                 ? 'top-full left-1/2 -translate-x-1/2 -translate-y-1'
                 : position === 'bottom'

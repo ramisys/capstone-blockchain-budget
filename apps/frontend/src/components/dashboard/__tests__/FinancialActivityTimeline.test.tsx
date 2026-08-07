@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import React from 'react';
 import userEvent from '@testing-library/user-event';
-import { renderWithProviders, screen, fireEvent } from '../../../test/test-utils';
+import { renderWithProviders, screen, fireEvent, within } from '../../../test/test-utils';
 import { FinancialActivityTimeline } from '../FinancialActivityTimeline';
 import type { TimelineResponse } from '../../../types/timeline';
 
@@ -74,9 +74,11 @@ describe('FinancialActivityTimeline component suite', () => {
   it('shows a loading spinner while fetching', () => {
     timelineHook.mockReturnValue({ data: undefined, isLoading: true, isError: false, error: null });
 
-    renderWithProviders(<FinancialActivityTimeline />);
+    const { container } = renderWithProviders(<FinancialActivityTimeline />);
 
-    expect(screen.getByRole('status')).toBeInTheDocument();
+    // Scoped to the component: ToastProvider renders a permanent role="status"
+    // live region into document.body, so an unscoped query is ambiguous.
+    expect(within(container).getByRole('status')).toBeInTheDocument();
   });
 
   it('reports a load error instead of the feed', () => {

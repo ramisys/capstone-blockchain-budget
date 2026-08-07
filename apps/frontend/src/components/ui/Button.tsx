@@ -26,20 +26,20 @@ export function Button({
   const getVariantStyles = () => {
     switch (variant) {
       case 'primary':
-        return 'bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white shadow-sm hover:shadow-md hover:shadow-indigo-500/20 focus:ring-indigo-500/30';
+        return 'bg-[var(--color-primary)] hover:bg-[var(--color-primary-light)] active:bg-[var(--color-primary-dark)] text-[var(--color-text-inverse)] shadow-sm hover:shadow-md focus:ring-[var(--color-primary)]/30';
       case 'secondary':
         return 'bg-slate-800 hover:bg-slate-900 active:bg-slate-950 text-white shadow-sm focus:ring-slate-800/30';
       case 'outline':
-        return 'bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 shadow-sm focus:ring-slate-400/20';
+        return 'bg-[var(--color-surface)] hover:bg-[var(--color-bg)] text-[var(--color-text-primary)] border border-[var(--color-border)] shadow-sm focus:ring-[var(--color-primary)]/20';
       case 'ghost':
-        return 'bg-transparent hover:bg-slate-100 text-slate-600 hover:text-slate-900 focus:ring-slate-400/20';
+        return 'bg-transparent hover:bg-[var(--color-bg)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] focus:ring-[var(--color-primary)]/20';
       case 'danger':
       case 'destructive':
-        return 'bg-red-600 hover:bg-red-700 active:bg-red-800 text-white shadow-sm hover:shadow-md hover:shadow-red-500/20 focus:ring-red-500/30';
+        return 'bg-[var(--color-error)] hover:brightness-95 active:brightness-90 text-[var(--color-text-inverse)] shadow-sm hover:shadow-md focus:ring-[var(--color-error)]/30';
       case 'accent':
-        return 'bg-amber-500 hover:bg-amber-600 text-white shadow-sm focus:ring-amber-500/30';
+        return 'bg-[var(--color-accent)] hover:bg-[var(--color-accent-light)] text-[var(--color-text-primary)] shadow-sm focus:ring-[var(--color-accent)]/30';
       default:
-        return 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm';
+        return 'bg-[var(--color-primary)] hover:bg-[var(--color-primary-light)] text-[var(--color-text-inverse)] shadow-sm';
     }
   };
 
