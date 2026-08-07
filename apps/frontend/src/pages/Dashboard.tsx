@@ -5,6 +5,7 @@ import { Spinner } from '../components/ui/Spinner';
 import { Alert } from '../components/ui/Alert';
 import { FinancialActivityTimeline } from '../components/dashboard/FinancialActivityTimeline';
 import { ResponsiveContainer, PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, Legend } from 'recharts';
+import { Bell } from 'lucide-react';
 import apiClient from '../api/apiClient';
 
 export function Dashboard() {
@@ -325,18 +326,7 @@ export function Dashboard() {
         {/* Users by Role - Pie Chart */}
         <Card className="h-full">
           <CardHeader className="pb-4">
-            <div className="d-flex justify-content-between align-items-center">
-              <h6 className="mb-0 text-sm font-semibold text-slate-500">Users by Role</h6>
-              <div className="dropdown">
-                <button className="btn btn-link p-0 text-muted fs-6 dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
-                  <i className="bi bi-three-dots"></i>
-                </button>
-                <ul className="dropdown-menu dropdown-menu-end">
-                  <li><a className="dropdown-item" href="#">View Details</a></li>
-                  <li><a className="dropdown-item" href="#">Export Data</a></li>
-                </ul>
-              </div>
-            </div>
+            <h6 className="mb-0 text-sm font-semibold text-slate-500">Users by Role</h6>
           </CardHeader>
           <CardBody className="p-0">
             {chartsLoading ? (
@@ -396,18 +386,7 @@ export function Dashboard() {
         {/* Users by Status - Bar Chart */}
         <Card className="h-full">
           <CardHeader className="pb-4">
-            <div className="d-flex justify-content-between align-items-center">
-              <h6 className="mb-0 text-sm font-semibold text-slate-500">Users by Status</h6>
-              <div className="dropdown">
-                <button className="btn btn-link p-0 text-muted fs-6 dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
-                  <i className="bi bi-three-dots"></i>
-                </button>
-                <ul className="dropdown-menu dropdown-menu-end">
-                  <li><a className="dropdown-item" href="#">View Details</a></li>
-                  <li><a className="dropdown-item" href="#">Export Data</a></li>
-                </ul>
-              </div>
-            </div>
+            <h6 className="mb-0 text-sm font-semibold text-slate-500">Users by Status</h6>
           </CardHeader>
           <CardBody className="p-0">
             {chartsLoading ? (
@@ -456,8 +435,8 @@ export function Dashboard() {
                 {notifications.map((notification, index) => (
                   <div key={index} className="d-flex align-items-start mb-3">
                     <div className="shrink-0 me-3">
-                      <div className={`notification-icon ${getTailwindColorFromType(notification.type)}`}>
-                        <i className="bi bi-bell"></i>
+                      <div className={`flex h-8 w-8 items-center justify-center rounded-full text-white ${getTailwindColorFromType(notification.type)}`}>
+                        <Bell className="h-4 w-4" />
                       </div>
                     </div>
                     <div className="grow">
@@ -477,18 +456,7 @@ export function Dashboard() {
       {/* Blockchain Status */}
       <Card className="h-full">
         <CardHeader className="pb-4">
-          <div className="d-flex justify-content-between align-items-center">
-            <h6 className="mb-0 text-sm font-semibold text-slate-500">Blockchain Status</h6>
-            <div className="dropdown">
-              <button className="btn btn-link p-0 text-muted fs-6 dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
-                <i className="bi bi-three-dots"></i>
-              </button>
-              <ul className="dropdown-menu dropdown-menu-end">
-                <li><a className="dropdown-item" href="#">View Details</a></li>
-                <li><a className="dropdown-item" href="#">Refresh</a></li>
-              </ul>
-            </div>
-          </div>
+          <h6 className="mb-0 text-sm font-semibold text-slate-500">Blockchain Status</h6>
         </CardHeader>
         <CardBody className="text-center">
           {blockchainLoading ? (
