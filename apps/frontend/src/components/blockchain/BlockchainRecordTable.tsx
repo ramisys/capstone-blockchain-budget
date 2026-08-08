@@ -89,7 +89,7 @@ const BlockchainRecordTable: React.FC<BlockchainRecordTableProps> = ({
                         {LEDGER_RECORD_TYPE_LABELS[record.recordType] ?? record.recordType}
                       </Badge>
                     </TableCell>
-                    <TableCell className="px-6 py-4 text-sm font-medium text-indigo-700 whitespace-nowrap">
+                    <TableCell className="px-6 py-4 text-sm font-medium text-indigo-700">
                       <span className="font-mono">{record.code}</span>
                     </TableCell>
                     <TableCell className="px-6 py-4 text-sm">

@@ -119,7 +119,7 @@ const DepartmentTable: React.FC<DepartmentTableProps> = ({
                   key={department.id}
                   className="hover:bg-slate-50"
                 >
-                  <TableCell className="px-6 py-4 text-sm font-medium text-slate-900 whitespace-nowrap">
+                  <TableCell className="px-6 py-4 text-sm font-medium text-slate-900">
                     {department.code}
                   </TableCell>
                   <TableCell className="px-6 py-4 text-sm text-slate-600">

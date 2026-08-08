@@ -382,12 +382,12 @@ export function UserList() {
                     </td>
 
                     {/* Name Column */}
-                    <td className="py-4 px-5 font-semibold text-slate-900 group-hover:text-indigo-600 transition-colors">
+                    <td className="py-4 px-5 font-semibold text-slate-900 break-words group-hover:text-indigo-600 transition-colors">
                       {u.fullName || 'Unnamed User'}
                     </td>
 
                     {/* Email Column */}
-                    <td className="py-4 px-5 text-slate-600 font-medium">
+                    <td className="py-4 px-5 text-slate-600 font-medium break-words">
                       {u.email}
                     </td>
 

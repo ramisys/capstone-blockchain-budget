@@ -9,7 +9,6 @@ import {
 } from '../ui/Table';
 import { Button } from '../ui/Button';
 import { Skeleton } from '../ui/Skeleton';
-import { Tooltip } from '../ui/Tooltip';
 import { BlockchainStatusBadge } from '../blockchain/BlockchainStatusBadge';
 import EmptyState from '../allocations/EmptyState';
 import { Copy, CopyCheck, Download, History, ShieldCheck } from 'lucide-react';
@@ -43,9 +42,9 @@ function CopyableHash({ hash }: { hash: string }) {
       type="button"
       onClick={handleCopy}
       title="Copy SHA-256 hash"
-      className="inline-flex items-center gap-1 font-mono text-xs text-slate-500 hover:text-indigo-600 transition-colors"
+      className="inline-flex items-start gap-1 text-left font-mono text-xs text-slate-500 hover:text-indigo-600 transition-colors"
     >
-      <span className="max-w-36 truncate">{hash}</span>
+      <span className="max-w-52 break-all">{hash}</span>
       {copied ? (
         <CopyCheck className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
       ) : (
@@ -118,9 +117,7 @@ const VersionTable: React.FC<VersionTableProps> = ({
                     </span>
                   </TableCell>
                   <TableCell className="text-slate-600">
-                    <Tooltip text={version.originalFileName}>
-                      <span className="block max-w-44 truncate">{version.originalFileName}</span>
-                    </Tooltip>
+                    {version.originalFileName}
                   </TableCell>
                   <TableCell className="text-slate-600">
                     {version.uploader?.fullName ?? '—'}

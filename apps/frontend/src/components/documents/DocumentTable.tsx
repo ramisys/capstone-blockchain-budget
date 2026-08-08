@@ -13,7 +13,6 @@ import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuIte
 import { Button } from '../ui/Button';
 import { Skeleton } from '../ui/Skeleton';
 import Pagination from '../ui/Pagination';
-import { Tooltip } from '../ui/Tooltip';
 import { DocumentStatusBadge } from './DocumentStatusBadge';
 import { DocumentTypeBadge } from './DocumentTypeBadge';
 import { BlockchainStatusBadge } from '../blockchain/BlockchainStatusBadge';
@@ -164,11 +163,9 @@ const DocumentTable: React.FC<DocumentTableProps> = ({
                         </button>
                       </TableCell>
                       <TableCell className="text-slate-600">
-                        <Tooltip text={document.title}>
-                          <span className="block max-w-44 truncate font-medium text-slate-800">
-                            {document.title}
-                          </span>
-                        </Tooltip>
+                        <span className="block font-medium text-slate-800">
+                          {document.title}
+                        </span>
                       </TableCell>
                       <TableCell>
                         <DocumentTypeBadge type={document.documentType} />
@@ -177,11 +174,7 @@ const DocumentTable: React.FC<DocumentTableProps> = ({
                         {document.fiscalYear?.code ?? '—'}
                       </TableCell>
                       <TableCell className="text-slate-600">
-                        <Tooltip text={document.department?.name ?? '—'}>
-                          <span className="block max-w-40 truncate">
-                            {document.department?.name ?? '—'}
-                          </span>
-                        </Tooltip>
+                        {document.department?.name ?? '—'}
                       </TableCell>
                       <TableCell>
                         {ledgerStatus ? (

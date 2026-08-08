@@ -15,7 +15,6 @@ import { Skeleton } from '../ui/Skeleton';
 import Pagination from '../ui/Pagination';
 import { AllocationStatusBadge } from './StatusBadge';
 import EmptyState from './EmptyState';
-import { Tooltip } from '../ui/Tooltip';
 import { Eye, Pencil, Archive, MoreVertical, FilesIcon } from 'lucide-react';
 import { ROLES } from '../../constants/roles';
 import { formatCurrency, formatDate } from '../../utils/format';
@@ -183,11 +182,7 @@ const AllocationTable: React.FC<AllocationTableProps> = ({
                         {allocation.category?.name ?? '—'}
                       </TableCell>
                       <TableCell className="text-slate-600">
-                        <Tooltip text={allocation.program?.name ?? '—'}>
-                          <span className="block max-w-44 truncate">
-                            {allocation.program?.name ?? '—'}
-                          </span>
-                        </Tooltip>
+                        {allocation.program?.name ?? '—'}
                       </TableCell>
                       <TableCell className="text-right font-semibold text-slate-800 tabular-nums">
                         {formatCurrency(allocation.allocatedAmount)}
