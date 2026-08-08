@@ -13,6 +13,7 @@ import { BLOCKCHAIN_RECORD_STATUS } from '../constants/blockchainStatus.js';
 import { ROLES } from '../constants/roles.js';
 import { USER_STATUS } from '../constants/status.js';
 import { ALLOCATION_STATUS } from '../constants/allocationStatus.js';
+import { NOTIFICATION_KEYS } from '../constants/notificationKeys.js';
 
 const originalMethods = {
   userStats: userRepository.getDashboardStatsAggregated,
@@ -182,6 +183,7 @@ async function runDashboardServiceTests() {
       { status: USER_STATUS.INACTIVE, _count: 2 },
     ];
     allocationRepository.countByStatusAll = async () => [];
+    blockchainRepository.countByStatus = async () => [];
 
     const notifications = await dashboardService.getNotifications();
 
@@ -199,6 +201,7 @@ async function runDashboardServiceTests() {
       { status: ALLOCATION_STATUS.DRAFT, _count: 3 },
       { status: ALLOCATION_STATUS.PENDING_APPROVAL, _count: 4 },
     ];
+    blockchainRepository.countByStatus = async () => [];
 
     const notifications = await dashboardService.getNotifications();
 
@@ -208,30 +211,68 @@ async function runDashboardServiceTests() {
     assert.ok(info.title === 'Pending Approvals');
   });
 
-  await test('should always include a system-status success notification', async () => {
+  await test('should report failed ledger anchors as an error notification', async () => {
     userRepository.aggregateStatusCounts = async () => [
       { status: USER_STATUS.ACTIVE, _count: 5 },
     ];
     allocationRepository.countByStatusAll = async () => [];
+    blockchainRepository.countByStatus = async () => [
+      { status: BLOCKCHAIN_RECORD_STATUS.CONFIRMED, _count: 4 },
+      { status: BLOCKCHAIN_RECORD_STATUS.FAILED, _count: 2 },
+    ];
 
     const notifications = await dashboardService.getNotifications();
 
-    const success = notifications.find((n) => n.type === 'success');
-    assert.ok(success, 'Expected a success notification');
-    assert.equal(success.title, 'System Status');
+    const failed = notifications.find(
+      (n) => n.key === NOTIFICATION_KEYS.LEDGER_ANCHORS_FAILED
+    );
+    assert.ok(failed, 'Expected a failed-anchor notification');
+    assert.equal(failed.type, 'error');
+    assert.equal(failed.count, 2);
+    assert.ok(failed.message.includes('2'));
   });
 
-  await test('should only include system-status when nothing needs attention', async () => {
+  await test('should return no notifications when nothing needs attention', async () => {
     userRepository.aggregateStatusCounts = async () => [
       { status: USER_STATUS.ACTIVE, _count: 5 },
     ];
     allocationRepository.countByStatusAll = async () => [
       { status: ALLOCATION_STATUS.APPROVED, _count: 10 },
     ];
+    blockchainRepository.countByStatus = async () => [
+      { status: BLOCKCHAIN_RECORD_STATUS.CONFIRMED, _count: 10 },
+    ];
 
     const notifications = await dashboardService.getNotifications();
-    assert.equal(notifications.length, 1);
-    assert.equal(notifications[0].type, 'success');
+
+    // No unearned "all systems normal" claim: an empty list is the honest
+    // answer, and the dashboard renders its own empty state.
+    assert.equal(notifications.length, 0);
+  });
+
+  await test('should carry a stable key and order the most urgent first', async () => {
+    userRepository.aggregateStatusCounts = async () => [
+      { status: USER_STATUS.ACTIVE, _count: 5 },
+      { status: USER_STATUS.INACTIVE, _count: 1 },
+    ];
+    allocationRepository.countByStatusAll = async () => [
+      { status: ALLOCATION_STATUS.PENDING_APPROVAL, _count: 3 },
+    ];
+    blockchainRepository.countByStatus = async () => [
+      { status: BLOCKCHAIN_RECORD_STATUS.FAILED, _count: 1 },
+    ];
+
+    const notifications = await dashboardService.getNotifications();
+
+    assert.equal(notifications.length, 3);
+    assert.deepEqual(
+      notifications.map((n) => n.key),
+      [
+        NOTIFICATION_KEYS.LEDGER_ANCHORS_FAILED,
+        NOTIFICATION_KEYS.INACTIVE_USERS,
+        NOTIFICATION_KEYS.PENDING_APPROVALS,
+      ]
+    );
   });
 
   console.log('\n5. getBlockchainStatus Tests:');

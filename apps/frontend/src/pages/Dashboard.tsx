@@ -11,6 +11,7 @@ import { FinancialStatCard } from '../components/dashboard/FinancialStatCard';
 import { DashboardHeader } from '../components/dashboard/DashboardHeader';
 import { ActionRequiredPanel } from '../components/dashboard/ActionRequiredPanel';
 import { AllocationBreakdownChart } from '../components/dashboard/AllocationBreakdownChart';
+import { NotificationPanel } from '../components/dashboard/NotificationPanel';
 import { FinancialActivityTimeline } from '../components/dashboard/FinancialActivityTimeline';
 import { BudgetSummary } from '../components/allocations/BudgetSummary';
 import {
@@ -38,9 +39,9 @@ import {
   Tooltip,
   Legend,
 } from 'recharts';
-import { Banknote, Bell, Landmark, PieChart as PieChartIcon, PiggyBank } from 'lucide-react';
+import { Banknote, Landmark, PieChart as PieChartIcon, PiggyBank } from 'lucide-react';
 import type { ReactNode } from 'react';
-import type { DashboardNotificationType, DashboardStats } from '../types/dashboard';
+import type { DashboardStats } from '../types/dashboard';
 
 /** Master-data page size used to populate the fiscal-year scope selector. */
 const FISCAL_YEAR_OPTIONS_LIMIT = 100;
@@ -112,16 +113,6 @@ const SETUP_STAT_CARDS: StatCardConfig[] = [
     valueClassName: 'text-indigo-600',
   },
 ];
-
-const NOTIFICATION_ACCENTS: Record<DashboardNotificationType, string> = {
-  success: 'bg-green-500',
-  info: 'bg-blue-500',
-  warning: 'bg-yellow-500',
-  error: 'bg-red-500',
-};
-
-const notificationAccent = (type: DashboardNotificationType): string =>
-  NOTIFICATION_ACCENTS[type] ?? 'bg-gray-500';
 
 interface StatCardProps {
   label: string;
@@ -592,14 +583,9 @@ export function Dashboard() {
 
           <Card className="h-full">
             <CardHeader className="pb-4">
-              <div className="flex items-center justify-between">
-                <h6 className="mb-0 text-sm font-semibold text-slate-500">
-                  Notifications
-                </h6>
-                <a href="#" className="text-sm text-slate-500 no-underline">
-                  View All
-                </a>
-              </div>
+              <h6 className="mb-0 text-sm font-semibold text-slate-500">
+                Notifications
+              </h6>
             </CardHeader>
             <CardBody className="p-4">
               <DashboardStateBoundary
@@ -608,32 +594,8 @@ export function Dashboard() {
                 error={notificationsQuery.error}
                 onRetry={() => notificationsQuery.refetch()}
                 errorFallbackMessage="Failed to fetch notifications"
-                isEmpty={notifications.length === 0}
-                emptyMessage="No notifications"
               >
-                <div className="notification-list">
-                  {notifications.map((notification, index) => (
-                    <div key={index} className="flex items-start mb-3">
-                      <div className="shrink-0 mr-3">
-                        <div
-                          className={`flex h-8 w-8 items-center justify-center rounded-full text-white ${notificationAccent(
-                            notification.type
-                          )}`}
-                        >
-                          <Bell className="h-4 w-4" />
-                        </div>
-                      </div>
-                      <div className="grow min-w-0">
-                        <div className="font-medium text-slate-900">
-                          {notification.title}
-                        </div>
-                        <div className="text-sm text-slate-500 line-clamp-2">
-                          {notification.message}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                <NotificationPanel notifications={notifications} />
               </DashboardStateBoundary>
             </CardBody>
           </Card>

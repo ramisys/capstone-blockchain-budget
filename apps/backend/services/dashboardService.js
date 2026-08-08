@@ -5,10 +5,17 @@ import { departmentRepository } from '../repositories/departmentRepository.js';
 import { budgetCategoryRepository } from '../repositories/budgetCategoryRepository.js';
 import { budgetProgramRepository } from '../repositories/budgetProgramRepository.js';
 import { allocationRepository } from '../repositories/allocationRepository.js';
+import { blockchainRepository } from '../repositories/blockchainRepository.js';
 import { blockchainService } from './blockchainService.js';
 import { ROLES } from '../constants/roles.js';
 import { USER_STATUS } from '../constants/status.js';
 import { ALLOCATION_STATUS } from '../constants/allocationStatus.js';
+import { BLOCKCHAIN_RECORD_STATUS } from '../constants/blockchainStatus.js';
+import {
+  NOTIFICATION_KEYS,
+  NOTIFICATION_TYPES,
+  NOTIFICATION_TYPE_RANK,
+} from '../constants/notificationKeys.js';
 
 class DashboardService {
   /**
@@ -103,16 +110,25 @@ class DashboardService {
 
   /**
    * Get notifications derived from live system state.
-   * Generates actionable notifications based on user statuses and
-   * allocation approval queues.
    *
-   * @returns {Promise<Array>} Notifications
+   * Every notification reports a condition that is actually true right now:
+   * inactive accounts, allocations awaiting a decision, and ledger anchors
+   * that failed. When nothing is wrong the list is empty — the dashboard shows
+   * its own empty state rather than an unearned "all systems normal" claim.
+   *
+   * Failed anchors are counted straight from the database so this endpoint
+   * never makes an RPC call; live connectivity is reported by
+   * `getBlockchainStatus` instead.
+   *
+   * @returns {Promise<Array>} Notifications, most urgent first
    */
   async getNotifications() {
-    const [statusCounts, allocationStatusCounts] = await Promise.all([
-      userRepository.aggregateStatusCounts(),
-      allocationRepository.countByStatusAll(),
-    ]);
+    const [statusCounts, allocationStatusCounts, ledgerStatusCounts] =
+      await Promise.all([
+        userRepository.aggregateStatusCounts(),
+        allocationRepository.countByStatusAll(),
+        blockchainRepository.countByStatus(),
+      ]);
 
     const notifications = [];
 
@@ -123,9 +139,11 @@ class DashboardService {
     const inactiveCount = inactiveGroup ? Number(inactiveGroup._count) : 0;
     if (inactiveCount > 0) {
       notifications.push({
+        key: NOTIFICATION_KEYS.INACTIVE_USERS,
         title: 'Inactive Users',
         message: `${inactiveCount} user account${inactiveCount > 1 ? 's are' : ' is'} currently inactive.`,
-        type: 'warning',
+        type: NOTIFICATION_TYPES.WARNING,
+        count: inactiveCount,
       });
     }
 
@@ -136,20 +154,32 @@ class DashboardService {
     const pendingCount = pendingGroup ? Number(pendingGroup._count) : 0;
     if (pendingCount > 0) {
       notifications.push({
+        key: NOTIFICATION_KEYS.PENDING_APPROVALS,
         title: 'Pending Approvals',
         message: `${pendingCount} budget allocation${pendingCount > 1 ? 's require' : ' requires'} approval.`,
-        type: 'info',
+        type: NOTIFICATION_TYPES.INFO,
+        count: pendingCount,
       });
     }
 
-    // Always include a system-health notification
-    notifications.push({
-      title: 'System Status',
-      message: 'All services are operating normally.',
-      type: 'success',
-    });
+    // Check for ledger anchors that failed to record
+    const failedGroup = (ledgerStatusCounts ?? []).find(
+      (g) => g.status === BLOCKCHAIN_RECORD_STATUS.FAILED
+    );
+    const failedCount = failedGroup ? Number(failedGroup._count) : 0;
+    if (failedCount > 0) {
+      notifications.push({
+        key: NOTIFICATION_KEYS.LEDGER_ANCHORS_FAILED,
+        title: 'Ledger Anchors Failed',
+        message: `${failedCount} blockchain record${failedCount > 1 ? 's' : ''} failed to anchor and can be retried.`,
+        type: NOTIFICATION_TYPES.ERROR,
+        count: failedCount,
+      });
+    }
 
-    return notifications;
+    return notifications.sort(
+      (a, b) => NOTIFICATION_TYPE_RANK[a.type] - NOTIFICATION_TYPE_RANK[b.type]
+    );
   }
 
   /**

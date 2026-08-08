@@ -47,9 +47,15 @@ export interface DashboardChartsData {
 
 export type DashboardNotificationType = 'success' | 'info' | 'warning' | 'error';
 
-/** Live-state notification returned by `GET /api/dashboard/notifications`. */
+/**
+ * Live-state notification returned by `GET /api/dashboard/notifications`,
+ * ordered most urgent first. Notifications are derived from current state
+ * rather than stored, so they carry a stable `key` instead of an id.
+ */
 export interface DashboardNotification {
+  key?: string;
   title: string;
   message: string;
   type: DashboardNotificationType;
+  count?: number;
 }
