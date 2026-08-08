@@ -2,6 +2,7 @@
  * Shared formatting helpers for monetary values and dates.
  */
 
+import { formatDistanceToNow } from 'date-fns';
 import { CURRENCY } from '../constants/currency';
 
 const currencyFormatter = new Intl.NumberFormat(CURRENCY.LOCALE, {
@@ -51,6 +52,20 @@ export function formatDate(value: string | null | undefined): string {
     month: 'short',
     day: 'numeric',
   });
+}
+
+/**
+ * Human-readable elapsed time, e.g. "about 2 hours ago".
+ *
+ * Intended for feeds where recency matters more than the exact instant. Always
+ * pair it with the absolute timestamp (a `title` attribute or `<time
+ * dateTime>`) so the precise value stays available.
+ */
+export function formatRelativeTime(value: string | null | undefined): string {
+  if (!value) return '—';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '—';
+  return formatDistanceToNow(date, { addSuffix: true });
 }
 
 export function formatDateTime(value: string | null | undefined): string {

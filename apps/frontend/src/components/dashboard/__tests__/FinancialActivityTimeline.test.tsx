@@ -140,6 +140,73 @@ describe('FinancialActivityTimeline component suite', () => {
     );
   });
 
+  it('renders audit actions as human-readable labels, never raw tokens', () => {
+    timelineHook.mockReturnValue({
+      data: {
+        timeline: [
+          {
+            id: 'audit-1',
+            kind: 'AuditLog',
+            action: 'DOCUMENT_ANCHOR_RETRY',
+            // The backend sets `label` to the raw action for audit entries.
+            label: 'DOCUMENT_ANCHOR_RETRY',
+            description: 'Document DOC-2026-0001',
+            actor: null,
+            resourceType: 'Document',
+            resourceCode: 'DOC-2026-0001',
+            details: null,
+            createdAt: '2026-08-06T08:00:00.000Z',
+          },
+          {
+            id: 'audit-2',
+            kind: 'AuditLog',
+            // An action with no mapped label still must not surface as a token.
+            action: 'SOME_FUTURE_ACTION',
+            label: 'SOME_FUTURE_ACTION',
+            description: null,
+            actor: null,
+            resourceType: null,
+            resourceCode: null,
+            details: null,
+            createdAt: '2026-08-06T07:00:00.000Z',
+          },
+        ],
+        pagination: { page: 1, limit: 20, total: 2, totalPages: 1 },
+      } as TimelineResponse,
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+
+    renderWithProviders(<FinancialActivityTimeline />);
+
+    expect(screen.getByText('Document Anchor Retry')).toBeInTheDocument();
+    expect(screen.getByText('Some future action')).toBeInTheDocument();
+    expect(screen.queryByText('DOCUMENT_ANCHOR_RETRY')).not.toBeInTheDocument();
+    expect(screen.queryByText('SOME_FUTURE_ACTION')).not.toBeInTheDocument();
+  });
+
+  it('marks the active kind filter with aria-pressed', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<FinancialActivityTimeline />);
+
+    expect(screen.getByRole('button', { name: 'All' })).toHaveAttribute(
+      'aria-pressed',
+      'true'
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Audit' }));
+
+    expect(screen.getByRole('button', { name: 'Audit' })).toHaveAttribute(
+      'aria-pressed',
+      'true'
+    );
+    expect(screen.getByRole('button', { name: 'All' })).toHaveAttribute(
+      'aria-pressed',
+      'false'
+    );
+  });
+
   it('renders pagination controls when there are multiple pages', () => {
     timelineHook.mockReturnValue({
       data: multiPageResponse,
