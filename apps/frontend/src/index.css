@@ -1392,3 +1392,10 @@ a:hover { color: var(--color-primary-light); }
   animation: scaleUp 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .animate-fade-in,
+  .animate-scale-up {
+    animation: none;
+  }
+}
+
