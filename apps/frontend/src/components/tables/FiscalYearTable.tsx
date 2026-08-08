@@ -9,7 +9,7 @@ import {
   TableCaption,
 } from '../ui/Table';
 import { ChevronsUpDown, Calendar, Check, X, AlertTriangle } from 'lucide-react';
-import { Badge } from '../ui/Badge';
+import { StatusBadge } from '../ui/Badge';
 import { Button } from '../ui/Button';
 import { DropdownMenu } from '../ui/DropdownMenu';
 import { DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '../ui/DropdownMenu';
@@ -50,17 +50,6 @@ interface FiscalYearTableProps {
   sortOrder: 'asc' | 'desc';
   onSort: (sortKey: string) => void;
 }
-
-const StatusBadge: React.FC<{ status: 'Active' | 'Inactive' | 'Archived' }> = ({ status }) => {
-  const statusConfig: Record<'Active' | 'Inactive' | 'Archived', { variant: string; label: string }> = {
-    Active: { variant: 'default', label: 'Active' },
-    Inactive: { variant: 'secondary', label: 'Inactive' },
-    Archived: { variant: 'destructive', label: 'Archived' }
-  };
-
-  const config = statusConfig[status];
-  return <Badge variant={config.variant}>{config.label}</Badge>;
-};
 
 const FiscalYearTable: React.FC<FiscalYearTableProps> = ({
   fiscalYears,
