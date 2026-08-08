@@ -164,8 +164,12 @@ export function AllocationBreakdownChart({
               </ResponsiveContainer>
             </div>
 
-            {/* Exact figures for screen readers and anyone who cannot read the bars. */}
-            <table className="sr-only">
+            {/* Exact figures for screen readers and anyone who cannot read the
+                bars. The wrapper carries sr-only because CSS table layout treats
+                width:1px as a minimum and would otherwise expand to its content,
+                widening the page at narrow viewports. */}
+            <div className="sr-only">
+            <table>
               <caption>{title}</caption>
               <thead>
                 <tr>
@@ -184,6 +188,7 @@ export function AllocationBreakdownChart({
                 ))}
               </tbody>
             </table>
+            </div>
           </>
         )}
       </CardBody>

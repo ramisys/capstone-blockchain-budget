@@ -149,6 +149,12 @@ export function AdminStatsSection() {
 
   const stats = statsQuery.data;
   const usersByRole = chartsQuery.data?.usersByRole ?? [];
+  // `role` cannot survive as a data key: Recharts spreads datum fields onto the
+  // SVG element, and role="Budget Officer" is an invalid ARIA role.
+  const roleChartData = usersByRole.map((entry) => ({
+    label: entry.role,
+    count: entry.count,
+  }));
 
   const canFollow = (item: StatItem) =>
     Boolean(item.to) && (item.roles?.length === 0 || hasRole(...(item.roles ?? [])));
@@ -242,7 +248,7 @@ export function AdminStatsSection() {
                   >
                     <ResponsiveContainer width="100%" height={chartHeight}>
                       <BarChart
-                        data={usersByRole}
+                        data={roleChartData}
                         layout="vertical"
                         margin={{ top: 4, right: 16, bottom: 4, left: 0 }}
                       >
@@ -255,7 +261,7 @@ export function AdminStatsSection() {
                         />
                         <YAxis
                           type="category"
-                          dataKey="role"
+                          dataKey="label"
                           width={110}
                           tick={{ fontSize: 11, fill: '#5E6674' }}
                           axisLine={false}
@@ -274,10 +280,10 @@ export function AdminStatsSection() {
                           radius={[0, 4, 4, 0]}
                           isAnimationActive={!reducedMotion}
                         >
-                          {usersByRole.map((entry) => (
+                          {roleChartData.map((entry) => (
                             <Cell
-                              key={entry.role}
-                              fill={ROLE_COLORS[entry.role] ?? FALLBACK_ROLE_COLOR}
+                              key={entry.label}
+                              fill={ROLE_COLORS[entry.label] ?? FALLBACK_ROLE_COLOR}
                             />
                           ))}
                         </Bar>
@@ -285,7 +291,8 @@ export function AdminStatsSection() {
                     </ResponsiveContainer>
                   </div>
 
-                  <table className="sr-only">
+                  <div className="sr-only">
+                  <table>
                     <caption>Users by role</caption>
                     <thead>
                       <tr>
@@ -302,6 +309,7 @@ export function AdminStatsSection() {
                       ))}
                     </tbody>
                   </table>
+                  </div>
                 </>
               )}
             </div>

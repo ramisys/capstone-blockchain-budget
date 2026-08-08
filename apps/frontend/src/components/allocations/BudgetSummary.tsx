@@ -34,8 +34,13 @@ const BudgetSummary: React.FC<BudgetSummaryProps> = ({
   const totalAllocated = data?.totalAllocated ?? 0;
   const remainingBudget = data?.remainingBudget ?? 0;
 
-  const utilization =
-    totalBudget > 0 ? Math.min(100, Math.max(0, (totalAllocated / totalBudget) * 100)) : 0;
+  // With no ceiling the ratio is undefined, so it is reported as an em dash
+  // rather than 0.0%, which would read as "nothing allocated".
+  const hasCeiling = totalBudget > 0;
+  const utilization = hasCeiling
+    ? Math.min(100, Math.max(0, (totalAllocated / totalBudget) * 100))
+    : 0;
+  const utilizationLabel = hasCeiling ? `${utilization.toFixed(1)}%` : '—';
 
   const progressColor =
     utilization >= 90
@@ -60,7 +65,7 @@ const BudgetSummary: React.FC<BudgetSummaryProps> = ({
         </div>
         {!loading && (
           <span className="inline-flex items-center px-3 py-1 text-xs font-semibold rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200/80">
-            {utilization.toFixed(1)}% Utilized
+            {hasCeiling ? `${utilizationLabel} Utilized` : 'No budget ceiling set'}
           </span>
         )}
       </div>
@@ -85,7 +90,7 @@ const BudgetSummary: React.FC<BudgetSummaryProps> = ({
       <div>
         <div className="flex items-center justify-between text-xs font-medium text-slate-500 mb-2">
           <span>Budget Utilization</span>
-          {loading ? <Skeleton className="h-3 w-12 rounded" /> : <span>{utilization.toFixed(1)}%</span>}
+          {loading ? <Skeleton className="h-3 w-12 rounded" /> : <span>{utilizationLabel}</span>}
         </div>
         <div
           className={`${segmented ? 'h-4' : 'h-3'} w-full bg-slate-100 rounded-full overflow-hidden`}
@@ -100,6 +105,7 @@ const BudgetSummary: React.FC<BudgetSummaryProps> = ({
               aria-valuenow={Math.round(utilization)}
               aria-valuemin={0}
               aria-valuemax={100}
+              aria-valuetext={hasCeiling ? utilizationLabel : 'No budget ceiling set'}
               aria-label="Budget utilization"
             />
           )}

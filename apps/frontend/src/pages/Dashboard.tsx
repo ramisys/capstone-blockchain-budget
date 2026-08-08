@@ -210,13 +210,11 @@ export function Dashboard() {
           /allocations/statistics, so each keeps its own error boundary. */}
       <DashboardSection ariaLabel="Budget utilization and action required">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          <div className="lg:col-span-2">
-            <DashboardStateBoundary
-              isError={budgetQuery.isError}
-              error={budgetQuery.error}
-              onRetry={() => budgetQuery.refetch()}
-              errorFallbackMessage="Failed to load the budget summary"
-            >
+          {/* Utilization reads the same query as the KPI row above, which
+              already reports a failure. Omit the card rather than repeat the
+              error: one failed request, one error state. */}
+          {!budgetQuery.isError && (
+            <div className="lg:col-span-2">
               <BudgetSummary
                 data={budget}
                 loading={budgetLoading}
@@ -224,22 +222,24 @@ export function Dashboard() {
                 segmented
                 footnote="Allocated counts approved allocations only. Drafts and allocations pending approval do not commit budget."
               />
+            </div>
+          )}
+
+          <div className={budgetQuery.isError ? 'lg:col-span-3' : ''}>
+            <DashboardStateBoundary
+              isError={allocationStatsQuery.isError}
+              error={allocationStatsQuery.error}
+              onRetry={() => allocationStatsQuery.refetch()}
+              errorFallbackMessage="Failed to load the allocation queues"
+            >
+              <ActionRequiredPanel
+                statistics={allocationStatsQuery.data}
+                blockchain={blockchainStatus}
+                loading={allocationStatsLoading}
+                scopeLabel={scopeLabel}
+              />
             </DashboardStateBoundary>
           </div>
-
-          <DashboardStateBoundary
-            isError={allocationStatsQuery.isError}
-            error={allocationStatsQuery.error}
-            onRetry={() => allocationStatsQuery.refetch()}
-            errorFallbackMessage="Failed to load the allocation queues"
-          >
-            <ActionRequiredPanel
-              statistics={allocationStatsQuery.data}
-              blockchain={blockchainStatus}
-              loading={allocationStatsLoading}
-              scopeLabel={scopeLabel}
-            />
-          </DashboardStateBoundary>
         </div>
       </DashboardSection>
 
