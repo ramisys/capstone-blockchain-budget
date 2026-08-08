@@ -93,7 +93,7 @@ export function FinancialActivityTimeline({
         ) : isError ? (
           <Alert variant="danger">{error?.message || 'Failed to load financial activity'}</Alert>
         ) : entries.length === 0 ? (
-          <p className="text-center text-muted py-8">No recent activity</p>
+          <p className="text-center text-slate-500 py-8">No recent activity</p>
         ) : (
           <div className="max-h-96 overflow-y-auto pr-1 timeline-scroll">
             {entries.map((entry) => {

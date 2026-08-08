@@ -1,457 +1,407 @@
-import { useState, useEffect } from 'react';
-import { useAuth } from '../hooks/useAuth';
 import { Card, CardBody, CardHeader } from '../components/ui/Card';
+import { Badge } from '../components/ui/Badge';
 import { Spinner } from '../components/ui/Spinner';
-import { Alert } from '../components/ui/Alert';
+import {
+  DashboardSection,
+  DashboardStateBoundary,
+} from '../components/dashboard/DashboardSection';
 import { FinancialActivityTimeline } from '../components/dashboard/FinancialActivityTimeline';
-import { ResponsiveContainer, PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, Legend } from 'recharts';
+import {
+  useDashboardCharts,
+  useDashboardNotifications,
+  useDashboardStats,
+} from '../hooks/useDashboard';
+import { useBlockchainStatus } from '../hooks/useBlockchain';
+import { formatDateTime, formatNumber } from '../utils/format';
+import {
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  Legend,
+} from 'recharts';
 import { Bell } from 'lucide-react';
-import apiClient from '../api/apiClient';
+import type { ReactNode } from 'react';
+import type { DashboardNotificationType, DashboardStats } from '../types/dashboard';
+
+const COLORS = [
+  '#2563EB', // Administrator
+  '#10B981', // Budget Officer
+  '#F59E0B', // Treasurer
+  '#EF4444', // Auditor
+];
+
+interface StatCardConfig {
+  key: keyof DashboardStats;
+  label: string;
+  caption: string;
+  valueClassName: string;
+}
+
+const USER_STAT_CARDS: StatCardConfig[] = [
+  {
+    key: 'totalUsers',
+    label: 'Total Users',
+    caption: 'Total registered users',
+    valueClassName: 'text-slate-900',
+  },
+  {
+    key: 'activeUsers',
+    label: 'Active Users',
+    caption: 'Currently active',
+    valueClassName: 'text-[var(--color-success)]',
+  },
+  {
+    key: 'inactiveUsers',
+    label: 'Inactive Users',
+    caption: 'Inactive or suspended',
+    valueClassName: 'text-[var(--color-error)]',
+  },
+];
+
+const SETUP_STAT_CARDS: StatCardConfig[] = [
+  {
+    key: 'fiscalYears',
+    label: 'Fiscal Years',
+    caption: 'Configure fiscal periods',
+    valueClassName: 'text-blue-600',
+  },
+  {
+    key: 'fundSources',
+    label: 'Fund Sources',
+    caption: 'Track funding sources',
+    valueClassName: 'text-green-600',
+  },
+  {
+    key: 'departments',
+    label: 'Departments',
+    caption: 'Manage organizational units',
+    valueClassName: 'text-yellow-600',
+  },
+  {
+    key: 'budgetCategories',
+    label: 'Budget Categories',
+    caption: 'Categorize budget allocations',
+    valueClassName: 'text-purple-600',
+  },
+  {
+    key: 'budgetPrograms',
+    label: 'Budget Programs',
+    caption: 'Define budget programs',
+    valueClassName: 'text-indigo-600',
+  },
+];
+
+const NOTIFICATION_ACCENTS: Record<DashboardNotificationType, string> = {
+  success: 'bg-green-500',
+  info: 'bg-blue-500',
+  warning: 'bg-yellow-500',
+  error: 'bg-red-500',
+};
+
+const notificationAccent = (type: DashboardNotificationType): string =>
+  NOTIFICATION_ACCENTS[type] ?? 'bg-gray-500';
+
+interface StatCardProps {
+  label: string;
+  children: ReactNode;
+}
+
+/** Card shell shared by the real stat cards and their loading placeholders. */
+function StatCardShell({ label, children }: StatCardProps) {
+  return (
+    <Card className="h-full">
+      <CardHeader className="pb-4">
+        <h6 className="mb-0 text-sm font-semibold text-slate-500">{label}</h6>
+      </CardHeader>
+      <CardBody className="text-center">{children}</CardBody>
+    </Card>
+  );
+}
+
+function StatCard({
+  label,
+  value,
+  caption,
+  valueClassName,
+}: {
+  label: string;
+  value: string;
+  caption: string;
+  valueClassName: string;
+}) {
+  return (
+    <StatCardShell label={label}>
+      <h2 className={`text-3xl font-bold mb-2 ${valueClassName}`}>{value}</h2>
+      <p className="text-sm text-slate-500">{caption}</p>
+    </StatCardShell>
+  );
+}
+
+function StatCardSkeletons({ cards }: { cards: StatCardConfig[] }) {
+  return (
+    <>
+      {cards.map((card) => (
+        <StatCardShell key={card.key} label={card.label}>
+          <Spinner size="sm" className="mx-auto my-4 block" />
+        </StatCardShell>
+      ))}
+    </>
+  );
+}
+
+/** Card shell used by both chart cards, so the loading state keeps the layout. */
+function ChartCard({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <Card className="h-full">
+      <CardHeader className="pb-4">
+        <h6 className="mb-0 text-sm font-semibold text-slate-500">{title}</h6>
+      </CardHeader>
+      <CardBody className="p-0">{children}</CardBody>
+    </Card>
+  );
+}
 
 export function Dashboard() {
-  const { user } = useAuth();
+  const statsQuery = useDashboardStats();
+  const chartsQuery = useDashboardCharts();
+  const notificationsQuery = useDashboardNotifications();
+  const blockchainQuery = useBlockchainStatus();
 
-  // State for stats
-  const [stats, setStats] = useState(null);
-  const [statsLoading, setStatsLoading] = useState(true);
-  const [statsError, setStatsError] = useState(null);
+  const stats = statsQuery.data;
+  const chartsData = chartsQuery.data;
+  const notifications = notificationsQuery.data ?? [];
+  const blockchainStatus = blockchainQuery.data;
 
-  // State for charts data
-  const [chartsData, setChartsData] = useState(null);
-  const [chartsLoading, setChartsLoading] = useState(true);
-  const [chartsError, setChartsError] = useState(null);
+  const usersByRole = chartsData?.usersByRole ?? [];
+  const usersByStatus = chartsData?.usersByStatus ?? [];
 
-  // State for notifications
-  const [notifications, setNotifications] = useState([]);
-  const [notificationsLoading, setNotificationsLoading] = useState(true);
-  const [notificationsError, setNotificationsError] = useState(null);
-
-  // State for blockchain status
-  const [blockchainStatus, setBlockchainStatus] = useState(null);
-  const [blockchainLoading, setBlockchainLoading] = useState(true);
-  const [blockchainError, setBlockchainError] = useState(null);
-
-  // Fetch dashboard stats
-  const fetchStats = async () => {
-    try {
-      setStatsLoading(true);
-      const response = await apiClient.get('/dashboard/stats');
-      setStats(response.data.data.stats);
-      setStatsError(null);
-    } catch (err) {
-      setStatsError(err.response?.data?.message || 'Failed to fetch stats');
-    } finally {
-      setStatsLoading(false);
-    }
-  };
-
-  // Fetch dashboard charts data
-  const fetchChartsData = async () => {
-    try {
-      setChartsLoading(true);
-      const response = await apiClient.get('/dashboard/charts');
-      setChartsData(response.data.data.chartsData);
-      setChartsError(null);
-    } catch (err) {
-      setChartsError(err.response?.data?.message || 'Failed to fetch charts data');
-    } finally {
-      setChartsLoading(false);
-    }
-  };
-
-  // Fetch notifications
-  const fetchNotifications = async () => {
-    try {
-      setNotificationsLoading(true);
-      const response = await apiClient.get('/dashboard/notifications');
-      setNotifications(response.data.data.notifications);
-      setNotificationsError(null);
-    } catch (err) {
-      setNotificationsError(err.response?.data?.message || 'Failed to fetch notifications');
-    } finally {
-      setNotificationsLoading(false);
-    }
-  };
-
-  // Fetch blockchain status
-  const fetchBlockchainStatus = async () => {
-    try {
-      setBlockchainLoading(true);
-      const response = await apiClient.get('/dashboard/blockchain');
-      setBlockchainStatus(response.data.data.blockchainStatus);
-      setBlockchainError(null);
-    } catch (err) {
-      setBlockchainError(err.response?.data?.message || 'Failed to fetch blockchain status');
-    } finally {
-      setBlockchainLoading(false);
-    }
-  };
-
-  const COLORS = [
-    "#2563EB", // Administrator
-    "#10B981", // Budget Officer
-    "#F59E0B", // Treasurer
-    "#EF4444", // Auditor
-  ];
-
-  // Fetch all data on mount
-  useEffect(() => {
-    fetchStats();
-    fetchChartsData();
-    fetchNotifications();
-    fetchBlockchainStatus();
-  }, []);
-
-  // Helper function to format number with commas
-  const formatNumber = (num) => {
-    return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-  };
-
-  // Helper function to get status badge variant (for Bootstrap Alert component)
-  const getStatusVariant = (status) => {
-    switch (status) {
-      case 'active': return 'success';
-      case 'inactive': return 'error';
-      case 'pending': return 'warning';
-      default: return 'primary';
-    }
-  };
-
-  // Helper function to truncate text
-  const truncateText = (text, maxLength) => {
-    if (!text) return '';
-    return text.length > maxLength ? text.substring(0, maxLength) + '...' : text;
-  };
-
-  // Helper function to get Tailwind color class from notification type
-  const getTailwindColorFromType = (type) => {
-    switch (type) {
-      case 'success': return 'bg-green-500';
-      case 'info': return 'bg-blue-500';
-      case 'warning': return 'bg-yellow-500';
-      case 'error': return 'bg-red-500';
-      default: return 'bg-gray-500';
-    }
-  };
+  const statValue = (key: keyof DashboardStats): string =>
+    formatNumber(stats?.[key] ?? 0);
 
   return (
     <div className="dashboard-page">
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        {/* Total Users */}
-        <Card className="h-full">
-          <CardHeader className="pb-4">
-            <h6 className="mb-0 text-sm font-semibold text-slate-500">Total Users</h6>
-          </CardHeader>
-          <CardBody className="text-center">
-            {statsLoading ? (
-              <Spinner size="sm" />
-            ) : statsError ? (
-              <Alert variant="danger">{statsError}</Alert>
-            ) : (
-              <>
-                <h2 className="display-4 fw-bold mb-2">{formatNumber(stats.totalUsers)}</h2>
-                <p className="text-muted">Total registered users</p>
-              </>
-            )}
-          </CardBody>
-        </Card>
-
-        {/* Active Users */}
-        <Card className="h-full">
-          <CardHeader className="pb-4">
-            <h6 className="mb-0 text-sm font-semibold text-slate-500">Active Users</h6>
-          </CardHeader>
-          <CardBody className="text-center">
-            {statsLoading ? (
-              <Spinner size="sm" />
-            ) : statsError ? (
-              <Alert variant="danger">{statsError}</Alert>
-            ) : (
-              <>
-                <h2 className="display-4 fw-bold text-success mb-2">{formatNumber(stats.activeUsers)}</h2>
-                <p className="text-muted">Currently active</p>
-              </>
-            )}
-          </CardBody>
-        </Card>
-
-        {/* Inactive Users */}
-        <Card className="h-full">
-          <CardHeader className="pb-4">
-            <h6 className="mb-0 text-sm font-semibold text-slate-500">Inactive Users</h6>
-          </CardHeader>
-          <CardBody className="text-center">
-            {statsLoading ? (
-              <Spinner size="sm" />
-            ) : statsError ? (
-              <Alert variant="danger">{statsError}</Alert>
-            ) : (
-              <>
-                <h2 className="display-4 fw-bold text-danger mb-2">{formatNumber(stats.inactiveUsers)}</h2>
-                <p className="text-muted">Inactive or suspended</p>
-              </>
-            )}
-          </CardBody>
-        </Card>
-
-        {/* Pending Approvals (example: users with pending status) */}
-        <Card className="h-full">
-          <CardHeader className="pb-4">
-            <h6 className="mb-0 text-sm font-semibold text-slate-500">Pending Approvals</h6>
-          </CardHeader>
-          <CardBody className="text-center">
-            {statsLoading ? (
-              <Spinner size="sm" />
-            ) : statsError ? (
-              <Alert variant="danger">{statsError}</Alert>
-            ) : (
-              <>
-                {/* We don't have pending users in stats, but we can calculate from usersByStatus if available */}
-                {/* For now, we'll show a placeholder or compute from stats if we had pending count */}
-                {/* Since we don't have pending in stats, we'll show 0 or compute from usersByStatus? */}
-                {/* Let's skip and show a placeholder for now, or we can show the count of users with status pending from chartsData? */}
-                {/* We'll leave it as 0 for now, but in a real app we would have this in stats */}
-                <h2 className="display-4 fw-bold text-warning mb-2">0</h2>
-                <p className="text-muted">Awaiting verification</p>
-              </>
-            )}
-          </CardBody>
-        </Card>
-      </div>
-
-      {/* Budget Allocation Setup */}
-      <div className="mb-6">
-        <h2 className="text-xl font-bold text-slate-900 mb-4">Budget Allocation Setup</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-          {/* Fiscal Years */}
-          <Card className="h-full">
-            <CardHeader className="pb-4">
-              <h6 className="mb-0 text-sm font-semibold text-slate-500">Fiscal Years</h6>
-            </CardHeader>
-            <CardBody className="text-center">
-              {statsLoading ? (
-                <Spinner size="sm" />
-              ) : statsError ? (
-                <Alert variant="danger">{statsError}</Alert>
-              ) : (
-                <>
-                  <h2 className="display-4 fw-bold text-blue-600 mb-2">{formatNumber(stats.fiscalYears)}</h2>
-                  <p className="text-muted">Configure fiscal periods</p>
-                </>
-              )}
-            </CardBody>
-          </Card>
-
-          {/* Fund Sources */}
-          <Card className="h-full">
-            <CardHeader className="pb-4">
-              <h6 className="mb-0 text-sm font-semibold text-slate-500">Fund Sources</h6>
-            </CardHeader>
-            <CardBody className="text-center">
-              {statsLoading ? (
-                <Spinner size="sm" />
-              ) : statsError ? (
-                <Alert variant="danger">{statsError}</Alert>
-              ) : (
-                <>
-                  <h2 className="display-4 fw-bold text-green-600 mb-2">{formatNumber(stats.fundSources)}</h2>
-                  <p className="text-muted">Track funding sources</p>
-                </>
-              )}
-            </CardBody>
-          </Card>
-
-          {/* Departments */}
-          <Card className="h-full">
-            <CardHeader className="pb-4">
-              <h6 className="mb-0 text-sm font-semibold text-slate-500">Departments</h6>
-            </CardHeader>
-            <CardBody className="text-center">
-              {statsLoading ? (
-                <Spinner size="sm" />
-              ) : statsError ? (
-                <Alert variant="danger">{statsError}</Alert>
-              ) : (
-                <>
-                  <h2 className="display-4 fw-bold text-yellow-600 mb-2">{formatNumber(stats.departments)}</h2>
-                  <p className="text-muted">Manage organizational units</p>
-                </>
-              )}
-            </CardBody>
-          </Card>
-
-          {/* Budget Categories */}
-          <Card className="h-full">
-            <CardHeader className="pb-4">
-              <h6 className="mb-0 text-sm font-semibold text-slate-500">Budget Categories</h6>
-            </CardHeader>
-            <CardBody className="text-center">
-              {statsLoading ? (
-                <Spinner size="sm" />
-              ) : statsError ? (
-                <Alert variant="danger">{statsError}</Alert>
-              ) : (
-                <>
-                  <h2 className="display-4 fw-bold text-purple-600 mb-2">{formatNumber(stats.budgetCategories)}</h2>
-                  <p className="text-muted">Categorize budget allocations</p>
-                </>
-              )}
-            </CardBody>
-          </Card>
-
-          {/* Budget Programs */}
-          <Card className="h-full">
-            <CardHeader className="pb-4">
-              <h6 className="mb-0 text-sm font-semibold text-slate-500">Budget Programs</h6>
-            </CardHeader>
-            <CardBody className="text-center">
-              {statsLoading ? (
-                <Spinner size="sm" />
-              ) : statsError ? (
-                <Alert variant="danger">{statsError}</Alert>
-              ) : (
-                <>
-                  <h2 className="display-4 fw-bold text-indigo-600 mb-2">{formatNumber(stats.budgetPrograms)}</h2>
-                  <p className="text-muted">Define budget programs</p>
-                </>
-              )}
-            </CardBody>
-          </Card>
-        </div>
-      </div>
-
-      {/* Charts Section */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-        {/* Users by Role - Pie Chart */}
-        <Card className="h-full">
-          <CardHeader className="pb-4">
-            <h6 className="mb-0 text-sm font-semibold text-slate-500">Users by Role</h6>
-          </CardHeader>
-          <CardBody className="p-0">
-            {chartsLoading ? (
-              <Spinner size="sm" className="d-block mx-auto my-4" />
-            ) : chartsError ? (
-              <Alert variant="danger">{chartsError}</Alert>
-            ) : chartsData && chartsData.usersByRole && chartsData.usersByRole.length > 0 ? (
-              <ResponsiveContainer width="100%" height={300}>
-                <PieChart>
-                  <Pie
-                    data={chartsData.usersByRole}
-                    dataKey="count"
-                    nameKey="role"
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={70}
-                    outerRadius={100}
-                    label={({ cx, cy, midAngle, outerRadius, percent, role, value }) => {
-                      const RADIAN = Math.PI / 180;
-                      const radius = outerRadius + 20;
-                      const x = cx + radius * Math.cos(-midAngle * RADIAN);
-                      const y = cy + radius * Math.sin(-midAngle * RADIAN);
-
-                      return (
-                        <text
-                          x={x}
-                          y={y}
-                          fill="#374151"
-                          textAnchor={x > cx ? "start" : "end"}
-                          dominantBaseline="central"
-                          fontSize={13}
-                        >
-                          {`${role}: ${value}`}
-                        </text>
-                      );
-                    }}
-                    labelLine={false}
-                  >
-                    {chartsData.usersByRole.map((entry, index) => (
-                      <Cell
-                        key={entry.role}
-                        fill={COLORS[index % COLORS.length]}
-                      />
-                    ))}
-                  </Pie>
-
-                  <Tooltip formatter={(value, name) => [`${value} users`, name]} />
-                  <Legend />
-                </PieChart>
-              </ResponsiveContainer>
-            ) : (
-              <p className="text-center text-muted py-4">No data available</p>
-            )}
-          </CardBody>
-        </Card>
-
-        {/* Users by Status - Bar Chart */}
-        <Card className="h-full">
-          <CardHeader className="pb-4">
-            <h6 className="mb-0 text-sm font-semibold text-slate-500">Users by Status</h6>
-          </CardHeader>
-          <CardBody className="p-0">
-            {chartsLoading ? (
-              <Spinner size="sm" className="d-block mx-auto my-4" />
-            ) : chartsError ? (
-              <Alert variant="danger">{chartsError}</Alert>
-            ) : chartsData && chartsData.usersByStatus && chartsData.usersByStatus.length > 0 ? (
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={chartsData.usersByStatus}>
-                  <XAxis dataKey="status" tick={{ fontSize: 12 }} />
-                  <YAxis tick={{ fontSize: 12 }} />
-                  <Tooltip />
-                  <Legend verticalAlign="top" height={36} />
-                  <Bar dataKey="count" fill="#4361ee" barSize={20} />
-                </BarChart>
-              </ResponsiveContainer>
-            ) : (
-              <p className="text-center text-muted py-4">No data available</p>
-            )}
-          </CardBody>
-        </Card>
-      </div>
-
-      {/* Financial Activity Timeline and Notifications */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-        {/* Financial Activity Timeline */}
-        <div className="md:col-span-2">
-          <FinancialActivityTimeline />
-        </div>
-
-        {/* Notifications */}
-        <Card className="h-full">
-          <CardHeader className="pb-4">
-            <div className="d-flex justify-content-between align-items-center">
-              <h6 className="mb-0 text-sm font-semibold text-slate-500">Notifications</h6>
-              <a href="#" className="text-decoration-none text-muted fs-6">View All</a>
+      {/* User statistics and budget allocation setup counts. Both grids are fed
+          by the same /dashboard/stats request, so they share one boundary and a
+          failure surfaces once rather than in every card. */}
+      <DashboardSection>
+        <DashboardStateBoundary
+          isLoading={statsQuery.isLoading}
+          isError={statsQuery.isError}
+          error={statsQuery.error}
+          onRetry={() => statsQuery.refetch()}
+          errorFallbackMessage="Failed to fetch stats"
+          loadingFallback={
+            <div className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <StatCardSkeletons cards={USER_STAT_CARDS} />
+                <StatCardShell label="Pending Approvals">
+                  <Spinner size="sm" className="mx-auto my-4 block" />
+                </StatCardShell>
+              </div>
+              <div>
+                <h2 className="text-xl font-bold text-slate-900 mb-4">
+                  Budget Allocation Setup
+                </h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+                  <StatCardSkeletons cards={SETUP_STAT_CARDS} />
+                </div>
+              </div>
             </div>
-          </CardHeader>
-          <CardBody className="p-4">
-            {notificationsLoading ? (
-              <Spinner size="sm" className="d-block mx-auto my-4" />
-            ) : notificationsError ? (
-              <Alert variant="danger">{notificationsError}</Alert>
-            ) : notifications.length > 0 ? (
-              <div className="notification-list">
-                {notifications.map((notification, index) => (
-                  <div key={index} className="d-flex align-items-start mb-3">
-                    <div className="shrink-0 me-3">
-                      <div className={`flex h-8 w-8 items-center justify-center rounded-full text-white ${getTailwindColorFromType(notification.type)}`}>
-                        <Bell className="h-4 w-4" />
-                      </div>
-                    </div>
-                    <div className="grow">
-                      <div className="fw-medium">{notification.title}</div>
-                      <div className="small text-muted">{truncateText(notification.message, 100)}</div>
-                    </div>
-                  </div>
+          }
+        >
+          <div className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              {USER_STAT_CARDS.map((card) => (
+                <StatCard
+                  key={card.key}
+                  label={card.label}
+                  value={statValue(card.key)}
+                  caption={card.caption}
+                  valueClassName={card.valueClassName}
+                />
+              ))}
+
+              {/* Placeholder retained from the original dashboard: the stats
+                  endpoint carries no pending-approval count. Phase B replaces
+                  this card with the real value from /allocations/statistics. */}
+              <StatCard
+                label="Pending Approvals"
+                value="0"
+                caption="Awaiting verification"
+                valueClassName="text-[var(--color-warning)]"
+              />
+            </div>
+
+            <div>
+              <h2 className="text-xl font-bold text-slate-900 mb-4">
+                Budget Allocation Setup
+              </h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+                {SETUP_STAT_CARDS.map((card) => (
+                  <StatCard
+                    key={card.key}
+                    label={card.label}
+                    value={statValue(card.key)}
+                    caption={card.caption}
+                    valueClassName={card.valueClassName}
+                  />
                 ))}
               </div>
-            ) : (
-              <p className="text-center text-muted py-4">No notifications</p>
-            )}
-          </CardBody>
-        </Card>
-      </div>
+            </div>
+          </div>
+        </DashboardStateBoundary>
+      </DashboardSection>
+
+      {/* Charts */}
+      <DashboardSection>
+        <DashboardStateBoundary
+          isLoading={chartsQuery.isLoading}
+          isError={chartsQuery.isError}
+          error={chartsQuery.error}
+          onRetry={() => chartsQuery.refetch()}
+          errorFallbackMessage="Failed to fetch charts data"
+          loadingFallback={
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <ChartCard title="Users by Role">
+                <Spinner size="sm" className="mx-auto my-4 block" />
+              </ChartCard>
+              <ChartCard title="Users by Status">
+                <Spinner size="sm" className="mx-auto my-4 block" />
+              </ChartCard>
+            </div>
+          }
+        >
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Users by Role - Pie Chart */}
+            <ChartCard title="Users by Role">
+              {usersByRole.length > 0 ? (
+                <ResponsiveContainer width="100%" height={300}>
+                  <PieChart>
+                    <Pie
+                      data={usersByRole}
+                      dataKey="count"
+                      nameKey="role"
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={70}
+                      outerRadius={100}
+                      label={({ cx, cy, midAngle, outerRadius, role, value }: any) => {
+                        const RADIAN = Math.PI / 180;
+                        const radius = outerRadius + 20;
+                        const x = cx + radius * Math.cos(-midAngle * RADIAN);
+                        const y = cy + radius * Math.sin(-midAngle * RADIAN);
+
+                        return (
+                          <text
+                            x={x}
+                            y={y}
+                            fill="#374151"
+                            textAnchor={x > cx ? 'start' : 'end'}
+                            dominantBaseline="central"
+                            fontSize={13}
+                          >
+                            {`${role}: ${value}`}
+                          </text>
+                        );
+                      }}
+                      labelLine={false}
+                    >
+                      {usersByRole.map((entry, index) => (
+                        <Cell key={entry.role} fill={COLORS[index % COLORS.length]} />
+                      ))}
+                    </Pie>
+
+                    <Tooltip formatter={(value, name) => [`${value} users`, name]} />
+                    <Legend />
+                  </PieChart>
+                </ResponsiveContainer>
+              ) : (
+                <p className="text-center text-slate-500 py-4">No data available</p>
+              )}
+            </ChartCard>
+
+            {/* Users by Status - Bar Chart */}
+            <ChartCard title="Users by Status">
+              {usersByStatus.length > 0 ? (
+                <ResponsiveContainer width="100%" height={300}>
+                  <BarChart data={usersByStatus}>
+                    <XAxis dataKey="status" tick={{ fontSize: 12 }} />
+                    <YAxis tick={{ fontSize: 12 }} />
+                    <Tooltip />
+                    <Legend verticalAlign="top" height={36} />
+                    <Bar dataKey="count" fill="#4361ee" barSize={20} />
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                <p className="text-center text-slate-500 py-4">No data available</p>
+              )}
+            </ChartCard>
+          </div>
+        </DashboardStateBoundary>
+      </DashboardSection>
+
+      {/* Financial Activity Timeline and Notifications */}
+      <DashboardSection>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="md:col-span-2">
+            <FinancialActivityTimeline />
+          </div>
+
+          <Card className="h-full">
+            <CardHeader className="pb-4">
+              <div className="flex items-center justify-between">
+                <h6 className="mb-0 text-sm font-semibold text-slate-500">
+                  Notifications
+                </h6>
+                <a href="#" className="text-sm text-slate-500 no-underline">
+                  View All
+                </a>
+              </div>
+            </CardHeader>
+            <CardBody className="p-4">
+              <DashboardStateBoundary
+                isLoading={notificationsQuery.isLoading}
+                isError={notificationsQuery.isError}
+                error={notificationsQuery.error}
+                onRetry={() => notificationsQuery.refetch()}
+                errorFallbackMessage="Failed to fetch notifications"
+                isEmpty={notifications.length === 0}
+                emptyMessage="No notifications"
+              >
+                <div className="notification-list">
+                  {notifications.map((notification, index) => (
+                    <div key={index} className="flex items-start mb-3">
+                      <div className="shrink-0 mr-3">
+                        <div
+                          className={`flex h-8 w-8 items-center justify-center rounded-full text-white ${notificationAccent(
+                            notification.type
+                          )}`}
+                        >
+                          <Bell className="h-4 w-4" />
+                        </div>
+                      </div>
+                      <div className="grow min-w-0">
+                        <div className="font-medium text-slate-900">
+                          {notification.title}
+                        </div>
+                        <div className="text-sm text-slate-500 line-clamp-2">
+                          {notification.message}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </DashboardStateBoundary>
+            </CardBody>
+          </Card>
+        </div>
+      </DashboardSection>
 
       {/* Blockchain Status */}
       <Card className="h-full">
@@ -459,31 +409,45 @@ export function Dashboard() {
           <h6 className="mb-0 text-sm font-semibold text-slate-500">Blockchain Status</h6>
         </CardHeader>
         <CardBody className="text-center">
-          {blockchainLoading ? (
-            <Spinner size="sm" className="d-block mx-auto my-4" />
-          ) : blockchainError ? (
-            <Alert variant="danger">{blockchainError}</Alert>
-          ) : (
-            <>
-              <div className="mb-3">
-                {blockchainStatus.connected ? (
-                  <span className="badge bg-success me-2">Connected</span>
-                ) : (
-                  <span className="badge bg-danger me-2">Disconnected</span>
-                )}
-                <span className="badge bg-secondary">Network: {blockchainStatus.network}</span>
-              </div>
-              <div className="mb-2">
-                <small className="text-muted">Latest Block: {blockchainStatus.latestBlock}</small>
-              </div>
-              <div className="mb-2">
-                <small className="text-muted">Last Sync: {blockchainStatus.lastSync ? new Date(blockchainStatus.lastSync).toLocaleString() : 'Never'}</small>
-              </div>
-              <div className="mb-2">
-                <small className="text-muted">Smart Contract: {blockchainStatus.contractAddress}</small>
-              </div>
-            </>
-          )}
+          <DashboardStateBoundary
+            isLoading={blockchainQuery.isLoading}
+            isError={blockchainQuery.isError}
+            error={blockchainQuery.error}
+            onRetry={() => blockchainQuery.refetch()}
+            errorFallbackMessage="Failed to fetch blockchain status"
+          >
+            <div className="mb-3 flex flex-wrap items-center justify-center gap-2">
+              {blockchainStatus?.connected ? (
+                <Badge variant="success">Connected</Badge>
+              ) : (
+                <Badge variant="danger">Disconnected</Badge>
+              )}
+              <Badge variant="secondary">
+                Network: {blockchainStatus?.network ?? 'Unknown'}
+              </Badge>
+            </div>
+            <div className="mb-2">
+              <span className="text-xs text-slate-500">
+                Latest Block:{' '}
+                {blockchainStatus?.latestBlock != null
+                  ? formatNumber(blockchainStatus.latestBlock)
+                  : '—'}
+              </span>
+            </div>
+            <div className="mb-2">
+              <span className="text-xs text-slate-500">
+                Last Sync:{' '}
+                {blockchainStatus?.lastSync
+                  ? formatDateTime(blockchainStatus.lastSync)
+                  : 'Never'}
+              </span>
+            </div>
+            <div className="mb-2">
+              <span className="text-xs text-slate-500">
+                Smart Contract: {blockchainStatus?.contractAddress ?? '—'}
+              </span>
+            </div>
+          </DashboardStateBoundary>
         </CardBody>
       </Card>
     </div>
