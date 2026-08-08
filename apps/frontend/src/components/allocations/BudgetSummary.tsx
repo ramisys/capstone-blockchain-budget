@@ -46,7 +46,7 @@ const BudgetSummary: React.FC<BudgetSummaryProps> = ({
 
   const statCard = (label: string, value: string) => (
     <div className="rounded-xl bg-slate-50/80 border border-slate-100 p-4">
-      <p className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">{label}</p>
+      <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1.5">{label}</p>
       <p className="text-lg font-bold text-slate-900">{value}</p>
     </div>
   );
@@ -123,7 +123,7 @@ const BudgetSummary: React.FC<BudgetSummaryProps> = ({
             </span>
           </div>
         ) : (
-          <div className="flex items-center justify-between text-xs text-slate-400 mt-2">
+          <div className="flex items-center justify-between text-xs text-slate-500 mt-2">
             <span>{formatCurrency(totalAllocated)} approved</span>
             <span>{formatCurrency(totalBudget)} total budget</span>
           </div>

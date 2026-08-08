@@ -29,6 +29,11 @@ interface DashboardSectionProps {
   title?: string;
   /** Element id for the heading, used to name the section for assistive tech. */
   titleId?: string;
+  /**
+   * Names a section that has no visible heading, so every band is still
+   * reachable and identifiable in a screen reader's landmark list.
+   */
+  ariaLabel?: string;
   /** Optional control rendered opposite the heading (e.g. a link). */
   action?: React.ReactNode;
   className?: string;
@@ -42,14 +47,18 @@ interface DashboardSectionProps {
 export function DashboardSection({
   title,
   titleId,
+  ariaLabel,
   action,
   className = '',
   children,
 }: DashboardSectionProps) {
+  const labelledBy = title && titleId ? titleId : undefined;
+
   return (
     <section
       className={`mb-6 ${className}`}
-      aria-labelledby={title && titleId ? titleId : undefined}
+      aria-labelledby={labelledBy}
+      aria-label={labelledBy ? undefined : ariaLabel}
     >
       {title && (
         <div className="flex items-center justify-between gap-3 mb-4">

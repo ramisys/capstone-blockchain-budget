@@ -57,7 +57,7 @@ function ContractAddress({ address, explorerUrl }: { address: string; explorerUr
           target="_blank"
           rel="noreferrer"
           aria-label="View contract in block explorer"
-          className="text-slate-400 hover:text-[var(--color-primary)] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]/30 rounded"
+          className="text-slate-500 hover:text-[var(--color-primary)] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]/30 rounded"
         >
           <ExternalLink className="w-3.5 h-3.5" aria-hidden="true" />
         </a>
@@ -190,7 +190,7 @@ export function BlockchainStatusStrip({ status, loading = false }: BlockchainSta
 
         <Link
           to={LEDGER_PATH}
-          className="text-xs font-semibold text-[var(--color-primary)] hover:underline shrink-0"
+          className="shrink-0 rounded text-xs font-semibold text-[var(--color-primary)] hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]/30"
         >
           View ledger →
         </Link>

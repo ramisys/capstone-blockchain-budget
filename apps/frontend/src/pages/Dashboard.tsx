@@ -208,7 +208,7 @@ export function Dashboard() {
       {/* Budget utilization alongside the work queues. The utilization card is
           fed by /allocations/remaining-budget and the queues by
           /allocations/statistics, so each keeps its own error boundary. */}
-      <DashboardSection>
+      <DashboardSection ariaLabel="Budget utilization and action required">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           <div className="lg:col-span-2">
             <DashboardStateBoundary
@@ -278,7 +278,7 @@ export function Dashboard() {
       </DashboardSection>
 
       {/* Financial Activity Timeline and Notifications */}
-      <DashboardSection>
+      <DashboardSection ariaLabel="Recent activity and notifications">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           <div className="lg:col-span-2">
             {/* Eight rows keeps the card a sane height now that the inner
@@ -288,9 +288,9 @@ export function Dashboard() {
 
           <Card className="h-full">
             <CardHeader className="pb-4">
-              <h6 className="mb-0 text-sm font-semibold text-slate-500">
+              <h3 className="mb-0 text-sm font-semibold text-slate-500">
                 Notifications
-              </h6>
+              </h3>
             </CardHeader>
             <CardBody className="p-4">
               <DashboardStateBoundary
@@ -324,7 +324,7 @@ export function Dashboard() {
 
       {/* Administrative statistics sit last: lowest business importance, and
           collapsed by default for everyone except Administrators. */}
-      <DashboardSection className="mb-0">
+      <DashboardSection className="mb-0" ariaLabel="System administration">
         <AdminStatsSection />
       </DashboardSection>
     </div>

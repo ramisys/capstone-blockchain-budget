@@ -111,7 +111,7 @@ export function NotificationPanel({ notifications }: NotificationPanelProps) {
               >
                 {body}
                 <ChevronRight
-                  className="w-4 h-4 shrink-0 text-slate-400 mt-1"
+                  className="w-4 h-4 shrink-0 text-slate-500 mt-1"
                   aria-hidden="true"
                 />
               </Link>

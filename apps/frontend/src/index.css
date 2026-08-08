@@ -1397,5 +1397,17 @@ a:hover { color: var(--color-primary-light); }
   .animate-scale-up {
     animation: none;
   }
+
+  /* Tailwind's looping utilities. `animate-spin` marks work in progress and
+     `animate-pulse` marks a placeholder, so neither is purely decorative —
+     they are slowed to a near-stop rather than removed, keeping the signal
+     without the motion. */
+  .animate-spin,
+  .animate-pulse,
+  .animate-ping,
+  .animate-bounce {
+    animation-duration: 1ms;
+    animation-iteration-count: 1;
+  }
 }
 

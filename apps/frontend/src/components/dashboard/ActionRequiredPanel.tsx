@@ -113,7 +113,7 @@ export function ActionRequiredPanel({
   );
 
   return (
-    <Card className="p-6 h-full border-slate-200/80">
+    <Card className="p-6 h-full border-slate-200/80" aria-busy={loading}>
       <div className="mb-5">
         <h3 className="text-base font-semibold text-slate-900">Action Required</h3>
         <p className="text-sm text-slate-500 mt-0.5">
@@ -167,7 +167,7 @@ export function ActionRequiredPanel({
                     {formatNumber(item.count)}
                   </span>
                   <ChevronRight
-                    className="w-4 h-4 text-slate-400 shrink-0"
+                    className="w-4 h-4 text-slate-500 shrink-0"
                     aria-hidden="true"
                   />
                 </Link>

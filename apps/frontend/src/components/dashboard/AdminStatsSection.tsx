@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { usePrefersReducedMotion } from '../../hooks/usePrefersReducedMotion';
 import { Link } from 'react-router-dom';
 import {
   ResponsiveContainer,
@@ -141,6 +142,7 @@ export function AdminStatsSection() {
   const { hasRole } = useAuth();
   const isAdmin = hasRole(ROLES.ADMINISTRATOR);
   const [open, setOpen] = useState(isAdmin);
+  const reducedMotion = usePrefersReducedMotion();
 
   const statsQuery = useDashboardStats();
   const chartsQuery = useDashboardCharts();
@@ -156,28 +158,32 @@ export function AdminStatsSection() {
   return (
     <Card className="h-full">
       <CardHeader className="p-0">
-        <button
-          type="button"
-          onClick={() => setOpen((prev) => !prev)}
-          aria-expanded={open}
-          aria-controls={PANEL_ID}
-          className="flex w-full items-center justify-between gap-3 px-6 py-4 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]/30 rounded-2xl"
-        >
-          <span>
-            <span className="block text-sm font-semibold text-slate-900">
-              System Administration
+        {/* Disclosure pattern: the heading wraps the control rather than
+            containing one, since <button> takes phrasing content only. */}
+        <h2 className="m-0">
+          <button
+            type="button"
+            onClick={() => setOpen((prev) => !prev)}
+            aria-expanded={open}
+            aria-controls={PANEL_ID}
+            className="flex w-full items-center justify-between gap-3 px-6 py-4 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]/30 rounded-2xl"
+          >
+            <span>
+              <span className="block text-sm font-semibold text-slate-900">
+                System Administration
+              </span>
+              <span className="block text-xs font-normal text-slate-500 mt-0.5">
+                User accounts, master data, and role distribution
+              </span>
             </span>
-            <span className="block text-xs font-normal text-slate-500 mt-0.5">
-              User accounts, master data, and role distribution
-            </span>
-          </span>
-          <ChevronDown
-            className={`w-4 h-4 shrink-0 text-slate-400 transition-transform ${
-              open ? 'rotate-180' : ''
-            }`}
-            aria-hidden="true"
-          />
-        </button>
+            <ChevronDown
+              className={`w-4 h-4 shrink-0 text-slate-500 transition-transform ${
+                open ? 'rotate-180' : ''
+              }`}
+              aria-hidden="true"
+            />
+          </button>
+        </h2>
       </CardHeader>
 
       {open && (
@@ -262,7 +268,12 @@ export function AdminStatsSection() {
                             'Users',
                           ]}
                         />
-                        <Bar dataKey="count" barSize={18} radius={[0, 4, 4, 0]}>
+                        <Bar
+                          dataKey="count"
+                          barSize={18}
+                          radius={[0, 4, 4, 0]}
+                          isAnimationActive={!reducedMotion}
+                        >
                           {usersByRole.map((entry) => (
                             <Cell
                               key={entry.role}

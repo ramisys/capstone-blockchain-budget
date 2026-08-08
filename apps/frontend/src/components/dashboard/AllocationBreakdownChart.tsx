@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { usePrefersReducedMotion } from '../../hooks/usePrefersReducedMotion';
 import {
   ResponsiveContainer,
   BarChart,
@@ -24,6 +25,11 @@ const TOP_N = 8;
  */
 const BAR_COLOR = '#1B3A5C';
 const OTHER_COLOR = '#8B93A0';
+
+/** Keeps a long department or category name inside the axis gutter. */
+function truncateLabel(value: string, max = 16): string {
+  return value.length > max ? `${value.slice(0, max - 1)}…` : value;
+}
 
 interface ChartRow {
   name: string;
@@ -81,6 +87,7 @@ export function AllocationBreakdownChart({
   emptyMessage = 'No approved allocations to break down yet.',
 }: AllocationBreakdownChartProps) {
   const rows = useMemo(() => toChartRows(entries ?? []), [entries]);
+  const reducedMotion = usePrefersReducedMotion();
 
   const chartHeight = Math.max(180, rows.length * 38 + 32);
 
@@ -92,7 +99,7 @@ export function AllocationBreakdownChart({
       : `${title}: no data`;
 
   return (
-    <Card className="h-full">
+    <Card className="h-full" aria-busy={loading}>
       <CardHeader className="pb-4">
         <h3 className="text-sm font-semibold text-slate-900">{title}</h3>
         {description && <p className="mt-0.5 text-xs text-slate-500">{description}</p>}
@@ -126,6 +133,7 @@ export function AllocationBreakdownChart({
                     type="category"
                     dataKey="name"
                     width={110}
+                    tickFormatter={(value) => truncateLabel(String(value))}
                     tick={{ fontSize: 11, fill: '#5E6674' }}
                     axisLine={false}
                     tickLine={false}
@@ -139,7 +147,12 @@ export function AllocationBreakdownChart({
                       'Allocated',
                     ]}
                   />
-                  <Bar dataKey="amount" barSize={18} radius={[0, 4, 4, 0]}>
+                  <Bar
+                    dataKey="amount"
+                    barSize={18}
+                    radius={[0, 4, 4, 0]}
+                    isAnimationActive={!reducedMotion}
+                  >
                     {rows.map((row) => (
                       <Cell
                         key={row.name}

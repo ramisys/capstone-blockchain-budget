@@ -29,7 +29,7 @@ export function FinancialStatCard({
   loading = false,
 }: FinancialStatCardProps) {
   return (
-    <Card className="p-4 h-full border-slate-200/80">
+    <Card className="p-4 h-full border-slate-200/80" aria-busy={loading}>
       <div className="flex items-center justify-between gap-2 mb-2">
         <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 truncate">
           {title}

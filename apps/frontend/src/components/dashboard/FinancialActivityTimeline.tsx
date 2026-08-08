@@ -104,10 +104,10 @@ export function FinancialActivityTimeline({
     <Card className={`h-full ${className}`}>
       <CardHeader className="flex flex-col gap-3">
         <div className="flex items-center justify-between gap-3">
-          <h6 className="mb-0 text-sm font-semibold text-slate-500">Financial Activity</h6>
+          <h3 className="mb-0 text-sm font-semibold text-slate-500">Financial Activity</h3>
           <Link
             to="/audit"
-            className="text-xs font-semibold text-[var(--color-primary)] hover:underline"
+            className="rounded text-xs font-semibold text-[var(--color-primary)] hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]/30"
           >
             View audit trail →
           </Link>
