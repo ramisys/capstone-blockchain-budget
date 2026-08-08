@@ -8,6 +8,7 @@ import {
   updateAllocationSchema,
   allocationQuerySchema,
   allocationStatisticsSchema,
+  allocationBreakdownSchema,
   remainingBudgetQuerySchema,
   allocationIdParamSchema,
   rejectAllocationSchema,
@@ -65,6 +66,18 @@ router.get(
   authorize(...READ_ROLES),
   validateRequest(remainingBudgetQuerySchema, 'query'),
   (req, res, next) => allocationController.getRemainingBudget(req, res, next)
+);
+
+/**
+ * @route   GET /api/allocations/breakdown
+ * @description Get approved allocation amounts grouped by department or category
+ * @access  Private (Admin, Treasurer, BudgetOfficer, Auditor)
+ */
+router.get(
+  '/breakdown',
+  authorize(...READ_ROLES),
+  validateRequest(allocationBreakdownSchema, 'query'),
+  (req, res, next) => allocationController.getAllocationBreakdown(req, res, next)
 );
 
 /**

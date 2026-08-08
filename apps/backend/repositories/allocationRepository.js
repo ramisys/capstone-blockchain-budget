@@ -317,6 +317,47 @@ class AllocationRepository {
   }
 
   /**
+   * Sum allocated amounts grouped by a dimension column.
+   *
+   * Used by the dashboard breakdown charts so the aggregation happens in the
+   * database rather than by paging the allocation list into the client.
+   *
+   * @param {string} field - Column to group by, e.g. 'departmentId'
+   * @param {Object} where - Prisma where clause
+   * @returns {Promise<Array>} Grouped sums, e.g. [{ departmentId, _sum, _count }]
+   */
+  async groupByDimension(field, where = {}) {
+    return prisma.budgetAllocation.groupBy({
+      by: [field],
+      where,
+      _sum: { allocatedAmount: true },
+      _count: true,
+    });
+  }
+
+  /**
+   * Resolve display labels for a set of breakdown dimension IDs.
+   *
+   * `groupBy` cannot join relations, so the labels are fetched in one follow-up
+   * query. Kept here beside `groupByDimension` so the breakdown feature reads
+   * as a unit; neither department nor category repository exposes a
+   * find-by-many-IDs method to reuse.
+   *
+   * @param {string} model - Dimension name: 'department' or 'category'
+   * @param {Array<string>} ids - Dimension IDs to resolve
+   * @returns {Promise<Array>} Records of { id, code, name }
+   */
+  async findDimensionLabels(model, ids = []) {
+    if (ids.length === 0) return [];
+
+    const select = { id: true, code: true, name: true };
+    if (model === 'department') {
+      return prisma.department.findMany({ where: { id: { in: ids } }, select });
+    }
+    return prisma.budgetCategory.findMany({ where: { id: { in: ids } }, select });
+  }
+
+  /**
    * Build a Prisma where clause from list filters. Shared by findMany and count.
    *
    * @private

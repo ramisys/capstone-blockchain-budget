@@ -2,6 +2,8 @@ import type { AxiosResponse } from 'axios';
 import apiClient from '../api/apiClient';
 import type {
   Allocation,
+  AllocationBreakdown,
+  AllocationBreakdownDimension,
   AllocationFormData,
   AllocationListParams,
   AllocationStatistics,
@@ -49,6 +51,14 @@ export const allocationApi = {
   // Get total budget, allocated, and remaining budget summary
   getRemainingBudget(params: Partial<AllocationListParams>): Promise<AxiosResponse<ApiEnvelope<{ budget: BudgetSummary }>>> {
     return apiClient.get('/allocations/remaining-budget', { params });
+  },
+
+  // Get approved allocation amounts grouped by department or budget category
+  getAllocationBreakdown(params: {
+    dimension: AllocationBreakdownDimension;
+    fiscalYearId?: string;
+  }): Promise<AxiosResponse<ApiEnvelope<{ breakdown: AllocationBreakdown }>>> {
+    return apiClient.get('/allocations/breakdown', { params });
   },
 
   // Submit a Draft allocation for approval

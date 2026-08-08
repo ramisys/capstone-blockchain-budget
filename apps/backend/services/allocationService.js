@@ -30,6 +30,20 @@ import { AUDIT_ACTIONS } from '../constants/auditActions.js';
  */
 const APPROVAL_ROLES = [ROLES.ADMINISTRATOR, ROLES.TREASURER];
 
+/**
+ * Dimensions the dashboard breakdown can group approved allocations by, mapped
+ * to the `BudgetAllocation` column that carries the foreign key.
+ */
+export const BREAKDOWN_DIMENSION = {
+  DEPARTMENT: 'department',
+  CATEGORY: 'category',
+};
+
+const BREAKDOWN_DIMENSIONS = {
+  [BREAKDOWN_DIMENSION.DEPARTMENT]: { field: 'departmentId' },
+  [BREAKDOWN_DIMENSION.CATEGORY]: { field: 'categoryId' },
+};
+
 class AllocationService {
   /**
    * Create a new budget allocation. Allocations always start as Draft.
@@ -585,6 +599,64 @@ class AllocationService {
       remainingBudget: totalAvailableBudget - totalAllocatedAmount,
       ...statusCounts,
     };
+  }
+
+  /**
+   * Break approved allocation amounts down by department or budget category.
+   *
+   * Uses the same filter as `getAllocationStatistics` and `getRemainingBudget`
+   * — approved, non-deleted allocations — so the breakdown always reconciles
+   * with the totals shown beside it.
+   *
+   * @param {Object} filters - { dimension: 'department'|'category', fiscalYearId }
+   * @returns {Promise<Object>} { dimension, totalAmount, breakdown[] }
+   */
+  async getAllocationBreakdown(filters = {}) {
+    const dimension = filters.dimension || BREAKDOWN_DIMENSION.DEPARTMENT;
+    const config = BREAKDOWN_DIMENSIONS[dimension];
+
+    if (!config) {
+      throw new AppError(
+        `Unsupported breakdown dimension: ${dimension}`,
+        HTTP_STATUS.BAD_REQUEST
+      );
+    }
+
+    if (filters.fiscalYearId) {
+      const fiscalYear = await fiscalYearRepository.findById(filters.fiscalYearId);
+      if (!fiscalYear) {
+        throw new AppError('Fiscal year not found', HTTP_STATUS.NOT_FOUND);
+      }
+    }
+
+    const where = {
+      deletedAt: null,
+      status: ALLOCATION_STATUS.APPROVED,
+      ...(filters.fiscalYearId && { fiscalYearId: filters.fiscalYearId }),
+    };
+
+    const groups = await allocationRepository.groupByDimension(config.field, where);
+    const ids = groups.map((group) => group[config.field]).filter(Boolean);
+    const labels = await allocationRepository.findDimensionLabels(dimension, ids);
+    const labelsById = new Map(labels.map((label) => [label.id, label]));
+
+    const breakdown = groups
+      .map((group) => {
+        const id = group[config.field];
+        const label = labelsById.get(id);
+        return {
+          id,
+          code: label?.code ?? null,
+          name: label?.name ?? 'Unknown',
+          amount: toNumber(group._sum.allocatedAmount),
+          allocationCount: Number(group._count ?? 0),
+        };
+      })
+      .sort((a, b) => b.amount - a.amount);
+
+    const totalAmount = breakdown.reduce((sum, entry) => sum + entry.amount, 0);
+
+    return { dimension, totalAmount, breakdown };
   }
 
   /**

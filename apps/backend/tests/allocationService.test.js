@@ -36,6 +36,8 @@ const repositoryMethods = {
     distinctFiscalYearIds: allocationRepository.distinctFiscalYearIds,
     sumFiscalYearBudgets: allocationRepository.sumFiscalYearBudgets,
     aggregateAmount: allocationRepository.aggregateAmount,
+    groupByDimension: allocationRepository.groupByDimension,
+    findDimensionLabels: allocationRepository.findDimensionLabels,
     update: allocationRepository.update,
     softDelete: allocationRepository.softDelete,
   },
@@ -593,6 +595,107 @@ async function runAllocationServiceTests() {
     assert.equal(result.pendingApprovalCount, 1);
     assert.equal(result.approvedCount, 1);
     assert.equal(result.rejectedCount, 1);
+  });
+
+  console.log('\n7b. getAllocationBreakdown Tests:');
+  await test('should group approved allocations by department, sorted by amount', async () => {
+    fiscalYearRepository.findById = async () => fiscalYear;
+    allocationRepository.groupByDimension = async (field, where) => {
+      assert.equal(field, 'departmentId');
+      assert.equal(where.status, ALLOCATION_STATUS.APPROVED);
+      assert.equal(where.deletedAt, null);
+      assert.equal(where.fiscalYearId, fiscalYear.id);
+      return [
+        {
+          departmentId: 'dept-1',
+          _sum: { allocatedAmount: new Prisma.Decimal('120000.00') },
+          _count: 2,
+        },
+        {
+          departmentId: 'dept-2',
+          _sum: { allocatedAmount: new Prisma.Decimal('180000.00') },
+          _count: 3,
+        },
+      ];
+    };
+    allocationRepository.findDimensionLabels = async (model, ids) => {
+      assert.equal(model, 'department');
+      assert.deepEqual(ids, ['dept-1', 'dept-2']);
+      return [
+        { id: 'dept-1', code: 'DEPT-1', name: 'Engineering' },
+        { id: 'dept-2', code: 'DEPT-2', name: 'Research' },
+      ];
+    };
+
+    const result = await allocationService.getAllocationBreakdown({
+      dimension: 'department',
+      fiscalYearId: fiscalYear.id,
+    });
+
+    assert.equal(result.dimension, 'department');
+    assert.equal(result.totalAmount, 300000);
+    assert.equal(result.breakdown.length, 2);
+    // Highest amount first
+    assert.equal(result.breakdown[0].name, 'Research');
+    assert.equal(result.breakdown[0].amount, 180000);
+    assert.equal(result.breakdown[0].allocationCount, 3);
+    assert.equal(result.breakdown[1].name, 'Engineering');
+    assert.equal(result.breakdown[1].amount, 120000);
+  });
+
+  await test('should default to the department dimension and group by category on request', async () => {
+    let requestedField = null;
+    allocationRepository.groupByDimension = async (field) => {
+      requestedField = field;
+      return [];
+    };
+    allocationRepository.findDimensionLabels = async () => [];
+
+    const defaulted = await allocationService.getAllocationBreakdown({});
+    assert.equal(requestedField, 'departmentId');
+    assert.equal(defaulted.dimension, 'department');
+
+    await allocationService.getAllocationBreakdown({ dimension: 'category' });
+    assert.equal(requestedField, 'categoryId');
+  });
+
+  await test('should label a dimension row with no matching master record as Unknown', async () => {
+    allocationRepository.groupByDimension = async () => [
+      {
+        departmentId: 'dept-missing',
+        _sum: { allocatedAmount: new Prisma.Decimal('5000.00') },
+        _count: 1,
+      },
+    ];
+    allocationRepository.findDimensionLabels = async () => [];
+
+    const result = await allocationService.getAllocationBreakdown({
+      dimension: 'department',
+    });
+
+    assert.equal(result.breakdown[0].name, 'Unknown');
+    assert.equal(result.breakdown[0].code, null);
+    assert.equal(result.breakdown[0].amount, 5000);
+  });
+
+  await test('should reject an unsupported breakdown dimension', async () => {
+    await assert.rejects(
+      () => allocationService.getAllocationBreakdown({ dimension: 'program' }),
+      (err) => err instanceof AppError && err.statusCode === HTTP_STATUS.BAD_REQUEST
+    );
+  });
+
+  await test('should reject a breakdown for a missing fiscal year', async () => {
+    fiscalYearRepository.findById = async () => null;
+
+    await assert.rejects(
+      () =>
+        allocationService.getAllocationBreakdown({
+          dimension: 'department',
+          fiscalYearId: 'fy-missing',
+        }),
+      (err) => err instanceof AppError && err.statusCode === HTTP_STATUS.NOT_FOUND
+    );
   });
 
   console.log('\n8. getRemainingBudget Tests:');

@@ -187,6 +187,29 @@ class AllocationController {
   }
 
   /**
+   * Get approved allocation amounts broken down by department or category
+   * @param {import('express').Request} req
+   * @param {import('express').Response} res
+   * @param {import('express').NextFunction} next
+   */
+  async getAllocationBreakdown(req, res, next) {
+    try {
+      const filters = {
+        dimension: req.query.dimension,
+        fiscalYearId: req.query.fiscalYearId,
+      };
+      const breakdown = await allocationService.getAllocationBreakdown(filters);
+      return res
+        .status(HTTP_STATUS.OK)
+        .json(
+          formatSuccessResponse('Allocation breakdown retrieved successfully', { breakdown })
+        );
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
    * Get remaining budget summary
    * @param {import('express').Request} req
    * @param {import('express').Response} res

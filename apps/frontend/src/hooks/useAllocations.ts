@@ -4,6 +4,8 @@ import { allocationApi } from '../services/allocationService';
 import { useToast } from '../components/ui/Toast';
 import type {
   Allocation,
+  AllocationBreakdown,
+  AllocationBreakdownDimension,
   AllocationFormData,
   AllocationListParams,
   AllocationStatistics,
@@ -18,6 +20,7 @@ const QUERY_KEYS = {
   allocation: 'allocation',
   statistics: 'allocationStatistics',
   remainingBudget: 'remainingBudget',
+  breakdown: 'allocationBreakdown',
   approvalHistory: 'allocationApprovalHistory',
 };
 
@@ -26,6 +29,7 @@ function invalidateAllocationQueries(queryClient: ReturnType<typeof useQueryClie
   queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.allocation] });
   queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.statistics] });
   queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.remainingBudget] });
+  queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.breakdown] });
   queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.approvalHistory] });
 }
 
@@ -103,6 +107,29 @@ export const useRemainingBudget = (
     queryFn: () => allocationApi.getRemainingBudget(params),
     enabled,
     select: (response) => response.data?.data?.budget,
+  });
+};
+
+/**
+ * Fetch approved allocation amounts grouped by department or budget category,
+ * optionally scoped to a fiscal year.
+ */
+export const useAllocationBreakdown = (
+  dimension: AllocationBreakdownDimension,
+  fiscalYearId?: string,
+  enabled: boolean = true
+) => {
+  return useQuery<AxiosResponse, Error, AllocationBreakdown>({
+    queryKey: [QUERY_KEYS.breakdown, dimension, fiscalYearId ?? null],
+    queryFn: () =>
+      allocationApi.getAllocationBreakdown({
+        dimension,
+        ...(fiscalYearId ? { fiscalYearId } : {}),
+      }),
+    enabled,
+    select: (response) => response.data?.data?.breakdown,
+    staleTime: 30 * 1000,
+    gcTime: 5 * 60 * 1000,
   });
 };
 

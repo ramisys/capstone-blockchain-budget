@@ -135,6 +135,28 @@ export interface BudgetSummary {
   remainingBudget: number;
 }
 
+/** Dimensions the dashboard breakdown can group approved allocations by. */
+export type AllocationBreakdownDimension = 'department' | 'category';
+
+export interface AllocationBreakdownEntry {
+  id: string;
+  code: string | null;
+  name: string;
+  amount: number;
+  allocationCount: number;
+}
+
+/**
+ * Response of `GET /allocations/breakdown`. Entries are sorted by amount
+ * descending and cover approved, non-deleted allocations only, so
+ * `totalAmount` reconciles with `totalAllocated` for the same scope.
+ */
+export interface AllocationBreakdown {
+  dimension: AllocationBreakdownDimension;
+  totalAmount: number;
+  breakdown: AllocationBreakdownEntry[];
+}
+
 export interface AllocationListParams {
   page?: number;
   limit?: number;

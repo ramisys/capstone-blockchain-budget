@@ -142,6 +142,14 @@ export const allocationStatisticsSchema = z.object({
 });
 
 /**
+ * Zod schema for the dashboard allocation breakdown endpoint.
+ */
+export const allocationBreakdownSchema = z.object({
+  dimension: z.enum(['department', 'category']).optional(),
+  fiscalYearId: z.string().optional(),
+});
+
+/**
  * Zod schema for the remaining budget endpoint.
  */
 export const remainingBudgetQuerySchema = z.object({

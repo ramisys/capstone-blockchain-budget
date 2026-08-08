@@ -10,6 +10,7 @@ import {
 import { FinancialStatCard } from '../components/dashboard/FinancialStatCard';
 import { DashboardHeader } from '../components/dashboard/DashboardHeader';
 import { ActionRequiredPanel } from '../components/dashboard/ActionRequiredPanel';
+import { AllocationBreakdownChart } from '../components/dashboard/AllocationBreakdownChart';
 import { FinancialActivityTimeline } from '../components/dashboard/FinancialActivityTimeline';
 import { BudgetSummary } from '../components/allocations/BudgetSummary';
 import {
@@ -18,7 +19,11 @@ import {
   useDashboardStats,
 } from '../hooks/useDashboard';
 import { useBlockchainStatus } from '../hooks/useBlockchain';
-import { useAllocationStatistics, useRemainingBudget } from '../hooks/useAllocations';
+import {
+  useAllocationBreakdown,
+  useAllocationStatistics,
+  useRemainingBudget,
+} from '../hooks/useAllocations';
 import { useFiscalYears } from '../hooks/useFiscalYears';
 import { formatCurrency, formatDateTime, formatNumber } from '../utils/format';
 import {
@@ -210,6 +215,16 @@ export function Dashboard() {
     effectiveFiscalYearId,
     !fiscalYearsQuery.isLoading
   );
+  const departmentBreakdownQuery = useAllocationBreakdown(
+    'department',
+    effectiveFiscalYearId,
+    !fiscalYearsQuery.isLoading
+  );
+  const categoryBreakdownQuery = useAllocationBreakdown(
+    'category',
+    effectiveFiscalYearId,
+    !fiscalYearsQuery.isLoading
+  );
 
   const stats = statsQuery.data;
   const chartsData = chartsQuery.data;
@@ -253,6 +268,8 @@ export function Dashboard() {
       blockchainQuery.dataUpdatedAt,
       budgetQuery.dataUpdatedAt,
       allocationStatsQuery.dataUpdatedAt,
+      departmentBreakdownQuery.dataUpdatedAt,
+      categoryBreakdownQuery.dataUpdatedAt,
     ].filter((value) => value > 0);
     return timestamps.length > 0 ? Math.max(...timestamps) : undefined;
   }, [
@@ -262,6 +279,8 @@ export function Dashboard() {
     blockchainQuery.dataUpdatedAt,
     budgetQuery.dataUpdatedAt,
     allocationStatsQuery.dataUpdatedAt,
+    departmentBreakdownQuery.dataUpdatedAt,
+    categoryBreakdownQuery.dataUpdatedAt,
   ]);
 
   const isRefreshing =
@@ -270,7 +289,9 @@ export function Dashboard() {
     notificationsQuery.isFetching ||
     blockchainQuery.isFetching ||
     budgetQuery.isFetching ||
-    allocationStatsQuery.isFetching;
+    allocationStatsQuery.isFetching ||
+    departmentBreakdownQuery.isFetching ||
+    categoryBreakdownQuery.isFetching;
 
   // Marks every cached query stale; React Query refetches the ones mounted on
   // this page, including the timeline, which owns its own filter state.
@@ -376,6 +397,40 @@ export function Dashboard() {
               blockchain={blockchainStatus}
               loading={allocationStatsLoading}
               scopeLabel={scopeLabel}
+            />
+          </DashboardStateBoundary>
+        </div>
+      </DashboardSection>
+
+      {/* Financial analytics. Each chart has its own query and boundary so one
+          failing dimension does not blank the other. */}
+      <DashboardSection title="Financial Analytics" titleId="dashboard-financial-analytics">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <DashboardStateBoundary
+            isError={departmentBreakdownQuery.isError}
+            error={departmentBreakdownQuery.error}
+            onRetry={() => departmentBreakdownQuery.refetch()}
+            errorFallbackMessage="Failed to load the department breakdown"
+          >
+            <AllocationBreakdownChart
+              title="Allocation by Department"
+              description={`Approved allocations · ${scopeLabel}`}
+              entries={departmentBreakdownQuery.data?.breakdown}
+              loading={fiscalYearsQuery.isLoading || departmentBreakdownQuery.isLoading}
+            />
+          </DashboardStateBoundary>
+
+          <DashboardStateBoundary
+            isError={categoryBreakdownQuery.isError}
+            error={categoryBreakdownQuery.error}
+            onRetry={() => categoryBreakdownQuery.refetch()}
+            errorFallbackMessage="Failed to load the category breakdown"
+          >
+            <AllocationBreakdownChart
+              title="Allocation by Budget Category"
+              description={`Approved allocations · ${scopeLabel}`}
+              entries={categoryBreakdownQuery.data?.breakdown}
+              loading={fiscalYearsQuery.isLoading || categoryBreakdownQuery.isLoading}
             />
           </DashboardStateBoundary>
         </div>
