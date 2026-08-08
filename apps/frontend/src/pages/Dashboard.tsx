@@ -9,14 +9,16 @@ import {
 } from '../components/dashboard/DashboardSection';
 import { FinancialStatCard } from '../components/dashboard/FinancialStatCard';
 import { DashboardHeader } from '../components/dashboard/DashboardHeader';
+import { ActionRequiredPanel } from '../components/dashboard/ActionRequiredPanel';
 import { FinancialActivityTimeline } from '../components/dashboard/FinancialActivityTimeline';
+import { BudgetSummary } from '../components/allocations/BudgetSummary';
 import {
   useDashboardCharts,
   useDashboardNotifications,
   useDashboardStats,
 } from '../hooks/useDashboard';
 import { useBlockchainStatus } from '../hooks/useBlockchain';
-import { useRemainingBudget } from '../hooks/useAllocations';
+import { useAllocationStatistics, useRemainingBudget } from '../hooks/useAllocations';
 import { useFiscalYears } from '../hooks/useFiscalYears';
 import { formatCurrency, formatDateTime, formatNumber } from '../utils/format';
 import {
@@ -204,6 +206,10 @@ export function Dashboard() {
     effectiveFiscalYearId ? { fiscalYearId: effectiveFiscalYearId } : {},
     !fiscalYearsQuery.isLoading
   );
+  const allocationStatsQuery = useAllocationStatistics(
+    effectiveFiscalYearId,
+    !fiscalYearsQuery.isLoading
+  );
 
   const stats = statsQuery.data;
   const chartsData = chartsQuery.data;
@@ -224,6 +230,8 @@ export function Dashboard() {
   // disabled, which React Query reports as "not loading" — keep the cards in
   // their skeleton state across both steps instead of flashing zero.
   const budgetLoading = fiscalYearsQuery.isLoading || budgetQuery.isLoading;
+  const allocationStatsLoading =
+    fiscalYearsQuery.isLoading || allocationStatsQuery.isLoading;
 
   // Utilization is only meaningful against a non-zero ceiling; with no budget
   // set, an em dash is honest where "0.0%" would not be.
@@ -244,6 +252,7 @@ export function Dashboard() {
       notificationsQuery.dataUpdatedAt,
       blockchainQuery.dataUpdatedAt,
       budgetQuery.dataUpdatedAt,
+      allocationStatsQuery.dataUpdatedAt,
     ].filter((value) => value > 0);
     return timestamps.length > 0 ? Math.max(...timestamps) : undefined;
   }, [
@@ -252,6 +261,7 @@ export function Dashboard() {
     notificationsQuery.dataUpdatedAt,
     blockchainQuery.dataUpdatedAt,
     budgetQuery.dataUpdatedAt,
+    allocationStatsQuery.dataUpdatedAt,
   ]);
 
   const isRefreshing =
@@ -259,7 +269,8 @@ export function Dashboard() {
     chartsQuery.isFetching ||
     notificationsQuery.isFetching ||
     blockchainQuery.isFetching ||
-    budgetQuery.isFetching;
+    budgetQuery.isFetching ||
+    allocationStatsQuery.isFetching;
 
   // Marks every cached query stale; React Query refetches the ones mounted on
   // this page, including the timeline, which owns its own filter state.
@@ -330,6 +341,44 @@ export function Dashboard() {
             />
           </div>
         </DashboardStateBoundary>
+      </DashboardSection>
+
+      {/* Budget utilization alongside the work queues. The utilization card is
+          fed by /allocations/remaining-budget and the queues by
+          /allocations/statistics, so each keeps its own error boundary. */}
+      <DashboardSection>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <div className="lg:col-span-2">
+            <DashboardStateBoundary
+              isError={budgetQuery.isError}
+              error={budgetQuery.error}
+              onRetry={() => budgetQuery.refetch()}
+              errorFallbackMessage="Failed to load the budget summary"
+            >
+              <BudgetSummary
+                data={budget}
+                loading={budgetLoading}
+                subtitle={`Budget utilization · ${scopeLabel}`}
+                segmented
+                footnote="Allocated counts approved allocations only. Drafts and allocations pending approval do not commit budget."
+              />
+            </DashboardStateBoundary>
+          </div>
+
+          <DashboardStateBoundary
+            isError={allocationStatsQuery.isError}
+            error={allocationStatsQuery.error}
+            onRetry={() => allocationStatsQuery.refetch()}
+            errorFallbackMessage="Failed to load the allocation queues"
+          >
+            <ActionRequiredPanel
+              statistics={allocationStatsQuery.data}
+              blockchain={blockchainStatus}
+              loading={allocationStatsLoading}
+              scopeLabel={scopeLabel}
+            />
+          </DashboardStateBoundary>
+        </div>
       </DashboardSection>
 
       {/* User statistics and budget allocation setup counts. Both grids are fed

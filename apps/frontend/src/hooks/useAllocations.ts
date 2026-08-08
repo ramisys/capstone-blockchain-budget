@@ -65,14 +65,22 @@ export const useAllocationById = (id: string | undefined) => {
 
 /**
  * Fetch dashboard statistics, optionally scoped to a fiscal year.
+ *
+ * `enabled` lets callers defer the request until the scope is known, so a
+ * caller that resolves its fiscal year asynchronously does not first fetch the
+ * unscoped statistics and then immediately replace them.
  */
-export const useAllocationStatistics = (fiscalYearId?: string) => {
+export const useAllocationStatistics = (
+  fiscalYearId?: string,
+  enabled: boolean = true
+) => {
   return useQuery<AxiosResponse, Error, AllocationStatistics>({
     queryKey: [QUERY_KEYS.statistics, fiscalYearId ?? null],
     queryFn: () =>
       allocationApi.getAllocationStatistics(
         fiscalYearId ? { fiscalYearId } : {}
       ),
+    enabled,
     select: (response) => response.data?.data?.statistics,
     staleTime: 30 * 1000,     // 30 s – deduplicate across co-mounted components
     gcTime: 5 * 60 * 1000,    // 5 min – keep inactive cache for quick re-mount
