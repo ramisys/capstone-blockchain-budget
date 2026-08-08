@@ -81,11 +81,19 @@ export const useAllocationStatistics = (fiscalYearId?: string) => {
 
 /**
  * Fetch total budget, allocated, and remaining budget summary.
+ *
+ * `enabled` lets callers defer the request until the scope is known, so a
+ * caller that resolves its fiscal year asynchronously does not first fetch the
+ * unscoped summary and then immediately replace it.
  */
-export const useRemainingBudget = (params: AllocationListParams = {}) => {
+export const useRemainingBudget = (
+  params: AllocationListParams = {},
+  enabled: boolean = true
+) => {
   return useQuery<AxiosResponse, Error, BudgetSummary>({
     queryKey: [QUERY_KEYS.remainingBudget, params],
     queryFn: () => allocationApi.getRemainingBudget(params),
+    enabled,
     select: (response) => response.data?.data?.budget,
   });
 };

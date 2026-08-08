@@ -65,7 +65,8 @@ export function DashboardSection({
 }
 
 interface DashboardStateBoundaryProps {
-  isLoading: boolean;
+  /** Omit when the wrapped cards render their own skeletons. */
+  isLoading?: boolean;
   isError: boolean;
   error?: unknown;
   /** Re-runs the failed request. Renders a Retry button when supplied. */
@@ -87,7 +88,7 @@ interface DashboardStateBoundaryProps {
  * message inside every card the query happened to feed.
  */
 export function DashboardStateBoundary({
-  isLoading,
+  isLoading = false,
   isError,
   error,
   onRetry,

@@ -1,3 +1,5 @@
+import { useMemo, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { Card, CardBody, CardHeader } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { Spinner } from '../components/ui/Spinner';
@@ -5,6 +7,8 @@ import {
   DashboardSection,
   DashboardStateBoundary,
 } from '../components/dashboard/DashboardSection';
+import { FinancialStatCard } from '../components/dashboard/FinancialStatCard';
+import { DashboardHeader } from '../components/dashboard/DashboardHeader';
 import { FinancialActivityTimeline } from '../components/dashboard/FinancialActivityTimeline';
 import {
   useDashboardCharts,
@@ -12,7 +16,9 @@ import {
   useDashboardStats,
 } from '../hooks/useDashboard';
 import { useBlockchainStatus } from '../hooks/useBlockchain';
-import { formatDateTime, formatNumber } from '../utils/format';
+import { useRemainingBudget } from '../hooks/useAllocations';
+import { useFiscalYears } from '../hooks/useFiscalYears';
+import { formatCurrency, formatDateTime, formatNumber } from '../utils/format';
 import {
   ResponsiveContainer,
   PieChart,
@@ -25,9 +31,12 @@ import {
   Tooltip,
   Legend,
 } from 'recharts';
-import { Bell } from 'lucide-react';
+import { Banknote, Bell, Landmark, PieChart as PieChartIcon, PiggyBank } from 'lucide-react';
 import type { ReactNode } from 'react';
 import type { DashboardNotificationType, DashboardStats } from '../types/dashboard';
+
+/** Master-data page size used to populate the fiscal-year scope selector. */
+const FISCAL_YEAR_OPTIONS_LIMIT = 100;
 
 const COLORS = [
   '#2563EB', // Administrator
@@ -168,15 +177,39 @@ function ChartCard({ title, children }: { title: string; children: ReactNode }) 
 }
 
 export function Dashboard() {
+  const queryClient = useQueryClient();
+
+  // `undefined` until the fiscal years load, then defaulted to the active year.
+  const [fiscalYearId, setFiscalYearId] = useState<string | undefined>(undefined);
+  const [fiscalYearTouched, setFiscalYearTouched] = useState(false);
+
+  const fiscalYearsQuery = useFiscalYears(
+    {},
+    { page: 1, limit: FISCAL_YEAR_OPTIONS_LIMIT }
+  );
+  const fiscalYears = fiscalYearsQuery.data?.fiscalYears ?? [];
+
+  // Default the scope to the active fiscal year the first time it is known.
+  // Once the user picks a scope explicitly, their choice wins.
+  const activeFiscalYearId = fiscalYears.find((year) => year.isActive)?.id;
+  const effectiveFiscalYearId = fiscalYearTouched ? fiscalYearId : activeFiscalYearId;
+
   const statsQuery = useDashboardStats();
   const chartsQuery = useDashboardCharts();
   const notificationsQuery = useDashboardNotifications();
   const blockchainQuery = useBlockchainStatus();
+  // Deferred until the fiscal years resolve, otherwise the unscoped summary
+  // would render first and be replaced the moment the active year is known.
+  const budgetQuery = useRemainingBudget(
+    effectiveFiscalYearId ? { fiscalYearId: effectiveFiscalYearId } : {},
+    !fiscalYearsQuery.isLoading
+  );
 
   const stats = statsQuery.data;
   const chartsData = chartsQuery.data;
   const notifications = notificationsQuery.data ?? [];
   const blockchainStatus = blockchainQuery.data;
+  const budget = budgetQuery.data;
 
   const usersByRole = chartsData?.usersByRole ?? [];
   const usersByStatus = chartsData?.usersByStatus ?? [];
@@ -184,8 +217,121 @@ export function Dashboard() {
   const statValue = (key: keyof DashboardStats): string =>
     formatNumber(stats?.[key] ?? 0);
 
+  const totalBudget = budget?.totalBudget ?? 0;
+  const totalAllocated = budget?.totalAllocated ?? 0;
+
+  // While the fiscal years are still loading the budget query is deliberately
+  // disabled, which React Query reports as "not loading" — keep the cards in
+  // their skeleton state across both steps instead of flashing zero.
+  const budgetLoading = fiscalYearsQuery.isLoading || budgetQuery.isLoading;
+
+  // Utilization is only meaningful against a non-zero ceiling; with no budget
+  // set, an em dash is honest where "0.0%" would not be.
+  const utilizationLabel =
+    totalBudget > 0
+      ? `${Math.min(100, Math.max(0, (totalAllocated / totalBudget) * 100)).toFixed(1)}%`
+      : '—';
+
+  const scopeLabel = effectiveFiscalYearId
+    ? fiscalYears.find((year) => year.id === effectiveFiscalYearId)?.code ??
+      'Selected fiscal year'
+    : 'All fiscal years';
+
+  const lastUpdatedAt = useMemo(() => {
+    const timestamps = [
+      statsQuery.dataUpdatedAt,
+      chartsQuery.dataUpdatedAt,
+      notificationsQuery.dataUpdatedAt,
+      blockchainQuery.dataUpdatedAt,
+      budgetQuery.dataUpdatedAt,
+    ].filter((value) => value > 0);
+    return timestamps.length > 0 ? Math.max(...timestamps) : undefined;
+  }, [
+    statsQuery.dataUpdatedAt,
+    chartsQuery.dataUpdatedAt,
+    notificationsQuery.dataUpdatedAt,
+    blockchainQuery.dataUpdatedAt,
+    budgetQuery.dataUpdatedAt,
+  ]);
+
+  const isRefreshing =
+    statsQuery.isFetching ||
+    chartsQuery.isFetching ||
+    notificationsQuery.isFetching ||
+    blockchainQuery.isFetching ||
+    budgetQuery.isFetching;
+
+  // Marks every cached query stale; React Query refetches the ones mounted on
+  // this page, including the timeline, which owns its own filter state.
+  const handleRefresh = () => {
+    queryClient.invalidateQueries();
+  };
+
+  const handleFiscalYearChange = (next: string | undefined) => {
+    setFiscalYearTouched(true);
+    setFiscalYearId(next);
+  };
+
   return (
     <div className="dashboard-page">
+      <DashboardHeader
+        fiscalYears={fiscalYears}
+        selectedFiscalYearId={effectiveFiscalYearId}
+        onFiscalYearChange={handleFiscalYearChange}
+        fiscalYearsLoading={fiscalYearsQuery.isLoading}
+        lastUpdatedAt={lastUpdatedAt}
+        onRefresh={handleRefresh}
+        isRefreshing={isRefreshing}
+      />
+
+      {/* Financial overview. Every figure comes from
+          GET /allocations/remaining-budget, scoped by the header's fiscal year. */}
+      <DashboardSection title="Financial Overview" titleId="dashboard-financial-overview">
+        <DashboardStateBoundary
+          isError={budgetQuery.isError}
+          error={budgetQuery.error}
+          onRetry={() => budgetQuery.refetch()}
+          errorFallbackMessage="Failed to load the budget summary"
+        >
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
+            <FinancialStatCard
+              title="Total Budget"
+              value={formatCurrency(totalBudget)}
+              subtitle={scopeLabel}
+              icon={Landmark}
+              iconClassName="bg-[var(--color-primary-bg)] text-[var(--color-primary)]"
+              loading={budgetLoading}
+            />
+            <FinancialStatCard
+              title="Total Allocated"
+              value={formatCurrency(totalAllocated)}
+              subtitle="Approved allocations only"
+              icon={Banknote}
+              iconClassName="bg-[var(--color-secondary-bg)] text-[var(--color-secondary)]"
+              loading={budgetLoading}
+            />
+            <FinancialStatCard
+              title="Remaining Budget"
+              value={formatCurrency(budget?.remainingBudget ?? 0)}
+              subtitle="Available to allocate"
+              icon={PiggyBank}
+              iconClassName="bg-[var(--color-success-bg)] text-[var(--color-success)]"
+              loading={budgetLoading}
+            />
+            <FinancialStatCard
+              title="Utilization Rate"
+              value={utilizationLabel}
+              subtitle={
+                totalBudget > 0 ? 'Allocated of total budget' : 'No budget ceiling set'
+              }
+              icon={PieChartIcon}
+              iconClassName="bg-[var(--color-warning-bg)] text-[var(--color-warning)]"
+              loading={budgetLoading}
+            />
+          </div>
+        </DashboardStateBoundary>
+      </DashboardSection>
+
       {/* User statistics and budget allocation setup counts. Both grids are fed
           by the same /dashboard/stats request, so they share one boundary and a
           failure surfaces once rather than in every card. */}
@@ -198,11 +344,8 @@ export function Dashboard() {
           errorFallbackMessage="Failed to fetch stats"
           loadingFallback={
             <div className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 <StatCardSkeletons cards={USER_STAT_CARDS} />
-                <StatCardShell label="Pending Approvals">
-                  <Spinner size="sm" className="mx-auto my-4 block" />
-                </StatCardShell>
               </div>
               <div>
                 <h2 className="text-xl font-bold text-slate-900 mb-4">
@@ -216,7 +359,7 @@ export function Dashboard() {
           }
         >
           <div className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {USER_STAT_CARDS.map((card) => (
                 <StatCard
                   key={card.key}
@@ -226,16 +369,6 @@ export function Dashboard() {
                   valueClassName={card.valueClassName}
                 />
               ))}
-
-              {/* Placeholder retained from the original dashboard: the stats
-                  endpoint carries no pending-approval count. Phase B replaces
-                  this card with the real value from /allocations/statistics. */}
-              <StatCard
-                label="Pending Approvals"
-                value="0"
-                caption="Awaiting verification"
-                valueClassName="text-[var(--color-warning)]"
-              />
             </div>
 
             <div>
